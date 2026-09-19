@@ -21,17 +21,25 @@ Làm **đúng thứ tự**. Chưa qua bước kiểm tra chất lượng thì **
 ## 2. Lát cắt 12 bài với backend local
 
 `LAKE_BACKEND=local`, một file sitemap, `limit=12`, `delay ≥ 2` giây.
+Ghi ra `data/lake/silver/<source>/articles_silver.jsonl`, **đúng schema trong `docs/data-contracts.md`**.
 
 ## 3. Kiểm tra chất lượng — cổng chặn
 
+Cách nhanh nhất: mở **trang kiểm soát** trỏ vào dữ liệu trên máy rồi xem tab **Chất lượng**:
+
+```bash
+LAKE_BACKEND=local uv run uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Hoặc truy vấn thẳng:
+
 ```sql
 SELECT count(*),
-       count(*) FILTER (WHERE title IS NULL)        AS thieu_title,
-       count(*) FILTER (WHERE published_at IS NULL) AS thieu_ngay,
-       count(*) FILTER (WHERE section_raw IS NULL)  AS thieu_chuyen_muc,
-       median(n_words)
-FROM read_parquet('data/lake/silver/**/*.parquet')
-WHERE source_id = '<source>';
+       count(*) FILTER (WHERE title IS NULL OR title = '')          AS thieu_title,
+       count(*) FILTER (WHERE TRY_CAST(published_at AS TIMESTAMPTZ) IS NULL) AS ngay_hong,
+       count(*) FILTER (WHERE category IS NULL OR category = '')    AS thieu_chuyen_muc,
+       count(*) FILTER (WHERE content_text IS NULL OR content_text = '') AS than_bai_rong
+FROM read_json('data/lake/silver/<source>/*.jsonl', format = 'newline_delimited');
 ```
 
 Đạt khi: không thiếu tiêu đề và ngày đăng, **và** đã mở 3 bài ngẫu nhiên so với trang thật

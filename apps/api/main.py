@@ -1,0 +1,116 @@
+"""FastAPI: trang kiểm soát dữ liệu Silver. Chỉ đọc — không có endpoint ghi hay xoá dữ liệu kho.
+
+Chạy:  uv run uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
+"""
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Annotated, Any
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from apps.api import schemas
+from eventrank.common.config import load_config
+from eventrank.lake.reader import Filters, SilverStore
+
+STATIC_DIR = Path(__file__).parent / "static"
+DATE = r"^\d{4}-\d{2}-\d{2}$"
+
+
+def get_store(request: Request) -> SilverStore:
+    return request.app.state.store
+
+
+def get_filters(
+    source: str | None = None,
+    category: str | None = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    date_from: Annotated[str | None, Query(pattern=DATE)] = None,
+    date_to: Annotated[str | None, Query(pattern=DATE)] = None,
+    issue: str | None = None,
+) -> Filters:
+    return Filters(source=source or None, category=category or None, q=q or None,
+                   date_from=date_from or None, date_to=date_to or None, issue=issue or None)
+
+
+Store = Annotated[SilverStore, Depends(get_store)]
+Filt = Annotated[Filters, Depends(get_filters)]
+
+
+def create_app(store: SilverStore | None = None) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if app.state.store is None:                      # test truyền store sẵn thì bỏ qua
+            s = SilverStore(load_config())
+            s.reload()
+            app.state.store = s
+        yield
+
+    app = FastAPI(title="Ranking-Event-Detection — Kiểm soát dữ liệu", lifespan=lifespan)
+    app.state.store = store
+
+    @app.exception_handler(ValueError)
+    async def bad_request(_: Request, exc: ValueError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.get("/api/health", response_model=schemas.Health)
+    def health(s: Store) -> dict[str, Any]:
+        return {"status": "ok", "rows": s.count(), "loaded_at": s.loaded_at}
+
+    @app.get("/api/meta", response_model=schemas.Meta)
+    def meta(s: Store) -> dict[str, Any]:
+        return s.meta()
+
+    @app.get("/api/files")
+    def files(s: Store) -> list[dict[str, Any]]:
+        return s.list_files()
+
+    @app.get("/api/stats/overview", response_model=schemas.Overview)
+    def overview(s: Store) -> dict[str, Any]:
+        return s.overview()
+
+    @app.get("/api/stats/timeline")
+    def timeline(s: Store, f: Filt, granularity: str = "day") -> list[dict[str, Any]]:
+        return s.timeline(f, granularity)
+
+    @app.get("/api/stats/hour-of-day")
+    def hour_of_day(s: Store, f: Filt) -> list[dict[str, Any]]:
+        return s.hour_of_day(f)
+
+    @app.get("/api/stats/categories")
+    def categories(s: Store, f: Filt) -> list[dict[str, Any]]:
+        return s.categories(f)
+
+    @app.get("/api/stats/quality")
+    def quality(s: Store) -> dict[str, Any]:
+        return s.quality()
+
+    @app.get("/api/articles", response_model=schemas.ArticlePage)
+    def articles(
+        s: Store,
+        f: Filt,
+        page: Annotated[int, Query(ge=1)] = 1,
+        page_size: Annotated[int, Query(ge=1, le=200)] = 50,
+        sort: str = "newest",
+    ) -> dict[str, Any]:
+        return s.list_articles(f, page, page_size, sort)
+
+    @app.get("/api/articles/{article_id}", response_model=schemas.ArticleDetail)
+    def article(article_id: str, s: Store) -> dict[str, Any]:
+        row = s.get_article(article_id)
+        if row is None:
+            raise HTTPException(404, "Không tìm thấy bài")
+        return row
+
+    @app.post("/api/admin/reload")
+    def reload(s: Store) -> dict[str, Any]:
+        return s.reload()
+
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+    return app
+
+
+app = create_app()
