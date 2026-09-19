@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from apps.api.main import create_app
+from apps.api.main import WEB_DIST, create_app
 
 
 @pytest.fixture(scope="module")
@@ -88,3 +88,34 @@ def test_cac_thong_ke_khop_kieu_da_khai_bao(client):
     for path in ["/api/stats/timeline", "/api/stats/hour-of-day", "/api/stats/categories",
                  "/api/stats/quality", "/api/files"]:
         assert client.get(path).status_code == 200, path
+
+
+def test_trang_kiem_soat_noi_bo_o_legacy(client):
+    r = client.get("/legacy/")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+
+
+@pytest.mark.skipif(not (WEB_DIST / "index.html").exists(),
+                    reason="chưa chạy `make build` nên không có bản đóng gói web React")
+def test_duong_dan_con_cua_web_react_tra_ve_index(store):
+    """React tự định tuyến ở phía trình duyệt: mọi URL không phải API đều phải trả index.html."""
+    c = TestClient(create_app(store))
+    for path in ["/", "/quality", "/articles/khong-co-that"]:
+        r = c.get(path)
+        assert r.status_code == 200 and "text/html" in r.headers["content-type"], path
+    assert c.get("/api/khong-co").status_code == 404
+
+
+def test_khong_dat_mat_khau_thi_khong_hoi_dang_nhap(client):
+    assert client.get("/api/health").status_code == 200
+
+
+def test_dat_mat_khau_thi_bat_buoc_dang_nhap(store, monkeypatch):
+    monkeypatch.setenv("DASHBOARD_USER", "nhom")
+    monkeypatch.setenv("DASHBOARD_PASSWORD", "mat-khau-manh")
+    c = TestClient(create_app(store))
+
+    assert c.get("/api/health").status_code == 401                      # chưa đăng nhập
+    assert c.get("/api/health", auth=("nhom", "sai")).status_code == 401  # sai mật khẩu
+    ok = c.get("/api/health", auth=("nhom", "mat-khau-manh"))
+    assert ok.status_code == 200 and ok.json()["rows"] == 5

@@ -66,6 +66,8 @@ LAKE_BACKEND=local LAKE_LOCAL_ROOT=tests/fixtures make dev
 10. [Quy trình làm việc với git](#10-quy-trình-làm-việc-với-git)
 11. [Xử lý sự cố](#11-xử-lý-sự-cố)
 12. [Bảng tra nhanh](#12-bảng-tra-nhanh)
+13. [Triển khai cho cả nhóm truy cập](trien-khai.md)
+14. [Kế hoạch tiền xử lý dữ liệu](tien-xu-ly.md)
 
 ---
 
@@ -564,3 +566,5 @@ Hoặc chạy server ở cổng khác: thay `--port 8000` bằng `--port 8001`.
 | Xem tài khoản GitHub đang dùng | `gh auth status` |
 | Tắt server đang chạy nền | `pkill -f "[u]vicorn apps.api"` |
 | Tắt Vite đang chạy nền | `pkill -f "[n]ode_modules/.bin/vite"` |
+| Chạy bản triển khai (một cổng) | `make prod` → http://127.0.0.1:8000 |
+| Mở ra Internet cho cả nhóm | Xem [docs/trien-khai.md](trien-khai.md) |
