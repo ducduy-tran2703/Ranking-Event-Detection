@@ -52,11 +52,29 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/FileInfo"
                   },
                   "type": "array",
                   "title": "Response Files Api Files Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/freshness": {
+      "get": {
+        "summary": "Freshness",
+        "description": "Dữ liệu đang dùng có cũ hơn kho không. Kết quả liệt kê file được dùng lại trong 60 giây.",
+        "operationId": "freshness_api_freshness_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Freshness"
                 }
               }
             }
@@ -205,8 +223,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/TimelinePoint"
                   },
                   "title": "Response Timeline Api Stats Timeline Get"
                 }
@@ -339,8 +356,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/HourPoint"
                   },
                   "title": "Response Hour Of Day Api Stats Hour Of Day Get"
                 }
@@ -473,8 +489,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/CategoryCount"
                   },
                   "title": "Response Categories Api Stats Categories Get"
                 }
@@ -504,9 +519,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Quality Api Stats Quality Get"
+                  "$ref": "#/components/schemas/Quality"
                 }
               }
             }
@@ -725,9 +738,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Reload Api Admin Reload Post"
+                  "$ref": "#/components/schemas/ReloadResult"
                 }
               }
             }
@@ -1060,6 +1071,121 @@
         ],
         "title": "DateRange"
       },
+      "DuplicateTitle": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "sources": {
+            "type": "integer",
+            "title": "Sources"
+          },
+          "source_list": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Source List"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "n",
+          "sources",
+          "source_list"
+        ],
+        "title": "DuplicateTitle"
+      },
+      "FileInfo": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "last_modified": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Modified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "size_bytes",
+          "last_modified"
+        ],
+        "title": "FileInfo"
+      },
+      "Freshness": {
+        "properties": {
+          "loaded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loaded At"
+          },
+          "remote_latest_modified": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote Latest Modified"
+          },
+          "has_newer_data": {
+            "type": "boolean",
+            "title": "Has Newer Data"
+          },
+          "newer_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Newer Files"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loaded_at",
+          "remote_latest_modified",
+          "has_newer_data",
+          "newer_files",
+          "checked_at"
+        ],
+        "title": "Freshness"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1103,6 +1229,82 @@
           "loaded_at"
         ],
         "title": "Health"
+      },
+      "HourPoint": {
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "title": "Hour"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hour",
+          "source",
+          "n"
+        ],
+        "title": "HourPoint"
+      },
+      "IssueCounts": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "missing_author": {
+            "type": "integer",
+            "title": "Missing Author"
+          },
+          "empty_content": {
+            "type": "integer",
+            "title": "Empty Content"
+          },
+          "short_content": {
+            "type": "integer",
+            "title": "Short Content"
+          },
+          "bad_date": {
+            "type": "integer",
+            "title": "Bad Date"
+          },
+          "future_date": {
+            "type": "integer",
+            "title": "Future Date"
+          },
+          "duplicate_url": {
+            "type": "integer",
+            "title": "Duplicate Url"
+          },
+          "duplicate_id": {
+            "type": "integer",
+            "title": "Duplicate Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "articles",
+          "missing_author",
+          "empty_content",
+          "short_content",
+          "bad_date",
+          "future_date",
+          "duplicate_url",
+          "duplicate_id"
+        ],
+        "title": "IssueCounts"
       },
       "Meta": {
         "properties": {
@@ -1227,6 +1429,113 @@
         ],
         "title": "OverviewTotal"
       },
+      "Quality": {
+        "properties": {
+          "short_content_words": {
+            "type": "integer",
+            "title": "Short Content Words"
+          },
+          "issues_per_source": {
+            "items": {
+              "$ref": "#/components/schemas/IssueCounts"
+            },
+            "type": "array",
+            "title": "Issues Per Source"
+          },
+          "raw_source_values": {
+            "items": {
+              "$ref": "#/components/schemas/RawSourceValue"
+            },
+            "type": "array",
+            "title": "Raw Source Values"
+          },
+          "words_histogram": {
+            "items": {
+              "$ref": "#/components/schemas/WordsBin"
+            },
+            "type": "array",
+            "title": "Words Histogram"
+          },
+          "title_words_histogram": {
+            "items": {
+              "$ref": "#/components/schemas/TitleWordsBin"
+            },
+            "type": "array",
+            "title": "Title Words Histogram"
+          },
+          "duplicate_titles": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateTitle"
+            },
+            "type": "array",
+            "title": "Duplicate Titles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "short_content_words",
+          "issues_per_source",
+          "raw_source_values",
+          "words_histogram",
+          "title_words_histogram",
+          "duplicate_titles"
+        ],
+        "title": "Quality"
+      },
+      "RawSourceValue": {
+        "properties": {
+          "source_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Raw"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_raw",
+          "source",
+          "n"
+        ],
+        "title": "RawSourceValue"
+      },
+      "ReloadResult": {
+        "properties": {
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          },
+          "loaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Loaded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rows",
+          "seconds",
+          "loaded_at"
+        ],
+        "title": "ReloadResult"
+      },
       "SourceOverview": {
         "properties": {
           "source": {
@@ -1306,6 +1615,52 @@
         ],
         "title": "SourceOverview"
       },
+      "TimelinePoint": {
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bucket",
+          "source",
+          "n"
+        ],
+        "title": "TimelinePoint"
+      },
+      "TitleWordsBin": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "words": {
+            "type": "integer",
+            "title": "Words"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "words",
+          "n"
+        ],
+        "title": "TitleWordsBin"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -1345,6 +1700,29 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WordsBin": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "bin": {
+            "type": "integer",
+            "title": "Bin"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "bin",
+          "n"
+        ],
+        "title": "WordsBin"
       }
     }
   }

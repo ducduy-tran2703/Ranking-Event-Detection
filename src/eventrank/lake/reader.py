@@ -5,6 +5,7 @@ Chỉ đọc. Không có hàm nào ghi hay xoá dữ liệu trên kho.
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -75,6 +76,7 @@ class SilverStore:
         self._lock = threading.Lock()
         self.loaded_at: datetime | None = None
         self.load_seconds: float | None = None
+        self._files_cache: tuple[float, list[dict[str, Any]]] | None = None
         # GLOBAL: mỗi cursor() là một phiên mới, thiết lập mức phiên sẽ không được kế thừa
         # và cursor sẽ quay về UTC — bài đăng 0h–7h sáng bị xếp nhầm sang ngày hôm trước.
         self._con.execute("SET GLOBAL TimeZone = 'Asia/Ho_Chi_Minh'")
@@ -122,7 +124,9 @@ class SilverStore:
             """)
             self.loaded_at = datetime.now(UTC)
             self.load_seconds = (self.loaded_at - started).total_seconds()
-        return {"rows": self.count(), "seconds": round(self.load_seconds, 2)}
+            self._files_cache = None          # buộc kiểm tra lại độ tươi sau khi nạp
+        return {"rows": self.count(), "seconds": round(self.load_seconds, 2),
+                "loaded_at": self.loaded_at}
 
     def _q(self, sql: str, params: list[Any] | None = None) -> list[dict[str, Any]]:
         cur = self._con.cursor()          # mỗi lời gọi một cursor: an toàn đa luồng
@@ -136,8 +140,21 @@ class SilverStore:
         return self._q("SELECT count(*) AS n FROM articles")[0]["n"]
 
     # ------------------------------------------------------------------ thông tin chung
-    def list_files(self) -> list[dict[str, Any]]:
-        """Danh sách file nguồn kèm dung lượng và thời điểm sửa — để biết dữ liệu mới tới đâu."""
+    def list_files(self, max_age_s: float = 0) -> list[dict[str, Any]]:
+        """Danh sách file nguồn kèm dung lượng và thời điểm sửa — để biết dữ liệu mới tới đâu.
+
+        max_age_s > 0: dùng lại kết quả lần liệt kê trước nếu chưa quá số giây này.
+        Mỗi lần liệt kê trên R2 là một thao tác Class A (có tính vào hạn mức), nên không
+        để trình duyệt kiểm tra liên tục mà lần nào cũng gọi R2.
+        """
+        now = time.monotonic()
+        if max_age_s and self._files_cache and now - self._files_cache[0] < max_age_s:
+            return self._files_cache[1]
+        files = self._list_files_uncached()
+        self._files_cache = (now, files)
+        return files
+
+    def _list_files_uncached(self) -> list[dict[str, Any]]:
         if self.cfg.backend == "local":
             root = Path(self.cfg.local_root)
             return [{"key": str(p.relative_to(root)), "size_bytes": p.stat().st_size,
@@ -155,6 +172,19 @@ class SilverStore:
                 out.append({"key": o["Key"], "size_bytes": o["Size"],
                             "last_modified": o["LastModified"]})
         return out
+
+    def freshness(self, max_age_s: float = 60) -> dict[str, Any]:
+        """So thời điểm nạp dữ liệu với thời điểm file trên kho thay đổi gần nhất."""
+        files = [f for f in self.list_files(max_age_s=max_age_s) if f["size_bytes"] > 0]
+        latest = max((f["last_modified"] for f in files), default=None)
+        newer = [f["key"] for f in files if self.loaded_at and f["last_modified"] > self.loaded_at]
+        return {
+            "loaded_at": self.loaded_at,
+            "remote_latest_modified": latest,
+            "has_newer_data": bool(newer),
+            "newer_files": newer,
+            "checked_at": datetime.now(UTC),
+        }
 
     def meta(self) -> dict[str, Any]:
         return {
