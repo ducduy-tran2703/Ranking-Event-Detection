@@ -225,3 +225,7 @@ CLAUDE.local.md
 data/
 *.parquet
 *.html.gz
+
+# Frontend React (apps/web)
+node_modules/
+apps/web/dist/
