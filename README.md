@@ -18,7 +18,7 @@ make dev                      # backend :8000 + web React :5173
 | http://127.0.0.1:8000 | Trang kiểm soát dữ liệu nội bộ (`apps/api/static/`) — chỉ đọc |
 | http://127.0.0.1:8000/docs | Tài liệu API tự sinh |
 
-Gõ `make` để xem mọi lệnh.
+Gõ `make` để xem mọi lệnh. Triển khai cho cả nhóm truy cập qua domain: [docs/trien-khai.md](docs/trien-khai.md).
 
 ## Test
 
