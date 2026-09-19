@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AI agent: chia se cau hinh chung, giu rieng cau hinh ca nhan
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Du lieu data lake (khong commit)
+data/
+*.parquet
+*.html.gz
