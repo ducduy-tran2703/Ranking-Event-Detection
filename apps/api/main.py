@@ -4,20 +4,54 @@ Chạy:  uv run uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
 """
 from __future__ import annotations
 
+import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from apps.api import schemas
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
 
-STATIC_DIR = Path(__file__).parent / "static"
+STATIC_DIR = Path(__file__).parent / "static"          # trang kiểm soát nội bộ (HTML/JS thuần)
+WEB_DIST = Path(__file__).parent.parent / "web" / "dist"  # web React đã đóng gói (make build)
 DATE = r"^\d{4}-\d{2}-\d{2}$"
+
+
+def _unauthorized() -> Response:
+    return Response("Cần đăng nhập", status_code=401,
+                    headers={"WWW-Authenticate": 'Basic realm="Su kien tin tuc"'})
+
+
+def add_basic_auth(app: FastAPI) -> None:
+    """Bảo vệ toàn trang bằng mật khẩu khi đặt DASHBOARD_USER và DASHBOARD_PASSWORD.
+
+    Dùng khi mở trang ra Internet (ví dụ qua Cloudflare Tunnel). Không đặt hai biến này
+    thì trang mở tự do — chỉ phù hợp khi chạy trên máy cá nhân (127.0.0.1).
+    """
+    user = os.environ.get("DASHBOARD_USER", "")
+    password = os.environ.get("DASHBOARD_PASSWORD", "")
+    if not (user and password):
+        return
+
+    @app.middleware("http")
+    async def require_login(request: Request, call_next):
+        header = request.headers.get("authorization", "")
+        if header.startswith("Basic "):
+            import base64
+            try:
+                got_user, _, got_pass = base64.b64decode(header[6:]).decode().partition(":")
+            except Exception:  # noqa: BLE001 - header hỏng thì coi như chưa đăng nhập
+                return _unauthorized()
+            # compare_digest: so sánh trong thời gian không đổi, tránh dò mật khẩu qua thời gian phản hồi
+            if secrets.compare_digest(got_user, user) and secrets.compare_digest(got_pass, password):
+                return await call_next(request)
+        return _unauthorized()
 
 
 def get_store(request: Request) -> SilverStore:
@@ -114,7 +148,28 @@ def create_app(store: SilverStore | None = None) -> FastAPI:
     def reload(s: Store) -> dict[str, Any]:
         return s.reload()
 
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+    add_basic_auth(app)
+
+    # Trang kiểm soát nội bộ luôn có ở /legacy (chạy được kể cả khi chưa đóng gói web React)
+    app.mount("/legacy", StaticFiles(directory=STATIC_DIR, html=True), name="legacy")
+
+    if (WEB_DIST / "index.html").exists():
+        # Đã chạy `make build`: phục vụ web React ở gốc, một địa chỉ duy nhất cho cả web và API.
+        app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        def spa(full_path: str) -> Response:
+            """Mọi đường dẫn không phải API đều trả index.html để React tự định tuyến."""
+            if full_path.startswith(("api/", "legacy/", "docs", "openapi.json")):
+                raise HTTPException(404, "Không tìm thấy")
+            candidate = (WEB_DIST / full_path).resolve()
+            if full_path and candidate.is_file() and candidate.is_relative_to(WEB_DIST.resolve()):
+                return FileResponse(candidate)          # favicon, robots.txt…
+            return FileResponse(WEB_DIST / "index.html")
+    else:
+        # Chưa đóng gói web React: gốc trỏ về trang kiểm soát nội bộ.
+        app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
     return app
 
 
