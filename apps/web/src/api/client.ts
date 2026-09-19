@@ -10,10 +10,19 @@ export const api = createClient<paths>({ baseUrl: "" });
 type Schemas = components["schemas"];
 export type Meta = Schemas["Meta"];
 export type Overview = Schemas["Overview"];
-export type ArticlePage = Schemas["ArticlePage"];
 export type ArticleSummary = Schemas["ArticleSummary"];
 export type ArticleDetail = Schemas["ArticleDetail"];
-export type ArticleQuery = NonNullable<paths["/api/articles"]["get"]["parameters"]["query"]>;
+export type Quality = Schemas["Quality"];
+export type IssueCounts = Schemas["IssueCounts"];
+export type FileInfo = Schemas["FileInfo"];
+export type Freshness = Schemas["Freshness"];
+
+type QueryOf<P extends keyof paths> = paths[P] extends { get: { parameters: { query?: infer Q } } }
+  ? NonNullable<Q>
+  : never;
+export type ArticleQuery = QueryOf<"/api/articles">;
+export type StatsFilter = QueryOf<"/api/stats/categories">; // source, category, q, date_from, date_to, issue
+export type Granularity = "day" | "hour";
 
 export class ApiError extends Error {
   constructor(public status: number, detail: unknown) {

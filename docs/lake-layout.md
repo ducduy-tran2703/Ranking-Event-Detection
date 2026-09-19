@@ -4,10 +4,10 @@
 > Đổi cấu trúc key hay định dạng file → sửa file này **trong cùng Pull Request**.
 > Schema từng trường của một bài báo: xem [data-contracts.md](data-contracts.md).
 
-## Hiện trạng (ảnh chụp lúc 16:30 ngày 19/09/2026)
+## Hiện trạng (ảnh chụp 17:30 ngày 19/09/2026)
 
-> Số liệu dưới đây **thay đổi mỗi khi có người đẩy dữ liệu mới**. Muốn biết số hiện tại, mở trang kiểm soát:
-> tab **Tổng quan** và tab **File nguồn**.
+> Danh sách nguồn và số bài **thay đổi thường xuyên**. Số hiện tại: xem tab **Tổng quan** và **Nguồn dữ liệu**
+> của trang trực quan hoá (`make dev` → http://127.0.0.1:5173).
 
 | | |
 |---|---|
@@ -15,22 +15,20 @@
 | Bucket | `vietnam-news-datalake` |
 | Lớp đang có | **Chỉ có Silver** |
 | Định dạng | JSONL — mỗi dòng một bài báo, mã hoá UTF-8 |
-| Tổng | 4 nguồn · 18.972 bài · 97,5 MB |
+| Lúc chụp | 4 nguồn · 18.124 bài · 96,6 MB |
 
 ```
 vietnam-news-datalake/
 └── silver/
-    ├── baochinhphu/
-    │   └── silver_baochinhphu.jsonl     4.395 bài · 29,1 MB · 12/01/2023 → 16/09/2026
-    ├── tuoitre/
-    │   └── articles_silver.jsonl        5.447 bài · 25,7 MB · 16/05/2026 → 19/09/2026
-    ├── vietnamnet/
-    │   └── articles_silver.jsonl        4.645 bài · 22,2 MB · 22/04/2026 → 16/09/2026
-    └── vnexpress/
-        └── articles_silver.jsonl        4.485 bài · 20,5 MB · 20/05/2026 → 16/09/2026
+    ├── baochinhphu/article_silver.jsonl     4.477 bài · 29,6 MB
+    ├── baodantri/silver_nhandan.jsonl       4.517 bài · 24,2 MB   ⚠ tên thư mục, tên file và
+    │                                                                  trường source không khớp nhau
+    ├── vietnamnet/articles_silver.jsonl     4.645 bài · 22,2 MB
+    └── vnexpress/articles_silver.jsonl      4.485 bài · 20,5 MB
 ```
 
-Có thêm một object rỗng tên `silver/baochinhphu/` — là "thư mục ảo" do công cụ upload tạo ra, không chứa dữ liệu, có thể bỏ qua.
+⚠️ **Xoá hay ghi đè file trên R2 là mất vĩnh viễn** (R2 không có versioning). Đây là thao tác bình thường khi
+nhóm chủ động thay dữ liệu, nhưng hãy chắc **bản gốc còn trên máy người cào** trước khi xoá trên kho.
 
 ### Quy ước đang áp dụng
 

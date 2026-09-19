@@ -59,3 +59,32 @@ def test_ngay_sai_dinh_dang_bi_tu_choi(client):
 def test_trang_giao_dien_duoc_phuc_vu(client):
     r = client.get("/")
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+
+
+def test_moi_endpoint_du_lieu_deu_co_kieu_tra_ve(client):
+    """Web React sinh kiểu từ OpenAPI: endpoint nào thiếu kiểu thì frontend mất kiểm tra kiểu."""
+    paths = client.get("/openapi.json").json()["paths"]
+    missing = []
+    for path, ops in paths.items():
+        for method, op in ops.items():
+            schema = op["responses"]["200"]["content"]["application/json"]["schema"]
+            if schema == {} or schema.get("additionalProperties") is True:
+                missing.append(f"{method.upper()} {path}")
+    assert missing == []
+
+
+def test_do_tuoi_du_lieu_vua_nap_la_moi_nhat(client):
+    body = client.get("/api/freshness").json()
+    assert body["has_newer_data"] is False and body["newer_files"] == []
+    assert body["loaded_at"] is not None and body["remote_latest_modified"] is not None
+
+
+def test_nap_lai_tra_ve_thoi_diem_nap(client):
+    body = client.post("/api/admin/reload").json()
+    assert body["rows"] == 5 and body["loaded_at"]
+
+
+def test_cac_thong_ke_khop_kieu_da_khai_bao(client):
+    for path in ["/api/stats/timeline", "/api/stats/hour-of-day", "/api/stats/categories",
+                 "/api/stats/quality", "/api/files"]:
+        assert client.get(path).status_code == 200, path

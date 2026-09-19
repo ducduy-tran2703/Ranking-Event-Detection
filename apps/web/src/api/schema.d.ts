@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/freshness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Freshness
+         * @description Dữ liệu đang dùng có cũ hơn kho không. Kết quả liệt kê file được dùng lại trong 60 giây.
+         */
+        get: operations["freshness_api_freshness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats/overview": {
         parameters: {
             query?: never;
@@ -274,6 +294,45 @@ export interface components {
             /** Max Date */
             max_date: string | null;
         };
+        /** DuplicateTitle */
+        DuplicateTitle: {
+            /** Title */
+            title: string | null;
+            /** N */
+            n: number;
+            /** Sources */
+            sources: number;
+            /** Source List */
+            source_list: string[];
+        };
+        /** FileInfo */
+        FileInfo: {
+            /** Key */
+            key: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Last Modified
+             * Format: date-time
+             */
+            last_modified: string;
+        };
+        /** Freshness */
+        Freshness: {
+            /** Loaded At */
+            loaded_at: string | null;
+            /** Remote Latest Modified */
+            remote_latest_modified: string | null;
+            /** Has Newer Data */
+            has_newer_data: boolean;
+            /** Newer Files */
+            newer_files: string[];
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -287,6 +346,36 @@ export interface components {
             rows: number;
             /** Loaded At */
             loaded_at: string | null;
+        };
+        /** HourPoint */
+        HourPoint: {
+            /** Hour */
+            hour: number;
+            /** Source */
+            source: string;
+            /** N */
+            n: number;
+        };
+        /** IssueCounts */
+        IssueCounts: {
+            /** Source */
+            source: string;
+            /** Articles */
+            articles: number;
+            /** Missing Author */
+            missing_author: number;
+            /** Empty Content */
+            empty_content: number;
+            /** Short Content */
+            short_content: number;
+            /** Bad Date */
+            bad_date: number;
+            /** Future Date */
+            future_date: number;
+            /** Duplicate Url */
+            duplicate_url: number;
+            /** Duplicate Id */
+            duplicate_id: number;
         };
         /** Meta */
         Meta: {
@@ -323,6 +412,42 @@ export interface components {
             /** Median Words */
             median_words: number | null;
         };
+        /** Quality */
+        Quality: {
+            /** Short Content Words */
+            short_content_words: number;
+            /** Issues Per Source */
+            issues_per_source: components["schemas"]["IssueCounts"][];
+            /** Raw Source Values */
+            raw_source_values: components["schemas"]["RawSourceValue"][];
+            /** Words Histogram */
+            words_histogram: components["schemas"]["WordsBin"][];
+            /** Title Words Histogram */
+            title_words_histogram: components["schemas"]["TitleWordsBin"][];
+            /** Duplicate Titles */
+            duplicate_titles: components["schemas"]["DuplicateTitle"][];
+        };
+        /** RawSourceValue */
+        RawSourceValue: {
+            /** Source Raw */
+            source_raw: string | null;
+            /** Source */
+            source: string;
+            /** N */
+            n: number;
+        };
+        /** ReloadResult */
+        ReloadResult: {
+            /** Rows */
+            rows: number;
+            /** Seconds */
+            seconds: number;
+            /**
+             * Loaded At
+             * Format: date-time
+             */
+            loaded_at: string;
+        };
         /** SourceOverview */
         SourceOverview: {
             /** Source */
@@ -346,6 +471,24 @@ export interface components {
             /** Median Words */
             median_words: number | null;
         };
+        /** TimelinePoint */
+        TimelinePoint: {
+            /** Bucket */
+            bucket: string;
+            /** Source */
+            source: string;
+            /** N */
+            n: number;
+        };
+        /** TitleWordsBin */
+        TitleWordsBin: {
+            /** Source */
+            source: string;
+            /** Words */
+            words: number;
+            /** N */
+            n: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -358,6 +501,15 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WordsBin */
+        WordsBin: {
+            /** Source */
+            source: string;
+            /** Bin */
+            bin: number;
+            /** N */
+            n: number;
         };
     };
     responses: never;
@@ -423,9 +575,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["FileInfo"][];
+                };
+            };
+        };
+    };
+    freshness_api_freshness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Freshness"];
                 };
             };
         };
@@ -473,9 +643,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["TimelinePoint"][];
                 };
             };
             /** @description Validation Error */
@@ -511,9 +679,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["HourPoint"][];
                 };
             };
             /** @description Validation Error */
@@ -549,9 +715,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["CategoryCount"][];
                 };
             };
             /** @description Validation Error */
@@ -580,9 +744,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Quality"];
                 };
             };
         };
@@ -672,9 +834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ReloadResult"];
                 };
             };
         };

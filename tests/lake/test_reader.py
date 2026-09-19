@@ -58,3 +58,37 @@ def test_tu_choi_tham_so_khong_hop_le(store):
 
 def test_khong_tim_thay_bai_tra_ve_none(store):
     assert store.get_article("khong-ton-tai") is None
+
+
+def test_phat_hien_file_moi_hon_lan_nap_va_cap_nhat_thi_het(tmp_path):
+    """Crawler ghi file SAU lần nạp → báo có dữ liệu mới; bấm cập nhật → hết báo."""
+    import os
+    import shutil
+    import time
+
+    from eventrank.common.config import LakeConfig
+    from eventrank.lake.reader import SilverStore
+
+    shutil.copytree("tests/fixtures/silver", tmp_path / "silver")
+    s = SilverStore(LakeConfig(backend="local", bucket="", silver_glob="silver/*/*.jsonl",
+                               local_root=str(tmp_path)))
+    s.reload()
+    assert s.freshness(max_age_s=0)["has_newer_data"] is False
+
+    # Giả lập crawler ghi đè file 0,2 giây sau lần nạp
+    target = next((tmp_path / "silver" / "vnexpress").glob("*.jsonl"))
+    written_at = s.loaded_at.timestamp() + 0.2
+    os.utime(target, (written_at, written_at))
+    fresh = s.freshness(max_age_s=0)
+    assert fresh["has_newer_data"] is True
+    assert fresh["newer_files"] == ["silver/vnexpress/articles_silver.jsonl"]
+
+    time.sleep(0.3)                  # người dùng bấm "Cập nhật dữ liệu" sau khi file đã được ghi
+    s.reload()
+    assert s.freshness(max_age_s=0)["has_newer_data"] is False
+
+
+def test_liet_ke_file_dung_lai_ket_qua_trong_thoi_gian_cho_phep(store):
+    first = store.list_files(max_age_s=60)
+    assert store.list_files(max_age_s=60) is first          # không liệt kê lại
+    assert store.list_files(max_age_s=0) is not first       # max_age_s=0: luôn liệt kê mới

@@ -64,27 +64,32 @@ def create_app(store: SilverStore | None = None) -> FastAPI:
     def meta(s: Store) -> dict[str, Any]:
         return s.meta()
 
-    @app.get("/api/files")
+    @app.get("/api/files", response_model=list[schemas.FileInfo])
     def files(s: Store) -> list[dict[str, Any]]:
-        return s.list_files()
+        return s.list_files(max_age_s=60)
+
+    @app.get("/api/freshness", response_model=schemas.Freshness)
+    def freshness(s: Store) -> dict[str, Any]:
+        """Dữ liệu đang dùng có cũ hơn kho không. Kết quả liệt kê file được dùng lại trong 60 giây."""
+        return s.freshness(max_age_s=60)
 
     @app.get("/api/stats/overview", response_model=schemas.Overview)
     def overview(s: Store) -> dict[str, Any]:
         return s.overview()
 
-    @app.get("/api/stats/timeline")
+    @app.get("/api/stats/timeline", response_model=list[schemas.TimelinePoint])
     def timeline(s: Store, f: Filt, granularity: str = "day") -> list[dict[str, Any]]:
         return s.timeline(f, granularity)
 
-    @app.get("/api/stats/hour-of-day")
+    @app.get("/api/stats/hour-of-day", response_model=list[schemas.HourPoint])
     def hour_of_day(s: Store, f: Filt) -> list[dict[str, Any]]:
         return s.hour_of_day(f)
 
-    @app.get("/api/stats/categories")
+    @app.get("/api/stats/categories", response_model=list[schemas.CategoryCount])
     def categories(s: Store, f: Filt) -> list[dict[str, Any]]:
         return s.categories(f)
 
-    @app.get("/api/stats/quality")
+    @app.get("/api/stats/quality", response_model=schemas.Quality)
     def quality(s: Store) -> dict[str, Any]:
         return s.quality()
 
@@ -105,7 +110,7 @@ def create_app(store: SilverStore | None = None) -> FastAPI:
             raise HTTPException(404, "Không tìm thấy bài")
         return row
 
-    @app.post("/api/admin/reload")
+    @app.post("/api/admin/reload", response_model=schemas.ReloadResult)
     def reload(s: Store) -> dict[str, Any]:
         return s.reload()
 
