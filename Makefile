@@ -1,6 +1,7 @@
 # Gõ `make` để xem danh sách lệnh.
 .DEFAULT_GOAL := help
 API_PORT ?= 8000
+HOST ?= 127.0.0.1
 
 help: ## Hiện danh sách lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  make %-9s %s\n", $$1, $$2}'
@@ -24,7 +25,10 @@ check-env: ## Kiểm tra đã có file .env chưa (tự chạy trước make api
 	fi
 
 api: check-env ## Chạy backend FastAPI ở cổng 8000
-	uv run uvicorn apps.api.main:app --host 127.0.0.1 --port $(API_PORT) --reload
+	# --reload-dir: chỉ theo dõi code chạy thật. Không có nó, sửa file trong tests/ hay docs/
+	# cũng làm server khởi động lại và tải lại toàn bộ dữ liệu từ R2.
+	uv run uvicorn apps.api.main:app --host 127.0.0.1 --port $(API_PORT) \
+		--reload --reload-dir src --reload-dir apps/api
 
 web: ## Chạy frontend React (Vite) ở cổng 5173
 	cd apps/web && npm run dev
@@ -44,4 +48,10 @@ test: ## Chạy mọi kiểm tra: test Python, lint, kiểm tra kiểu frontend
 build: ## Đóng gói frontend ra apps/web/dist/
 	cd apps/web && npm run build
 
-.PHONY: help install check-env api web dev types test build
+prod: check-env build ## Chạy bản triển khai: MỘT cổng phục vụ cả web React lẫn API
+	uv run uvicorn apps.api.main:app --host $(HOST) --port $(API_PORT)
+
+tunnel: ## Mở trang ra Internet qua Cloudflare Tunnel tạm thời (cần cài cloudflared)
+	cloudflared tunnel --url http://127.0.0.1:$(API_PORT)
+
+.PHONY: help install check-env api web dev types test build prod tunnel
