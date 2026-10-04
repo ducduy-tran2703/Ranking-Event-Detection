@@ -51,7 +51,18 @@ build: ## Đóng gói frontend ra apps/web/dist/
 prod: check-env build ## Chạy bản triển khai: MỘT cổng phục vụ cả web React lẫn API
 	uv run uvicorn apps.api.main:app --host $(HOST) --port $(API_PORT)
 
+EMBED_MODEL ?= Xenova/paraphrase-multilingual-MiniLM-L12-v2
+
+embed: ## Embedding ngữ nghĩa cho nhãn yếu (tải ~135 MB lần đầu; chạy TRƯỚC weak-labels) → data/weak_labels/cache/
+	uv run --group embed python -m eventrank.weak_labels.dense --model $(EMBED_MODEL)
+
+weak-labels: ## Sinh nhãn yếu cặp cùng sự kiện từ data/lake/{gold,silver} → data/weak_labels/v3/
+	uv run --group embed python -m eventrank.weak_labels.build --dense-model $(EMBED_MODEL)
+
+agreement: ## So nhãn người (human_label_100.csv) với nhãn LLM: Cohen's κ + cặp lệch nhau
+	uv run python -m eventrank.weak_labels.agreement
+
 tunnel: ## Mở trang ra Internet qua Cloudflare Tunnel tạm thời (cần cài cloudflared)
 	cloudflared tunnel --url http://127.0.0.1:$(API_PORT)
 
-.PHONY: help install check-env api web dev types test build prod tunnel
+.PHONY: help install check-env api web dev types test build prod tunnel weak-labels agreement embed
