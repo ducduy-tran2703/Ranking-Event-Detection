@@ -44,6 +44,25 @@ nhóm chủ động thay dữ liệu, nhưng hãy chắc **bản gốc còn trê
 | Mỗi báo **một file duy nhất**, cào thêm là ghi đè cả file | Rủi ro mất dữ liệu nếu lần ghi sau lỗi giữa chừng — xem "Hướng tới" |
 | **Không có Bronze** (HTML gốc) | Phát hiện lỗi tách bài thì phải cào lại từ đầu |
 
+### Thư mục thêm sau ảnh chụp trên
+
+```
+vietnam-news-datalake/
+├── gold/
+│   ├── README.md                    mô tả NER: 6 nhãn, các trường, thống kê
+│   └── gold_data.jsonl              28.746 bài · 940.474 thực thể · 93 MB
+└── weak_label_NguyenDinhHieu/       nhãn yếu "cặp cùng sự kiện" v1 (01/10/2026), sinh bằng `make weak-labels`
+    ├── README.md                    mô tả file, cách đọc p, split, chất lượng đã đo
+    ├── train_triplets.jsonl         10.005 bộ ba (anchor, positive, negative) · 13 MB
+    ├── train_pairs.jsonl            177.499 cặp có điểm mềm · 153 MB
+    ├── pairs.jsonl                  327.230 cặp ứng viên: p, phiếu từng LF, đặc trưng · 152 MB
+    ├── articles.jsonl               28.725 bài: văn bản đưa vào embedding, split · 18 MB
+    └── report.json                  thống kê và tham số của lần chạy
+```
+
+- `weak_label_NguyenDinhHieu/` là bản **v1 thử nghiệm**: precision cặp dương ≈ 0,67 theo nhãn LLM, chưa đạt mốc 0,8. Chi tiết ở `docs/nhan-yeu-chi-tiet.md`.
+- Thư mục này ghi một lần và **không ghi đè**. Bản sau nên đặt ở prefix mới (ví dụ `…/v2/`) thay vì ghi đè v1.
+
 ## Hướng tới (chưa làm)
 
 Khi đưa crawler vào repo, chuyển dần sang cấu trúc này. **Người đọc không phải sửa code**, chỉ đổi `LAKE_SILVER_GLOB`.

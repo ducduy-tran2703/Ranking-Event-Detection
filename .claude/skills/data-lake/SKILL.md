@@ -17,7 +17,7 @@ Skill này chỉ tóm tắt. Hai file đó mâu thuẫn với skill → tin hai 
 vietnam-news-datalake/silver/<source>/<tên>.jsonl     # JSONL, UTF-8, mỗi dòng một bài
 ```
 
-- 4 nguồn: `baochinhphu`, `tuoitre`, `vietnamnet`, `vnexpress` (có thể thêm — xem `docs/lake-layout.md`). **Chỉ có lớp Silver**, chưa có Bronze.
+- 6 nguồn: `baochinhphu`, `baonhandan`, `thanhnien`, `tuoitre`, `vietnamnet`, `vnexpress` (xem `docs/lake-layout.md`). Có **Silver** + **Gold** (`gold/gold_data.jsonl`: NER, không chứa văn bản) + nhãn yếu v1 (`weak_label_NguyenDinhHieu/`). Chưa có Bronze.
 - Người đọc lấy toàn bộ bằng mẫu `silver/*/*.jsonl` (biến `LAKE_SILVER_GLOB`).
 - **Mỗi báo một file.** Ghi lại file đó là **thay thế toàn bộ** dữ liệu của báo.
 
