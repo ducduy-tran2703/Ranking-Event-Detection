@@ -4,7 +4,7 @@ NER của Gold chạy trên CẢ BÀI (tiêu đề + sapo + nội dung), còn m�
 Vì vậy mỗi thực thể được gắn **vùng** theo offset, và trọng số phụ thuộc vào vùng + số lần nhắc:
 một tên chỉ nhắc một lần ở cuối bài gần như không đóng góp vào nhãn yếu.
 
-Offset tính trên văn bản ghép (xem docs/lam-sach-du-lieu.md):
+Offset tính trên văn bản ghép (xem docs/tong-hop.md mục 5.4–5.5):
     "Tiêu đề: {title}\\n\\nSapo: {sapo}\\n\\nNội dung:\\n{content}"
 """
 from __future__ import annotations

@@ -2,7 +2,7 @@
 
 Nhận diện sự kiện đa nguồn & xếp hạng xu hướng tin tức tiếng Việt. Quy ước làm việc cho người và AI agent: xem [AGENTS.md](AGENTS.md).
 
-**Người mới vào dự án: đọc [docs/huong-dan-chay-du-an.md](docs/huong-dan-chay-du-an.md)** — cài đặt, chạy, gọi API, quy trình git, xử lý sự cố.
+**Người mới vào dự án: đọc [docs/tong-hop.md](docs/tong-hop.md) mục 11** — cài đặt, chạy, gọi API, quy trình git, xử lý sự cố.
 
 ## Chạy nhanh
 
@@ -18,7 +18,7 @@ make dev                      # backend :8000 + web React :5173
 | http://127.0.0.1:8000 | Trang kiểm soát dữ liệu nội bộ (`apps/api/static/`) — chỉ đọc |
 | http://127.0.0.1:8000/docs | Tài liệu API tự sinh |
 
-Gõ `make` để xem mọi lệnh. Triển khai cho cả nhóm truy cập qua domain: [docs/trien-khai.md](docs/trien-khai.md).
+Gõ `make` để xem mọi lệnh. Triển khai cho cả nhóm truy cập qua domain: [docs/tong-hop.md](docs/tong-hop.md) mục 11.4.
 
 ## Test
 

@@ -21,7 +21,7 @@ Làm **đúng thứ tự**. Chưa qua bước kiểm tra chất lượng thì **
 ## 2. Lát cắt 12 bài với backend local
 
 `LAKE_BACKEND=local`, một file sitemap, `limit=12`, `delay ≥ 2` giây.
-Ghi ra `data/lake/silver/<source>/articles_silver.jsonl`, **đúng schema trong `docs/data-contracts.md`**.
+Ghi ra `data/lake/silver/<source>/articles_silver.jsonl`, **đúng schema trong `docs/tong-hop.md` mục 5.3**.
 
 ## 3. Kiểm tra chất lượng — cổng chặn
 
