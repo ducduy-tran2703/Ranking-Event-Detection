@@ -273,8 +273,16 @@ weak_label_NguyenDinhHieu/
 models/embedding_v1_NguyenDinhHieu/      bkai fine-tune v1 (CoSENT, v4 bản 2, s44) + results + README
 models/naming_vit5_v1_NguyenDinhHieu/    ViT5 đặt tên sự kiện v1 (03/11/2026, s42 epoch 4, 904 MB fp32): model/ + results +
                                          dự đoán dev 3 seed + notebook + README (cách dựng đầu vào bắt buộc)
+models/embedding_v2_{bkai,e5,tabert}_NguyenDinhHieu/
+                                         embedding v2 (CoSENT, v4 bản 3, 30/10–02/11/2026): bkai s42, e5 s43, tabert s44 —
+                                         model/ + results + PREPROCESS + README (so sánh có CI); pipeline vẫn dùng v1.
+                                         tabert: giấy phép AGPL-3.0
 events_NguyenDinhHieu/v1/                sự kiện từ pipeline gom cụm v1 (02/11/2026): su_kien.csv, bai_su_kien.csv,
                                          manifest.json, cache/emb_bkai_ft_v1_s44.npz, README
+events_NguyenDinhHieu/v2/                ★ lần chạy pipeline đầy đủ 2026-11-03_v2 (gom cụm + đặt tên ViT5 + xu hướng t2):
+                                         su_kien.csv (tên, điểm), ten_su_kien.csv, xu_huong*.csv, events.json, manifest,
+                                         trang mo-ta-pipeline.html, cum/. ⚠ Có tên ViT5 cho 14–15/09: người viết tên mù
+                                         cho tập test không mở
 datasets_NguyenDinhHieu/v2/              ★ HAI FILE GỌN, dùng cái này trước (02/11/2026, = final_v3): cap_su_kien_v4.csv
                                          (25.843 cặp: train 25.006 / test 644 / test_hard 193, kèm văn bản + trọng số) và
                                          cum_su_kien_14-15_09.csv (1.496 bài, event_id, split tune/test, tóm tắt);
