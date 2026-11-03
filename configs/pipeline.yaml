@@ -1,0 +1,50 @@
+# Cấu hình pipeline xử lý sự kiện một lần chạy (python -m eventrank.serving.pipeline / make pipeline):
+# Silver → embedding → gom cụm → đặt tên → điểm xu hướng → xuất data/runs/<run_id>/.
+# Không chứa bí mật. Không ghi R2, không đụng DB.
+run_root: data/runs
+silver_glob: data/lake/silver/*/*.jsonl
+
+# Embedding + gom cụm: tham số nằm ở file riêng (không chép lại ở đây).
+clustering:
+  config: configs/clustering.yaml
+  cache_dir: data/events/cache              # đệm vector theo model_version, dùng chung với `make cluster`
+
+naming:
+  naming_version: vit5_v1_s42
+  model: data/models/vit5-naming-s42_2026-11-03   # = naming_vit5_v1_NguyenDinhHieu (xem README.md trong thư mục)
+  device: auto                               # cuda nếu có, không thì cpu
+  batch_size: 8                              # đo 03/11 trên CPU 8 luồng — xem docstring naming/predict.py
+  num_beams: 4                               # tham số sinh giống notebook huấn luyện
+  max_new_tokens: 48
+  no_repeat_ngram_size: 3
+  max_source_len: 512
+  max_titles: 12                             # dựng đầu vào giống lúc train (text.clean_input)
+  max_sapos: 3
+  max_syllables: 22                          # tên mô hình > 22 âm tiết → medoid rút gọn; tiêu đề cụm 1 bài > 22 → rút gọn
+  max_generate:                              # trống = không giới hạn; 0 = chỉ dùng đệm (dừng nếu phải sinh)
+  cache_dir: data/naming/cache               # <naming_version>.jsonl, ghi tăng dần
+
+trending:
+  trend_version: t2
+  # decay (t2): score = n_hd^alpha · log(1 + Σ_i 2^(−(t − t_i)/H) / b_W(t))      — mỗi bài tự phân rã, nửa đời H
+  # gravity (t1, để so): score = n_hd^alpha · log(1 + so_bai_3h / b_W(t)) / (tuoi_gio + 2)^gravity
+  # CHƯA chỉnh: chưa có nhãn "Xem nhiều" để đánh giá; giá trị chọn tạm. t1 → t2: xem docstring trending/score.py.
+  formula: decay
+  half_life_hours: 3
+  alpha: 1.0
+  gravity: 1.5                               # chỉ dùng khi formula: gravity
+  window_hours: 3                            # vận tốc = số bài trong (t − 3h, t]
+  step_hours: 1                              # một mốc t mỗi giờ
+  top_k: 20                                  # số dòng mỗi mốc trong xu_huong.csv / xu_huong_moc.csv
+  top_n_hours: 10                            # diem_su_kien.so_gio_trong_top10
+  min_so_bai: 2                              # sự kiện cần ≥ 2 bài đến t mới được xếp hạng (bài lẻ không phải xu hướng)
+  dup_weight: 0.5                            # trọng số báo mà mọi bài đều trùng tiêu đề với bài báo khác đăng trước
+  start: "2026-08-01"                        # khoảng mốc t (giờ Việt Nam) — giai đoạn dày dữ liệu
+  end: "2026-09-20"
+  baseline_start: "2026-08-01"               # khoảng tính mức nền theo giờ trong ngày
+  baseline_end: "2026-09-20"
+
+export:
+  events_json_min_size: 2                    # events.json chỉ chứa sự kiện ≥ 2 bài
+  events_json_top: 100                       # + 100 sự kiện "nổi bật" = tổng điểm theo giờ cao nhất
+  latest_min_candidates: 10                  # xu_huong_moi_nhat = mốc cuối có ≥ 10 sự kiện trong bảng
