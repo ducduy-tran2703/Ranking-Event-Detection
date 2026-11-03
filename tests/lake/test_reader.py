@@ -92,3 +92,11 @@ def test_liet_ke_file_dung_lai_ket_qua_trong_thoi_gian_cho_phep(store):
     first = store.list_files(max_age_s=60)
     assert store.list_files(max_age_s=60) is first          # không liệt kê lại
     assert store.list_files(max_age_s=0) is not first       # max_age_s=0: luôn liệt kê mới
+
+
+def test_thong_ke_source_kem_ten_thu_muc_tren_kho(store):
+    """Trang Chất lượng cần biết tên thư mục để phát hiện nguồn ghi lệch tên thư mục."""
+    rows = {r["source_raw"]: r for r in store.quality()["raw_source_values"]}
+    assert rows["BAOCHINHPHU"]["folder"] == "baochinhphu"   # thư mục đúng, chỉ sai chữ hoa
+    assert rows["BAOCHINHPHU"]["source"] == "baochinhphu"
+    assert rows["vnexpress"]["folder"] == "vnexpress"

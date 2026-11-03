@@ -433,6 +433,8 @@ export interface components {
             source_raw: string | null;
             /** Source */
             source: string;
+            /** Folder */
+            folder: string | null;
             /** N */
             n: number;
         };

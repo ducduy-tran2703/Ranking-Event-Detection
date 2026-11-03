@@ -14,6 +14,7 @@ export type ArticleSummary = Schemas["ArticleSummary"];
 export type ArticleDetail = Schemas["ArticleDetail"];
 export type Quality = Schemas["Quality"];
 export type IssueCounts = Schemas["IssueCounts"];
+export type RawSourceValue = Schemas["RawSourceValue"];
 export type FileInfo = Schemas["FileInfo"];
 export type Freshness = Schemas["Freshness"];
 

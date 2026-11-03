@@ -127,6 +127,7 @@ class IssueCounts(BaseModel):
 class RawSourceValue(BaseModel):
     source_raw: str | None
     source: str
+    folder: str | None      # tên thư mục trên kho: silver/<folder>/<tên file>
     n: int
 
 

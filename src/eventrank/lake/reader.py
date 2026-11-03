@@ -263,8 +263,13 @@ class SilverStore:
         return {
             "short_content_words": SHORT_CONTENT_WORDS,
             "issues_per_source": per_source,
-            "raw_source_values": self._q(
-                "SELECT source_raw, source, count(*) AS n FROM articles GROUP BY 1, 2 ORDER BY 3 DESC"),
+            "raw_source_values": self._q("""
+                SELECT source_raw,
+                       source,
+                       -- tên thư mục trên kho, lấy từ đường dẫn file: silver/<thư mục>/<tên file>
+                       NULLIF(regexp_extract(source_file, 'silver/([^/]+)/', 1), '') AS folder,
+                       count(*) AS n
+                FROM articles GROUP BY 1, 2, 3 ORDER BY 4 DESC"""),
             "words_histogram": self._q("""
                 SELECT source, least(n_words // 100, 20) * 100 AS bin, count(*) AS n
                 FROM articles GROUP BY 1, 2 ORDER BY 2, 1"""),
