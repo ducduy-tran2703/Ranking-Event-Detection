@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duyệt cụm sự kiện</title>
+<style>
+:root {
+  --bg: #f6f6f3; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #deded8;
+  --accent: #2357c6; --accent-soft: #e6edfb; --ok: #1f7a46; --ok-soft: #e3f3e9;
+  --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #b3261e; --bad-soft: #fbe5e3; --kbd: #efefea; --sel: #fff4c2;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --card: #20201e; --ink: #ecece8; --muted: #a2a29b; --line: #36362f;
+    --accent: #7ea4f5; --accent-soft: #23304d; --ok: #6cc893; --ok-soft: #1d3527;
+    --warn: #e6b45c; --warn-soft: #3a2e17; --bad: #f08a80; --bad-soft: #3d201d; --kbd: #2c2c28; --sel: #4a4120;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 11px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.small { font-size: 13px; padding: 2px 8px; }
+button:disabled { opacity: .45; cursor: default; }
+input[type=text] { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+kbd { background: var(--kbd); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font: 12px ui-monospace, monospace; }
+.muted { color: var(--muted); } .small { font-size: 13px; }
+.hidden { display: none !important; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 100vh; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } aside { max-height: 40vh; } }
+aside { border-right: 1px solid var(--line); background: var(--card); overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+@media (max-width: 900px) { aside { position: static; height: auto; } }
+aside .top { padding: 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); z-index: 1; }
+.vitem { padding: 6px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; display: grid; grid-template-columns: 22px 1fr; gap: 6px; }
+.vitem:hover { background: var(--accent-soft); }
+.vitem.cur { background: var(--accent-soft); font-weight: 600; }
+.vitem .ic { text-align: center; }
+.vitem .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+main { padding: 12px 18px 60px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.bar .grow { flex: 1; }
+.progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; width: 160px; }
+.progress > div { height: 100%; background: var(--ok); }
+.vhead { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 14px 0 10px; }
+.vhead h2 { margin: 0; font-size: 18px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
+.card.low { border-color: var(--warn); }
+.card.xcard { border-style: dashed; }
+.chead { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.chead .num { font: 700 15px ui-monospace, monospace; color: var(--accent); min-width: 18px; }
+.chead .name { font-weight: 650; }
+.badge { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--kbd); color: var(--muted); }
+.badge.low { background: var(--warn-soft); color: var(--warn); }
+.badge.merge { background: var(--accent-soft); color: var(--accent); }
+.art { display: grid; grid-template-columns: 112px 1fr; gap: 8px; padding: 6px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+.art:first-of-type { border-top: 0; }
+.art:hover { background: var(--accent-soft); }
+.art.sel { background: var(--sel); }
+.art.changed { box-shadow: inset 3px 0 0 var(--accent); }
+.art .t { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.art .ti { font-weight: 550; }
+.art .sp { font-size: 13px; color: var(--muted); }
+.selbar { position: sticky; bottom: 0; background: var(--card); border: 1px solid var(--accent); border-radius: 10px; padding: 8px 12px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+.panel { background: var(--card); border: 1px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+.res { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; cursor: pointer; font-size: 14px; }
+.res:hover { border-color: var(--accent); }
+.banner { margin: 10px 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+.setup { max-width: 640px; margin: 40px auto; padding: 0 16px; }
+.setup .card { padding: 16px 18px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="setup" class="setup">
+  <div class="card">
+    <h2 style="margin-top:0">Duyệt cụm sự kiện do Claude đề xuất</h2>
+    <p class="muted small" id="setup-info"></p>
+    <div class="banner"><b>Nếu bạn là người gán MÙ đoạn đối chứng</b> (công cụ <code>cong_cu_gan.html</code>), hãy gán mù
+      <b>xong và xuất CSV trước</b> khi mở màn hình này — xem đề xuất của Claude trước sẽ làm hỏng phép đo.</div>
+    <label for="who" style="font-weight:600">Tên người duyệt</label><br>
+    <input id="who" type="text" style="width:100%;margin-top:4px" placeholder="vd. Hieu">
+    <div style="margin-top:14px"><button id="start" class="primary" type="button">Bắt đầu / tiếp tục</button></div>
+    <div id="setup-msg"></div>
+  </div>
+</div>
+
+<div id="app" class="layout hidden">
+  <aside>
+    <div class="top">
+      <div class="small"><b id="who-show"></b> · <span id="stat"></span></div>
+      <div class="progress" style="width:100%;margin:6px 0"><div id="prog"></div></div>
+      <label class="small"><input type="checkbox" id="only-todo"> chỉ nhóm chưa duyệt</label>
+      <label class="small" style="margin-left:8px"><input type="checkbox" id="only-low"> có cụm tin thấp</label>
+    </div>
+    <div id="vlist"></div>
+  </aside>
+  <main>
+    <div class="bar">
+      <button id="prev" type="button">◀ <kbd>←</kbd></button>
+      <button id="done" type="button" class="primary">Đã duyệt nhóm này <kbd>Enter</kbd></button>
+      <button id="next" type="button"><kbd>→</kbd> ▶</button>
+      <span class="grow"></span>
+      <button id="btn-guide" type="button">Hướng dẫn <kbd>H</kbd></button>
+      <button id="btn-export" type="button">Xuất CSV</button>
+    </div>
+    <div id="banners"></div>
+    <div id="guide" class="panel hidden small"></div>
+    <div class="vhead"><h2 id="vtitle"></h2><span id="vmeta" class="muted small"></span></div>
+    <div id="search" class="panel hidden">
+      <div class="small" id="search-what"></div>
+      <div style="display:flex;gap:8px;margin-top:6px"><input id="q" type="text" style="flex:1" placeholder="tên cụm hoặc vài từ trong tiêu đề (không cần dấu)">
+        <button id="search-close" type="button">Đóng <kbd>Esc</kbd></button></div>
+      <div id="results"></div>
+    </div>
+    <div id="cards"></div>
+    <div id="selbar" class="selbar hidden"></div>
+  </main>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+
+<script id="core">
+// Logic thuần — kiểm thử được bằng Node.
+const Core = (() => {
+  const fold = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  const SINGLES_PER_PAGE = 40;
+
+  // Đề xuất → khoá cụm của từng bài: "b<nhóm>c<k>" hoặc "x"
+  function proposalKeys(D) {
+    const key = {};
+    D.blocks.forEach((b, bi) => {
+      b.clusters.forEach((c, k) => c.members.forEach((i) => { key[i] = `b${bi}c${k}`; }));
+      b.x.forEach((i) => { key[i] = "x"; });
+    });
+    return key;
+  }
+
+  // Trang duyệt: mỗi nhóm ≥ 2 bài một trang; bài lẻ dồn 40 bài/trang
+  function views(D) {
+    const out = [], singles = [];
+    D.blocks.forEach((b, bi) => { if (b.members.length > 1) out.push({ id: `b${bi}`, kind: "block", b: bi, members: b.members }); else singles.push(b.members[0]); });
+    singles.sort((a, b) => a - b);
+    for (let p = 0; p * SINGLES_PER_PAGE < singles.length; p++) {
+      out.push({ id: `s${p}`, kind: "singles", page: p, members: singles.slice(p * SINGLES_PER_PAGE, (p + 1) * SINGLES_PER_PAGE) });
+    }
+    return out;
+  }
+
+  // Gộp cụm khác nhóm: merged[k] = k2. Trả về hàm tìm gốc của một khoá.
+  function rootFinder(merged) {
+    return (k) => { const seen = new Set(); while (merged[k] && !seen.has(k)) { seen.add(k); k = merged[k]; } return k; };
+  }
+
+  // Cụm cuối: gốc → danh sách bài (không gồm bài bị loại)
+  function finalGroups(n, assign, merged) {
+    const root = rootFinder(merged), g = new Map();
+    for (let i = 0; i < n; i++) {
+      const k = assign[i];
+      if (k == null || k === "x") continue;
+      const r = root(k);
+      if (!g.has(r)) g.set(r, []);
+      g.get(r).push(i);
+    }
+    return g;
+  }
+
+  // Thứ tự thẻ cụm trong một trang: theo bài sớm nhất; bài loại đứng riêng
+  function cardsOf(members, assign) {
+    const order = [], seen = new Set();
+    for (const i of [...members].sort((a, b) => a - b)) {
+      const k = assign[i];
+      if (k === "x" || seen.has(k)) continue;
+      seen.add(k); order.push(k);
+    }
+    return order;
+  }
+
+  // CSV cùng dạng công cụ gán: link_to = bài sớm nhất của cụm cuối; x = loại
+  function exportRows(D, S, propKey) {
+    const groups = finalGroups(D.articles.length, S.assign, S.merged), root = rootFinder(S.merged), rows = [];
+    const first = new Map([...groups].map(([r, ids]) => [r, Math.min(...ids)]));
+    for (let i = 0; i < D.articles.length; i++) {
+      const k = S.assign[i];
+      const link = k === "x" ? "x" : (first.get(root(k)) === i ? "" : D.articles[first.get(root(k))].id);
+      rows.push({ dataset: D.dataset, annotator: S.who, stt: D.articles[i].stt, article_id: D.articles[i].id, link_to: link,
+        unsure: 0, labeled_at: S.t[i] || "", proposal: propKey[i], changed: (k !== propKey[i] || root(k) !== k) ? 1 : 0 });
+    }
+    return rows;
+  }
+
+  const esc = (v) => { v = String(v ?? ""); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const toCSV = (head, rows) => [head.join(","), ...rows.map((r) => head.map((h) => esc(r[h])).join(","))].join("\n") + "\n";
+
+  return { fold, proposalKeys, views, rootFinder, finalGroups, cardsOf, exportRows, toCSV, SINGLES_PER_PAGE };
+})();
+if (typeof module !== "undefined") module.exports = Core;
+</script>
+
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("data").textContent);
+  const A = D.articles, N = A.length, V = Core.views(D), PROP = Core.proposalKeys(D);
+  const PROPNAME = {}, PROPCONF = {};
+  D.blocks.forEach((b, bi) => b.clusters.forEach((c, k) => { PROPNAME[`b${bi}c${k}`] = c.name; PROPCONF[`b${bi}c${k}`] = c.confidence; }));
+  const VIEW_OF = {}; V.forEach((v, vi) => v.members.forEach((i) => { VIEW_OF[i] = vi; }));
+  const $ = (id) => document.getElementById(id);
+  const KEY = (who) => `goldreview:${D.dataset}:${who}`, LAST = `goldreview:${D.dataset}:last`;
+  const HEAD = ["dataset", "annotator", "stt", "article_id", "link_to", "unsure", "labeled_at", "proposal", "changed"];
+  let S = null, storageOK = true, sel = new Set(), mergeSrc = null, newCounter = 0;
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { storageOK = false; return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { storageOK = false; } },
+  };
+  const save = () => { store.set(KEY(S.who), JSON.stringify(S)); store.set(LAST, S.who); };
+  const el = (tag, attrs = {}, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); }
+    for (const k of kids) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+    return e;
+  };
+  const fmtT = (t) => `${t.slice(8, 10)}/${t.slice(5, 7)} ${t.slice(11, 16)}`;
+  const root = () => Core.rootFinder(S.merged);
+  const nameOf = (k) => {
+    const n = S.names[k] ?? PROPNAME[k];
+    if (n) return n;
+    const g = Core.finalGroups(N, S.assign, S.merged).get(root()(k)) || [];
+    return g.length ? A[Math.min(...g)].title : "(cụm trống)";
+  };
+
+  // ------------------------------------------------------------ bắt đầu
+  const nMulti = D.blocks.filter((b) => b.members.length > 1).length;
+  $("setup-info").textContent = `${N} bài · ${nMulti} nhóm nhiều bài + ${V.length - nMulti} trang bài lẻ · mã ${D.dataset}`;
+  const last = store.get(LAST);
+  if (last) $("who").value = last;
+  $("start").onclick = () => {
+    const who = $("who").value.trim().replace(/[^\p{L}\p{N}_-]+/gu, "_");
+    if (!who) { $("setup-msg").replaceChildren(el("div", { class: "banner" }, "Nhập tên người duyệt.")); return; }
+    S = JSON.parse(store.get(KEY(who)) || "null");
+    if (!S) S = { who, assign: { ...PROP }, names: {}, merged: {}, reviewed: {}, t: {}, cur: 0, exported: 0 };
+    save();
+    $("setup").classList.add("hidden"); $("app").classList.remove("hidden");
+    render();
+  };
+
+  // ------------------------------------------------------------ thao tác
+  const now = () => new Date().toISOString();
+  function move(ids, key) {
+    for (const i of ids) { S.assign[i] = key; S.t[i] = now(); }
+    sel.clear(); save(); render();
+  }
+  function moveToNew() {
+    if (!sel.size) return flash("Bấm chọn bài trước, rồi N để tách thành cụm mới.");
+    const k = `${V[S.cur].id}n${Date.now().toString(36)}${newCounter++}`;
+    move([...sel], k);
+  }
+  function setReviewed(vi, v = true) { S.reviewed[V[vi].id] = v; save(); }
+  function go(vi) { if (vi < 0 || vi >= V.length) return; S.cur = vi; sel.clear(); mergeSrc = null; closeSearch(); save(); render(); window.scrollTo(0, 0); }
+  function nextTodo() {
+    for (let k = 1; k <= V.length; k++) { const vi = (S.cur + k) % V.length; if (!S.reviewed[V[vi].id]) return go(vi); }
+    flash("Đã duyệt hết mọi nhóm — bấm Xuất CSV.");
+  }
+  function flash(msg) { $("banners").replaceChildren(el("div", { class: "banner" }, msg)); setTimeout(() => renderBanners(), 3500); }
+
+  // ------------------------------------------------------------ tìm cụm ở nhóm khác
+  function openSearch(src) {
+    mergeSrc = src;
+    $("search").classList.remove("hidden");
+    $("search-what").textContent = src
+      ? `Gộp cụm "${nameOf(src)}" với cụm nào ở nhóm khác?`
+      : `Chuyển ${sel.size} bài đã chọn sang cụm nào ở nhóm khác?`;
+    $("q").value = ""; $("results").replaceChildren(); $("q").focus();
+  }
+  function closeSearch() { $("search").classList.add("hidden"); mergeSrc = null; }
+  function runSearch() {
+    const terms = Core.fold($("q").value).split(/\s+/).filter(Boolean);
+    const box = $("results"); box.replaceChildren();
+    if (!terms.length) return;
+    const here = new Set(V[S.cur].members.map((i) => root()(S.assign[i])));
+    const groups = Core.finalGroups(N, S.assign, S.merged);
+    const hits = [];
+    for (const [r, ids] of groups) {
+      if (here.has(r)) continue;
+      const hay = Core.fold(nameOf(r) + " " + ids.map((i) => A[i].title).join(" "));
+      if (terms.every((t) => hay.includes(t))) hits.push([r, ids]);
+      if (hits.length >= 12) break;
+    }
+    if (!hits.length) box.append(el("p", { class: "muted small" }, "Không tìm thấy."));
+    for (const [r, ids] of hits) {
+      const vi = VIEW_OF[Math.min(...ids)];
+      box.append(el("div", { class: "res", onclick: () => pick(r) },
+        el("b", {}, nameOf(r)), el("span", { class: "muted small" }, ` · ${ids.length} bài · ${V[vi].kind === "block" ? "nhóm " + V[vi].b : "bài lẻ"}`),
+        el("div", { class: "small muted" }, ids.slice(0, 3).map((i) => `${fmtT(A[i].t)} ${A[i].title}`).join(" · "))));
+    }
+  }
+  function pick(target) {
+    if (mergeSrc) { if (root()(mergeSrc) !== target) S.merged[root()(mergeSrc)] = target; mergeSrc = null; closeSearch(); save(); render(); }
+    else if (sel.size) { closeSearch(); move([...sel], target); }
+  }
+
+  // ------------------------------------------------------------ hiển thị
+  function artRow(i) {
+    const a = A[i], changed = S.assign[i] !== PROP[i];
+    return el("div", { class: "art" + (sel.has(i) ? " sel" : "") + (changed ? " changed" : ""), title: changed ? "Đã sửa so với đề xuất" : "",
+      onclick: (e) => { if (e.target.tagName === "A") return; sel.has(i) ? sel.delete(i) : sel.add(i); render(); } },
+      el("div", { class: "t" }, `${fmtT(a.t)}`, el("br"), a.source),
+      el("div", {}, el("div", { class: "ti" }, a.title, " ", el("a", { href: a.url || "#", target: "_blank", rel: "noopener", class: "small" }, "↗")),
+        a.sapo ? el("div", { class: "sp" }, a.sapo.length > 220 ? a.sapo.slice(0, 220) + "…" : a.sapo) : null));
+  }
+
+  function render() {
+    const v = V[S.cur], r = root();
+    const groups = Core.finalGroups(N, S.assign, S.merged);
+    // thanh trên + danh sách trang
+    const done = V.filter((x) => S.reviewed[x.id]).length;
+    const moved = Object.keys(S.assign).filter((i) => S.assign[i] !== PROP[i]).length, merges = Object.keys(S.merged).length;
+    $("who-show").textContent = S.who;
+    $("stat").textContent = `đã duyệt ${done}/${V.length} · chuyển ${moved} bài · gộp ${merges} cụm`;
+    $("prog").style.width = `${(100 * done / V.length).toFixed(1)}%`;
+    const onlyTodo = $("only-todo").checked, onlyLow = $("only-low").checked;
+    const list = $("vlist"); list.replaceChildren();
+    V.forEach((x, vi) => {
+      const keys = Core.cardsOf(x.members, S.assign);
+      const low = keys.some((k) => PROPCONF[k] === "thấp");
+      if ((onlyTodo && S.reviewed[x.id]) || (onlyLow && !low)) return;
+      const label = x.kind === "block" ? `${x.b} · ${x.members.length} bài · ${nameOf(keys[0] || "")}` : `Bài lẻ ${x.page + 1} · ${x.members.length} bài`;
+      list.append(el("div", { class: "vitem" + (vi === S.cur ? " cur" : ""), onclick: () => go(vi) },
+        el("span", { class: "ic" }, S.reviewed[x.id] ? "✓" : low ? "⚠" : "·"), el("span", { class: "nm" }, label)));
+    });
+    list.querySelector(".cur")?.scrollIntoView({ block: "nearest" });
+
+    // tiêu đề trang
+    const srcs = new Set(v.members.map((i) => A[i].source));
+    $("vtitle").textContent = v.kind === "block" ? `Nhóm ${v.b}` : `Bài lẻ — trang ${v.page + 1}`;
+    $("vmeta").textContent = `${v.members.length} bài · ${srcs.size} báo · ${fmtT(A[v.members[0]].t)} → ${fmtT(A[v.members[v.members.length - 1]].t)}`
+      + (S.reviewed[v.id] ? " · ✓ đã duyệt" : "");
+    $("done").textContent = S.reviewed[v.id] ? "Đã duyệt ✓ — sang nhóm chưa duyệt" : "Đã duyệt nhóm này";
+    $("done").append(" ", el("kbd", {}, "Enter"));
+    $("prev").disabled = S.cur === 0; $("next").disabled = S.cur === V.length - 1;
+
+    // thẻ cụm
+    const box = $("cards"); box.replaceChildren();
+    const keys = Core.cardsOf(v.members, S.assign);
+    if (v.kind === "singles") {
+      box.append(el("p", { class: "muted small" }, "Mỗi bài ở đây là một sự kiện riêng (không giống bài nào khác về chữ lẫn nghĩa). "
+        + "Lướt nhanh: bài tổng hợp nhiều tin → chọn rồi X; bài thật ra thuộc một cụm khác → chọn rồi bấm / để tìm cụm đó."));
+    }
+    if (v.kind === "singles") {
+      const ids = v.members.filter((i) => S.assign[i] !== "x");
+      if (ids.length) box.append(el("div", { class: "card" }, ...ids.map(artRow)));
+    }
+    if (v.kind === "block") keys.forEach((k, n) => {
+      const ids = v.members.filter((i) => S.assign[i] === k);
+      const all = groups.get(r(k)) || [];
+      const outside = all.filter((i) => !v.members.includes(i)).length;
+      const low = PROPCONF[k] === "thấp";
+      const head = el("div", { class: "chead" },
+        el("span", { class: "num" }, n < 9 ? String(n + 1) : "·"),
+        el("span", { class: "name" }, nameOf(k)),
+        el("span", { class: "badge" }, `${ids.length} bài · ${new Set(ids.map((i) => A[i].source)).size} báo`),
+        low ? el("span", { class: "badge low" }, "Claude không chắc") : null,
+        outside ? el("span", { class: "badge merge" }, `+ ${outside} bài ở nhóm khác`) : null,
+        r(k) !== k ? el("span", { class: "badge merge" }, `đã gộp với: ${nameOf(r(k))}`) : null,
+        el("span", { style: "flex:1" }),
+        el("button", { class: "small", type: "button", onclick: () => { const nm = prompt("Tên sự kiện (ai – làm gì – khi nào):", nameOf(k)); if (nm != null) { S.names[k] = nm.trim(); save(); render(); } } }, "Đổi tên"),
+        el("button", { class: "small", type: "button", onclick: () => openSearch(k) }, "Gộp với cụm nhóm khác…"),
+        r(k) !== k ? el("button", { class: "small", type: "button", onclick: () => { delete S.merged[k]; save(); render(); } }, "Bỏ gộp") : null);
+      box.append(el("div", { class: "card" + (low ? " low" : "") }, head, ...ids.map(artRow)));
+    });
+    const xs = v.members.filter((i) => S.assign[i] === "x");
+    if (xs.length) box.append(el("div", { class: "card xcard" }, el("div", { class: "chead" }, el("span", { class: "num" }, "X"),
+      el("span", { class: "name" }, "Loại — bài tổng hợp nhiều tin / không hiểu được"), el("span", { class: "badge" }, `${xs.length} bài`)), ...xs.map(artRow)));
+
+    // thanh thao tác khi đang chọn bài
+    const bar = $("selbar");
+    if (sel.size) {
+      bar.classList.remove("hidden");
+      bar.replaceChildren(el("b", {}, `${sel.size} bài đã chọn →`),
+        ...keys.slice(0, 9).map((k, n) => el("button", { type: "button", onclick: () => move([...sel], k) }, el("kbd", {}, String(n + 1)), " ", nameOf(k).slice(0, 28))),
+        el("button", { type: "button", onclick: moveToNew }, el("kbd", {}, "N"), " cụm mới"),
+        el("button", { type: "button", onclick: () => move([...sel], "x") }, el("kbd", {}, "X"), " loại"),
+        el("button", { type: "button", onclick: () => openSearch(null) }, el("kbd", {}, "/"), " cụm ở nhóm khác"),
+        el("button", { type: "button", onclick: () => { sel.clear(); render(); } }, el("kbd", {}, "Esc"), " bỏ chọn"));
+    } else bar.classList.add("hidden");
+    renderBanners();
+  }
+
+  function renderBanners() {
+    const b = [];
+    if (!storageOK) b.push(el("div", { class: "banner" }, "Trình duyệt đang chặn lưu tự động — tiến độ sẽ MẤT khi đóng trang. Xuất CSV thường xuyên."));
+    const done = V.filter((x) => S.reviewed[x.id]).length;
+    if (done - (S.exported || 0) >= 25) b.push(el("div", { class: "banner" }, `Đã duyệt thêm ${done - (S.exported || 0)} nhóm từ lần xuất CSV gần nhất — bấm Xuất CSV để sao lưu.`));
+    $("banners").replaceChildren(...b);
+  }
+
+  function exportCSV() {
+    const rows = Core.exportRows(D, S, PROP);
+    const todo = V.length - V.filter((x) => S.reviewed[x.id]).length;
+    if (todo && !confirm(`Còn ${todo} nhóm chưa duyệt (vẫn xuất theo đề xuất của Claude). Xuất bây giờ?`)) return;
+    const blob = new Blob(["﻿" + Core.toCSV(HEAD, rows)], { type: "text/csv;charset=utf-8" });
+    const a = el("a", { href: URL.createObjectURL(blob), download: `duyet_cum_${S.who}_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.csv` });
+    document.body.append(a); a.click(); a.remove();
+    S.exported = V.filter((x) => S.reviewed[x.id]).length; save(); renderBanners();
+  }
+
+  $("prev").onclick = () => go(S.cur - 1);
+  $("next").onclick = () => go(S.cur + 1);
+  $("done").onclick = () => { setReviewed(S.cur); nextTodo(); };
+  $("btn-export").onclick = exportCSV;
+  $("btn-guide").onclick = () => $("guide").classList.toggle("hidden");
+  $("only-todo").onchange = render; $("only-low").onchange = render;
+  $("search-close").onclick = closeSearch;
+  $("q").addEventListener("input", runSearch);
+  $("q").addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSearch(); e.preventDefault(); } });
+
+  document.addEventListener("keydown", (e) => {
+    if ($("app").classList.contains("hidden") || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.tagName === "INPUT" && e.target.type === "text") return;
+    const k = e.key.toLowerCase(), keys = Core.cardsOf(V[S.cur].members, S.assign);
+    if (/^[1-9]$/.test(k)) { if (sel.size && keys[+k - 1]) move([...sel], keys[+k - 1]); else if (!sel.size) flash("Bấm chọn bài trước, rồi số của cụm muốn chuyển tới."); }
+    else if (k === "n") moveToNew();
+    else if (k === "x") { if (sel.size) move([...sel], "x"); else flash("Bấm chọn bài trước, rồi X để loại."); }
+    else if (k === "/") { if (sel.size) openSearch(null); else flash("Chọn bài trước; muốn gộp cả cụm thì bấm nút 'Gộp với cụm nhóm khác…' trên thẻ cụm."); }
+    else if (k === "escape") { if (!$("search").classList.contains("hidden")) closeSearch(); else { sel.clear(); render(); } }
+    else if (k === "enter") { setReviewed(S.cur); nextTodo(); }
+    else if (k === "arrowleft") go(S.cur - 1);
+    else if (k === "arrowright") go(S.cur + 1);
+    else if (k === "h") $("guide").classList.toggle("hidden");
+    else return;
+    e.preventDefault();
+  });
+
+  $("guide").innerHTML = `
+    <b>Việc của bạn:</b> mỗi thẻ là một sự kiện Claude đề xuất, tên ở đầu thẻ. Kiểm tra: <b>mọi bài trong thẻ có đúng là
+    cùng một việc cụ thể với tên đó không?</b> Đúng hết → <kbd>Enter</kbd> (đã duyệt, sang nhóm tiếp).
+    <ul>
+      <li>Bài nằm nhầm thẻ: bấm chọn bài (có thể chọn nhiều) → bấm <b>số</b> của thẻ đúng, hoặc <kbd>N</kbd> tách thành sự kiện mới.</li>
+      <li>Hai thẻ thật ra là một sự kiện: chọn hết bài của thẻ này → bấm số của thẻ kia.</li>
+      <li>Sự kiện bị chia sang nhóm khác: nút <b>Gộp với cụm nhóm khác…</b> trên thẻ, gõ vài từ để tìm.</li>
+      <li>Bài tổng hợp nhiều tin ("Tin tức thế giới 14/9…", "Kết quả bóng đá hôm nay…"): chọn → <kbd>X</kbd>.</li>
+      <li>Thẻ viền vàng = Claude không chắc → xem kỹ. Bài có vạch xanh bên trái = bạn đã sửa.</li>
+    </ul>
+    <b>Cùng sự kiện</b>: cùng một việc — tin trước/sau, phản ứng, hệ quả trực tiếp trong vài ngày, các hoạt động cùng một chuyến
+    thăm/hội nghị của cùng đoàn. <b>Khác sự kiện</b>: chỉ cùng đội/nhân vật/chủ đề; hai trận khác nhau; giá vàng hai ngày;
+    cùng hội nghị nhưng hai đoàn khác nhau. Chi tiết: <code>docs/huong-dan-gan-4-muc.md</code> (mức 3).`;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bản đồ cụm sự kiện</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --ctx: #d3d2cb; --accent-soft: #e6edfb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --ctx: #3a3a37; --accent-soft: #1d2a40;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --ctx: #3a3a37; --accent-soft: #1d2a40;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 0 0 2px; }
+.sub { color: var(--ink-2); font-size: 14px; margin: 0 0 18px; }
+.note { color: var(--ink-2); font-size: 13px; margin: 4px 0 10px; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 12px 14px; }
+.kpi .lbl { font-size: 13px; color: var(--ink-2); }
+.kpi .val { font-size: 28px; font-weight: 600; }
+.kpi .ext { font-size: 13px; color: var(--muted); }
+svg text { fill: var(--muted); font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+svg text.ink { fill: var(--ink-2); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr); gap: 16px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.row { padding: 6px 0; border-top: 1px solid var(--grid); cursor: pointer; }
+.row:first-child { border-top: 0; }
+.row:hover, .row.on { background: var(--accent-soft); }
+.row .nm { font-size: 14px; color: var(--ink); }
+.row .mt { font-size: 12px; color: var(--muted); }
+.list { max-height: 520px; overflow-y: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin: 6px 0; }
+.legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 6px; border-radius: 1px; }
+input[type=search] { width: 100%; font: inherit; color: inherit; background: var(--page); border: 1px solid var(--ring); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; }
+details { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 4px 8px; border-top: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+.detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 12px; }
+.detail .empty { color: var(--muted); font-size: 14px; }
+.acard { background: var(--page); border: 1px solid var(--ring); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.acard .ti { font-size: 16px; font-weight: 650; }
+.acard .m, .arow .m { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.acard .sv { margin-top: 6px; font-weight: 550; }
+.acard .tt { margin-top: 2px; font-size: 14px; color: var(--ink-2); }
+.arow { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 6px 8px; border-top: 1px solid var(--grid); cursor: pointer; border-radius: 6px; }
+.arow:hover { background: var(--accent-soft); }
+.arow.on { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--s1); }
+.arow .ti { font-size: 14px; }
+.arow .sv { font-size: 13px; color: var(--ink-2); }
+a { color: var(--s1); }
+#tip { position: fixed; pointer-events: none; z-index: 10; max-width: 340px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--ring); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.15); display: none; }
+#tip .m { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bản đồ cụm sự kiện 14–15/09/2026</h1>
+  <p class="sub" id="sub"></p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>Phần lớn sự kiện chỉ có một bài</h2>
+    <p class="note">Số cụm theo kích thước (đề xuất của Claude). Tin nhiều báo cùng đưa là số ít — nhưng chính chúng làm nên bảng xu hướng.</p>
+    <svg id="hist" viewBox="0 0 720 240" width="100%" role="img" aria-label="Biểu đồ cột số cụm theo kích thước"></svg>
+    <details><summary>Xem bảng số</summary><table id="hist-t"></table></details>
+  </div>
+
+  <div class="card">
+    <h2>15 sự kiện lớn nhất theo thời gian</h2>
+    <p class="note">Mỗi chấm là một bài, đặt theo giờ đăng. Rê chuột lên chấm để xem bài; bấm một hàng để xem sự kiện đó trên bản đồ bên dưới.</p>
+    <div id="timeline"></div>
+  </div>
+
+  <div class="card">
+    <h2>Bản đồ 2D các bài báo</h2>
+    <p class="note">Mỗi chấm là một bài. Vị trí lấy từ embedding bkai fine-tune, chiếu xuống 2 chiều bằng t-SNE: bài gần nghĩa nằm gần
+      nhau (khoảng cách trên hình chỉ gần đúng). <b>Bấm vào một điểm</b> để xem bài đó và cả sự kiện chứa nó; <b>bấm một sự kiện</b>
+      ở danh sách bên phải (hoặc ở dòng thời gian phía trên) để xem danh sách các bài của sự kiện.</p>
+    <div class="grid2">
+      <svg id="map" viewBox="0 0 600 600" width="100%" role="img" aria-label="Bản đồ 2D các bài báo"></svg>
+      <div>
+        <input type="search" id="q" placeholder="Tìm sự kiện (không cần dấu)">
+        <div class="list" id="clist"></div>
+      </div>
+    </div>
+    <div class="detail" id="detail"><p class="empty">Chưa chọn bài hay sự kiện nào.</p></div>
+  </div>
+
+  <div class="card">
+    <h2>Nếu nối các cặp embedding thành cụm thì sao?</h2>
+    <p class="note">Coi mọi cặp bài (trong 48 giờ) có cosine bkai fine-tune ≥ ngưỡng là cùng sự kiện, nối liền thành cụm, rồi chấm
+      B-Cubed với đề xuất của Claude. Ngưỡng thấp → <b>bắc cầu</b>: A giống B, B giống C nên cả chuỗi dính thành một cụm khổng lồ.
+      Ngưỡng cao → cụm vỡ vụn, recall tụt.</p>
+    <div class="legend"><span><i style="background:var(--s1)"></i>Precision (cụm có lẫn bài khác sự kiện không)</span>
+      <span><i style="background:var(--s2)"></i>Recall (bài cùng sự kiện có bị tách không)</span>
+      <span><i style="background:var(--s3)"></i>F1</span></div>
+    <svg id="sweep" viewBox="0 0 720 300" width="100%" role="img" aria-label="Precision, recall, F1 theo ngưỡng"></svg>
+    <p class="note" style="text-align:center;margin:0">Ngưỡng cosine</p>
+    <h2 style="margin-top:14px">Cụm lớn nhất theo ngưỡng</h2>
+    <p class="note">Số bài trong cụm lớn nhất. Sự kiện lớn nhất thật (chuyến thăm của Nhà vua Thái Lan) chỉ có 44 bài.</p>
+    <svg id="largest" viewBox="0 0 720 220" width="100%" role="img" aria-label="Kích thước cụm lớn nhất theo ngưỡng"></svg>
+    <details><summary>Xem bảng số</summary><table id="sweep-t"></table></details>
+    <p class="note" style="margin-top:10px"><b>Đọc kết quả cho đúng:</b> F1 ≈ 0,93 ở ngưỡng 0,875–0,90 trông cao, nhưng (1) 833/1.013 cụm chỉ
+      có 1 bài nên rất dễ "đúng"; (2) mô hình fine-tune học từ nhãn Claude, đáp án cũng do Claude đề xuất → có lợi thế. Ngưỡng tốt nhất
+      cũng chỉ tìm ra được <b>nhờ có tập vàng</b> — không có đáp án thì không biết dừng ở 0,75 (cụm 742 bài) hay 0,90.</p>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("data").textContent);
+  const A = D.articles, C = D.clusters, NS = "http://www.w3.org/2000/svg";
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => n.toLocaleString("vi-VN");
+  const dec = (x, d = 2) => x.toFixed(d).replace(".", ",");
+  const fold = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").toLowerCase();
+  const fmtT = (t) => `${t.slice(8, 10)}/${t.slice(5, 7)} ${t.slice(11, 16)}`;
+  const svg = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.append(e); return e; };
+  const tip = $("tip");
+  const showTip = (ev, html) => { tip.innerHTML = html; tip.style.display = "block";
+    const x = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8), y = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8);
+    tip.style.left = x + "px"; tip.style.top = y + "px"; };
+  const hideTip = () => { tip.style.display = "none"; };
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  $("sub").textContent = `${fmt(D.kpi.articles)} bài của 6 báo · nhãn: Claude đề xuất + kiểm tra lại (chưa có người duyệt) · mã ${D.dataset}`;
+  const k = D.kpi;
+  $("kpis").innerHTML = [
+    ["Bài báo", fmt(k.articles), "14/09 00:00 → 15/09 23:59"],
+    ["Cụm sự kiện", fmt(k.clusters), "mỗi cụm = một sự kiện"],
+    ["Cụm từ 2 bài", fmt(k.multi), `${fmt(k.multi_articles)} bài nằm trong các cụm này`],
+    ["Bài loại", fmt(k.excluded), "bài tổng hợp nhiều tin"],
+  ].map(([l, v, e]) => `<div class="kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="ext">${e}</div></div>`).join("");
+
+  // ---------------------------------------------------------------- 1. cột kích thước cụm
+  (() => {
+    const s = $("hist"), W = 720, H = 240, L = 48, R = 12, T = 18, B = 34, H0 = D.hist;
+    const max = Math.max(...H0.map((h) => h.clusters)), step = Math.pow(10, Math.floor(Math.log10(max)));
+    const top = Math.ceil(max / step) * step, y = (v) => T + (H - T - B) * (1 - v / top), band = (W - L - R) / H0.length;
+    for (let g = 0; g <= top; g += top / 4) {
+      svg("line", { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: "var(--grid)" }, s);
+      svg("text", { x: L - 8, y: y(g) + 4, "text-anchor": "end" }, s).textContent = fmt(g);
+    }
+    H0.forEach((h, i) => {
+      const w = Math.min(24 * 2, band * 0.5), x = L + band * i + (band - w) / 2, y0 = y(h.clusters), y1 = y(0);
+      const r = Math.min(4, (y1 - y0) / 2);
+      const p = svg("path", { d: `M${x},${y1} V${y0 + r} Q${x},${y0} ${x + r},${y0} H${x + w - r} Q${x + w},${y0} ${x + w},${y0 + r} V${y1} Z`, fill: "var(--s1)" }, s);
+      const hit = svg("rect", { x: L + band * i, y: T, width: band, height: H - T - B, fill: "transparent" }, s);
+      hit.addEventListener("mousemove", (e) => showTip(e, `<b>Cụm ${h.label}</b><br>${fmt(h.clusters)} cụm · ${fmt(h.articles)} bài`));
+      hit.addEventListener("mouseleave", hideTip);
+      svg("text", { x: x + w / 2, y: y0 - 6, "text-anchor": "middle", class: "ink" }, s).textContent = fmt(h.clusters);
+      svg("text", { x: L + band * i + band / 2, y: H - 12, "text-anchor": "middle" }, s).textContent = h.label;
+      void p;
+    });
+    svg("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), stroke: "var(--axis)" }, s);
+    $("hist-t").innerHTML = "<tr><th>Kích thước</th><th>Số cụm</th><th>Số bài</th></tr>" +
+      H0.map((h) => `<tr><td>${h.label}</td><td>${fmt(h.clusters)}</td><td>${fmt(h.articles)}</td></tr>`).join("");
+  })();
+
+  // ---------------------------------------------------------------- 3. bản đồ 2D (vẽ trước để dòng thời gian gọi được)
+  let selected = 0, selArt = -1;
+  const map = $("map"), M = 600, P = 14, px = (a) => P + a.xy[0] * (M - 2 * P), py = (a) => P + (1 - a.xy[1]) * (M - 2 * P);
+  const base = svg("g", {}, map), hi = svg("g", {}, map);
+  for (const a of A) svg("circle", { cx: px(a), cy: py(a), r: 2.6, fill: "var(--ctx)" }, base);
+  // chọn một sự kiện (ci) và — tuỳ chọn — một bài trong đó (ai). ci = -1: bài bị loại, không thuộc sự kiện nào
+  function select(ci, ai = -1, scroll = false) {
+    selected = ci; selArt = ai; hi.replaceChildren();
+    if (ci >= 0) for (const i of C[ci].members) svg("circle", { cx: px(A[i]), cy: py(A[i]), r: 5, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2 }, hi);
+    if (ai >= 0) svg("circle", { cx: px(A[ai]), cy: py(A[ai]), r: 8, fill: "none", stroke: "var(--ink)", "stroke-width": 2 }, hi);
+    document.querySelectorAll("#clist .row, #timeline .row").forEach((r) => r.classList.toggle("on", +r.dataset.c === ci));
+    renderDetail();
+    if (scroll) { const d = $("detail"), r = d.getBoundingClientRect(); if (r.top > innerHeight - 120 || r.bottom < 0) d.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }
+  const selectArticle = (i, scroll = true) => select(A[i].c, i, scroll);
+
+  function renderDetail() {
+    const box = $("detail"), parts = [];
+    if (selArt >= 0) {
+      const a = A[selArt];
+      parts.push(`<div class="acard"><div class="m">${fmtT(a.t)} · ${a.source} · STT ${a.stt}${a.c < 0 ? " · <b>bài bị loại (tổng hợp nhiều tin)</b>" : ""}</div>
+        <div class="ti">${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)} ↗</a>` : esc(a.title)}</div>
+        ${a.sv ? `<div class="sv">${esc(a.sv)}</div>` : ""}${a.tt ? `<div class="tt">${esc(a.tt)}</div>` : ""}</div>`);
+    }
+    if (selected >= 0) {
+      const c = C[selected], ids = [...c.members].sort((x, y) => Date.parse(A[x].t) - Date.parse(A[y].t));
+      parts.push(`<h2 style="font-size:15px">Sự kiện: ${esc(c.name)}</h2><div class="note" style="margin:2px 0 6px">${ids.length} bài · ${c.sources} báo${c.low ? " · Claude không chắc" : ""} · bấm một bài để xem chi tiết</div>`);
+      parts.push(ids.map((i) => `<div class="arow${i === selArt ? " on" : ""}" data-i="${i}"><div class="m">${fmtT(A[i].t)}<br>${A[i].source}</div>
+        <div><div class="ti">${esc(A[i].title)}${A[i].url ? ` <a href="${esc(A[i].url)}" target="_blank" rel="noopener" title="Mở bài gốc">↗</a>` : ""}</div>
+        ${A[i].sv ? `<div class="sv">${esc(A[i].sv)}</div>` : ""}</div></div>`).join(""));
+    }
+    box.innerHTML = parts.join("") || '<p class="empty">Chưa chọn bài hay sự kiện nào.</p>';
+    box.querySelectorAll(".arow").forEach((r) => r.addEventListener("click", (e) => { if (e.target.tagName !== "A") selectArticle(+r.dataset.i, false); }));
+  }
+  map.addEventListener("mousemove", (e) => {
+    const pt = map.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const q = pt.matrixTransform(map.getScreenCTM().inverse());
+    let best = -1, bd = 12 * 12;
+    A.forEach((a, i) => { const d = (px(a) - q.x) ** 2 + (py(a) - q.y) ** 2; if (d < bd) { bd = d; best = i; } });
+    if (best < 0) return hideTip();
+    const a = A[best], c = a.c >= 0 ? C[a.c] : null;
+    showTip(e, `<b>${esc(a.title)}</b><div class="m">${fmtT(a.t)} · ${a.source}</div>` +
+      (c ? `<div class="m">Sự kiện: ${esc(c.name)} (${c.members.length} bài)</div>` : `<div class="m">Bài bị loại (tổng hợp)</div>`));
+  });
+  map.addEventListener("mouseleave", hideTip);
+  map.addEventListener("click", (e) => {
+    const pt = map.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const q = pt.matrixTransform(map.getScreenCTM().inverse());
+    let best = -1, bd = 14 * 14;
+    A.forEach((a, i) => { const d = (px(a) - q.x) ** 2 + (py(a) - q.y) ** 2; if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { hideTip(); selectArticle(best); }
+  });
+  map.style.cursor = "pointer";
+
+  const multi = C.map((c, i) => [c, i]).filter(([c]) => c.members.length >= 2);
+  function renderList() {
+    const terms = fold($("q").value).split(/\s+/).filter(Boolean);
+    const box = $("clist"); box.replaceChildren();
+    for (const [c, i] of multi) {
+      if (terms.length && !terms.every((t) => fold(c.name).includes(t))) continue;
+      const r = document.createElement("div");
+      r.className = "row" + (i === selected ? " on" : ""); r.dataset.c = i;
+      r.innerHTML = `<div class="nm">${esc(c.name)}</div><div class="mt">${c.members.length} bài · ${c.sources} báo${c.low ? " · Claude không chắc" : ""}</div>`;
+      r.onclick = () => select(i, -1, true);
+      box.append(r);
+    }
+  }
+  $("q").addEventListener("input", renderList);
+  renderList();
+
+  // ---------------------------------------------------------------- 2. dòng thời gian
+  (() => {
+    const box = $("timeline"), t0 = Date.parse("2026-09-14T00:00:00+07:00"), t1 = t0 + 48 * 3600e3, W = 720, L = 4, R = 4;
+    const x = (t) => L + (W - L - R) * (Date.parse(t) - t0) / (t1 - t0);
+    const axis = svg("svg", { viewBox: `0 0 ${W} 22`, width: "100%" });
+    for (let h = 0; h <= 48; h += 6) {
+      const xx = L + (W - L - R) * h / 48;
+      svg("text", { x: xx, y: 14, "text-anchor": h === 0 ? "start" : h === 48 ? "end" : "middle" }, axis).textContent =
+        h % 24 === 0 ? `${14 + h / 24}/09 00h` : `${h % 24}h`;
+    }
+    box.append(axis);
+    C.slice(0, 15).forEach((c, ci) => {
+      const row = document.createElement("div");
+      row.className = "row"; row.dataset.c = ci;
+      row.innerHTML = `<div class="nm">${esc(c.name)}</div><div class="mt">${c.members.length} bài · ${c.sources} báo</div>`;
+      const s = svg("svg", { viewBox: `0 0 ${W} 22`, width: "100%" });
+      for (let h = 0; h <= 48; h += 6) { const xx = L + (W - L - R) * h / 48; svg("line", { x1: xx, x2: xx, y1: 0, y2: 22, stroke: "var(--grid)" }, s); }
+      svg("line", { x1: L, x2: W - R, y1: 11, y2: 11, stroke: "var(--axis)" }, s);
+      for (const i of c.members) {
+        const a = A[i], dot = svg("circle", { cx: x(a.t), cy: 11, r: 4.5, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2 }, s);
+        const hit = svg("circle", { cx: x(a.t), cy: 11, r: 9, fill: "transparent" }, s);
+        hit.addEventListener("mousemove", (e) => showTip(e, `<b>${esc(a.title)}</b><div class="m">${fmtT(a.t)} · ${a.source}</div>`));
+        hit.addEventListener("mouseleave", hideTip);
+        hit.addEventListener("click", (e) => { e.stopPropagation(); hideTip(); selectArticle(i); });
+        hit.style.cursor = "pointer";
+        void dot;
+      }
+      row.append(s);
+      row.onclick = () => select(ci, -1, true);
+      box.append(row);
+    });
+  })();
+  select(0);
+
+  // ---------------------------------------------------------------- 4. nối cặp: P/R/F1 và cụm lớn nhất
+  (() => {
+    const s = $("sweep"), S = D.sweep, W = 720, H = 300, L = 44, R = 92, T = 14, B = 34;
+    const xs = (th) => L + (W - L - R) * (th - S[0].threshold) / (S[S.length - 1].threshold - S[0].threshold);
+    const ys = (v) => T + (H - T - B) * (1 - v);
+    for (let g = 0; g <= 1.0001; g += 0.25) {
+      svg("line", { x1: L, x2: W - R, y1: ys(g), y2: ys(g), stroke: "var(--grid)" }, s);
+      svg("text", { x: L - 8, y: ys(g) + 4, "text-anchor": "end" }, s).textContent = dec(g);
+    }
+    S.forEach((r, i) => { if (i % 2 === 0) svg("text", { x: xs(r.threshold), y: H - 12, "text-anchor": "middle" }, s).textContent = dec(r.threshold, 3); });
+    const series = [["precision", "--s1", "Precision"], ["recall", "--s2", "Recall"], ["f1", "--s3", "F1"]];
+    const ends = series.map(([key, col, name]) => {
+      svg("polyline", { points: S.map((r) => `${xs(r.threshold)},${ys(r[key])}`).join(" "), fill: "none", stroke: `var(${col})`,
+        "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, s);
+      const last = S[S.length - 1];
+      svg("circle", { cx: xs(last.threshold), cy: ys(last[key]), r: 4, fill: `var(${col})`, stroke: "var(--surface)", "stroke-width": 2 }, s);
+      return { y: ys(last[key]), name: `${name} ${dec(last[key])}` };
+    });
+    ends.sort((a, b) => a.y - b.y);                                     // nhãn đầu mút, tránh chồng nhau
+    for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 15);
+    for (const e of ends) svg("text", { x: W - R + 10, y: e.y + 4, class: "ink" }, s).textContent = e.name;
+    const best = S.reduce((a, b) => (b.f1 > a.f1 ? b : a));
+    svg("line", { x1: xs(best.threshold), x2: xs(best.threshold), y1: T, y2: H - B, stroke: "var(--axis)" }, s);
+    svg("text", { x: xs(best.threshold), y: H - B - 8, "text-anchor": "end", dx: -6, class: "ink" }, s).textContent =
+      `F1 cao nhất ${dec(best.f1)} ở ngưỡng ${dec(best.threshold, 3)}`;
+    const cross = svg("line", { y1: T, y2: H - B, stroke: "var(--muted)", visibility: "hidden" }, s);
+    const hit = svg("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" }, s);
+    hit.addEventListener("mousemove", (e) => {
+      const pt = s.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+      const q = pt.matrixTransform(s.getScreenCTM().inverse());
+      const r = S.reduce((a, b) => (Math.abs(xs(b.threshold) - q.x) < Math.abs(xs(a.threshold) - q.x) ? b : a));
+      cross.setAttribute("x1", xs(r.threshold)); cross.setAttribute("x2", xs(r.threshold)); cross.setAttribute("visibility", "visible");
+      showTip(e, `<b>Ngưỡng ${dec(r.threshold, 3)}</b><br>Precision ${dec(r.precision)} · Recall ${dec(r.recall)} · F1 ${dec(r.f1)}` +
+        `<div class="m">${fmt(r.n_clusters)} cụm · cụm lớn nhất ${fmt(r.largest)} bài</div>`);
+    });
+    hit.addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+
+    // cụm lớn nhất: cột đơn sắc, cùng trục ngưỡng
+    const g = $("largest"), H2 = 220, T2 = 18, B2 = 34, top = Math.ceil(Math.max(...S.map((r) => r.largest)) / 500) * 500;
+    const y2 = (v) => T2 + (H2 - T2 - B2) * (1 - v / top), band = (W - L - R) / (S.length - 1);
+    for (let v = 0; v <= top; v += top / 4) {
+      svg("line", { x1: L, x2: W - R, y1: y2(v), y2: y2(v), stroke: "var(--grid)" }, g);
+      svg("text", { x: L - 8, y: y2(v) + 4, "text-anchor": "end" }, g).textContent = fmt(v);
+    }
+    S.forEach((r) => {
+      const w = Math.min(24, band * 0.6), x0 = xs(r.threshold) - w / 2, yt = y2(r.largest), yb = y2(0), rr = Math.min(4, (yb - yt) / 2);
+      svg("path", { d: `M${x0},${yb} V${yt + rr} Q${x0},${yt} ${x0 + rr},${yt} H${x0 + w - rr} Q${x0 + w},${yt} ${x0 + w},${yt + rr} V${yb} Z`, fill: "var(--s1)" }, g);
+      svg("text", { x: xs(r.threshold), y: yt - 5, "text-anchor": "middle", class: "ink" }, g).textContent = fmt(r.largest);
+      const hit2 = svg("rect", { x: xs(r.threshold) - band / 2, y: T2, width: band, height: H2 - T2 - B2, fill: "transparent" }, g);
+      hit2.addEventListener("mousemove", (e) => showTip(e, `<b>Ngưỡng ${dec(r.threshold, 3)}</b><br>Cụm lớn nhất ${fmt(r.largest)} bài · ${fmt(r.n_clusters)} cụm`));
+      hit2.addEventListener("mouseleave", hideTip);
+    });
+    S.forEach((r, i) => { if (i % 2 === 0) svg("text", { x: xs(r.threshold), y: H2 - 12, "text-anchor": "middle" }, g).textContent = dec(r.threshold, 3); });
+    svg("line", { x1: L, x2: W - R, y1: y2(0), y2: y2(0), stroke: "var(--axis)" }, g);
+    $("sweep-t").innerHTML = "<tr><th>Ngưỡng</th><th>Precision</th><th>Recall</th><th>F1</th><th>Số cụm</th><th>Cụm lớn nhất</th></tr>" +
+      S.map((r) => `<tr><td>${dec(r.threshold, 3)}</td><td>${dec(r.precision)}</td><td>${dec(r.recall)}</td><td>${dec(r.f1)}</td><td>${fmt(r.n_clusters)}</td><td>${fmt(r.largest)}</td></tr>`).join("");
+  })();
+})();
+</script>
+</body>
+</html>

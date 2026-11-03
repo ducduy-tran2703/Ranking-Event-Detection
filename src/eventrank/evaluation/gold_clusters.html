@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gán cụm sự kiện</title>
+<style>
+:root {
+  --bg: #f6f6f3; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #deded8;
+  --accent: #2357c6; --accent-soft: #e6edfb; --ok: #1f7a46; --ok-soft: #e3f3e9;
+  --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #b3261e; --bad-soft: #fbe5e3; --kbd: #efefea;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --card: #20201e; --ink: #ecece8; --muted: #a2a29b; --line: #36362f;
+    --accent: #7ea4f5; --accent-soft: #23304d; --ok: #6cc893; --ok-soft: #1d3527;
+    --warn: #e6b45c; --warn-soft: #3a2e17; --bad: #f08a80; --bad-soft: #3d201d; --kbd: #2c2c28;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+input[type=text], input[type=number] { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 10px; }
+kbd { background: var(--kbd); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px;
+  font: 12px ui-monospace, monospace; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 12px 16px 40px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+header.bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+header.bar .grow { flex: 1; }
+.progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; min-width: 160px; flex: 1; }
+.progress > div { height: 100%; background: var(--ok); }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 14px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; color: var(--muted); }
+.title { font-size: 21px; font-weight: 650; line-height: 1.35; margin: 8px 0; }
+.sapo { margin: 0 0 8px; font-weight: 500; }
+.bodytxt { white-space: pre-line; font-size: 14px; max-height: 360px; overflow-y: auto; padding: 8px 12px; margin: 0 0 8px;
+  background: var(--bg); border-radius: 8px; border-left: 3px solid var(--line); }
+.peek { font-size: 13px; color: var(--muted); font-weight: 400; margin: 2px 0 2px 22px; }
+.detail { margin: 4px 0 8px 22px; font-weight: 400; cursor: default; }
+.detail .bodytxt { max-height: 260px; font-size: 13px; }
+.sumbox { background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; margin: 4px 0 10px; font-size: 14px; }
+.sumbox .lbl { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing: .02em; }
+.sumbox .sv { font-weight: 650; margin: 2px 0; }
+.sv-line { font-size: 13px; color: var(--accent); font-weight: 500; margin: 2px 0 2px 22px; }
+.terms { font-size: 12px; color: var(--accent); }
+.terms b { font-weight: 600; background: var(--accent-soft); border-radius: 4px; padding: 0 4px; margin-right: 3px; }
+.simnote { font-size: 12px; color: var(--muted); margin: -2px 0 8px; }
+button.more { border: 0; background: none; padding: 0 6px 0 0; color: var(--accent); font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.status { margin-top: 12px; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+.status.done { background: var(--ok-soft); color: var(--ok); }
+.status.todo { background: var(--warn-soft); color: var(--warn); }
+.status.x { background: var(--bad-soft); color: var(--bad); }
+h3 { margin: 18px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+h3:first-child { margin-top: 0; }
+.cand { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line);
+  border-radius: 10px; margin-bottom: 8px; cursor: pointer; background: var(--card); }
+.cand:hover { border-color: var(--accent); }
+.cand.chosen { border-color: var(--ok); background: var(--ok-soft); }
+.cand .num { font: 600 16px ui-monospace, monospace; color: var(--accent); text-align: center; padding-top: 2px; }
+.cand .head { font-size: 13px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.cand ul { margin: 4px 0 0; padding-left: 0; list-style: none; }
+.cand li { padding: 1px 0; }
+.cand li .t { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.cand li.via { font-weight: 600; }
+.sim { font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.banner { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+.guide { margin-top: 12px; }
+.guide table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.guide td, .guide th { border-top: 1px solid var(--line); padding: 6px 8px; vertical-align: top; text-align: left; }
+.setup { max-width: 640px; margin: 40px auto; }
+.setup label { display: block; margin: 12px 0 4px; font-weight: 600; }
+a { color: var(--accent); }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="setup" class="wrap setup">
+  <div class="card">
+    <h2 style="margin-top:0">Gán cụm sự kiện — tập vàng</h2>
+    <p class="muted small" id="setup-info"></p>
+    <label for="who">Tên người gán</label>
+    <input id="who" type="text" placeholder="vd. Hieu" style="width:100%">
+    <label>Đoạn được giao (số thứ tự bài, tính theo thời gian đăng)</label>
+    <div class="row">
+      từ <input id="from" type="number" min="1" style="width:110px"> đến <input id="to" type="number" min="1" style="width:110px">
+      <button id="preset-pilot" type="button">Gán thử: 1–100</button>
+      <button id="preset-all" type="button">Toàn bộ</button>
+    </div>
+    <p class="small muted">Gán thử: hai người gán <b>cùng</b> đoạn 1–100, <b>độc lập</b>, không xem bài của nhau. Gán thật: mỗi
+      người một đoạn liên tiếp (vd. 1–375, 376–750…).</p>
+    <div class="row" style="margin-top:14px">
+      <button id="start" class="primary" type="button">Bắt đầu / tiếp tục</button>
+      <label class="small" style="margin:0;font-weight:400"><input id="restore-file" type="file" accept=".csv" class="hidden">
+        <button type="button" id="restore-btn">Khôi phục từ CSV của tôi…</button></label>
+    </div>
+    <div id="setup-msg"></div>
+  </div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header class="bar">
+    <b id="who-show"></b>
+    <span id="pos" class="muted small"></span>
+    <div class="progress"><div id="prog"></div></div>
+    <span id="count" class="small"></span>
+    <span class="grow"></span>
+    <button id="btn-guide" type="button" title="Hướng dẫn (H)">Hướng dẫn <kbd>H</kbd></button>
+    <button id="btn-export" type="button" class="primary">Xuất CSV</button>
+    <button id="btn-ctx" type="button" title="Nạp CSV của người gán đoạn TRƯỚC để thấy cụm của họ">Nạp nhãn người khác…</button>
+    <input id="ctx-file" type="file" accept=".csv" multiple class="hidden">
+    <button id="btn-setup" type="button">Đổi người / đoạn</button>
+  </header>
+  <div id="banners"></div>
+  <div id="guide" class="card guide hidden"></div>
+
+  <div class="grid">
+    <section>
+      <div class="card">
+        <div class="meta" id="cur-meta"></div>
+        <div class="title" id="cur-title"></div>
+        <div class="sumbox hidden" id="cur-sum"></div>
+        <p class="sapo" id="cur-sapo"></p>
+        <div class="bodytxt" id="cur-body"></div>
+        <a id="cur-url" target="_blank" rel="noopener" class="small">Mở bài gốc ↗</a>
+        <div id="cur-status"></div>
+        <div class="actions">
+          <button id="btn-new" type="button">Sự kiện mới <kbd>N</kbd></button>
+          <button id="btn-x" type="button" title="Bài tổng hợp nhiều tin, hoặc không hiểu được">Loại <kbd>X</kbd></button>
+          <label class="row small" style="gap:4px"><input id="unsure" type="checkbox"> Không chắc <kbd>U</kbd></label>
+        </div>
+        <div class="actions">
+          <button id="btn-prev" type="button">← Bài trước</button>
+          <button id="btn-next" type="button">Bài sau →</button>
+          <button id="btn-first-todo" type="button">Đến bài chưa gán</button>
+        </div>
+      </div>
+      <p class="small muted" style="margin-top:10px">
+        Phím: <kbd>1</kbd>–<kbd>9</kbd> chọn cụm · <kbd>N</kbd> sự kiện mới · <kbd>X</kbd> loại · <kbd>U</kbd> không chắc ·
+        <kbd>←</kbd>/<kbd>→</kbd> bài trước/sau · <kbd>/</kbd> tìm · <kbd>H</kbd> hướng dẫn.
+        Chọn xong tự sang bài tiếp. Tiến độ tự lưu trong trình duyệt — vẫn nên <b>Xuất CSV</b> thường xuyên.
+      </p>
+    </section>
+
+    <section>
+      <div class="card">
+        <h3>Cụm gợi ý (giống về chữ, trong 48 giờ trước)</h3>
+        <p class="simnote">% = độ trùng chữ giữa tiêu đề + sapo (TF-IDF), <b>không</b> phải độ trùng nghĩa — đọc nội dung rồi mới
+          chọn. "Từ chung" = các từ làm hai bài giống nhau. Bấm ▸ để đọc thêm một bài.</p>
+        <div id="cands"></div>
+        <h3>Cụm gần đây</h3>
+        <div id="recent"></div>
+        <h3>Tìm cụm khác</h3>
+        <div class="row"><input id="q" type="text" placeholder="gõ vài từ (không cần dấu), Enter" style="flex:1">
+          <button id="btn-q" type="button">Tìm</button></div>
+        <div id="results" style="margin-top:8px"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+
+<script id="core">
+// Logic thuần (không đụng giao diện) — kiểm thử được bằng Node.
+const Core = (() => {
+  const NEW = -1, X = -2;
+  const fold = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+
+  // links: Map idx → (j ≥ 0 | NEW | X). Gốc của cụm = chỉ số NHỎ nhất (bài sớm nhất) → ổn định khi thêm bài sau.
+  function roots(n, links) {
+    const p = Array.from({ length: n }, (_, i) => i);
+    const find = (x) => { while (p[x] !== x) { p[x] = p[p[x]]; x = p[x]; } return x; };
+    for (const [i, j] of links) {
+      if (j >= 0) { const a = find(i), b = find(j); if (a !== b) { if (a < b) p[b] = a; else p[a] = b; } }
+    }
+    return Array.from({ length: n }, (_, i) => find(i));
+  }
+
+  // Thành viên của mỗi cụm: chỉ các bài đã gán (của mình hoặc người khác) hoặc bị trỏ tới.
+  function members(rootOf, links) {
+    const known = new Set();
+    for (const [i, j] of links) { if (j !== X) known.add(i); if (j >= 0) known.add(j); }
+    const m = new Map();
+    for (const i of [...known].sort((a, b) => a - b)) {
+      const r = rootOf[i];
+      if (!m.has(r)) m.set(r, []);
+      m.get(r).push(i);
+    }
+    return m;
+  }
+
+  const excluded = (links, j) => links.get(j) === X;
+
+  // Gom các bài gợi ý (j < i) theo cụm; mỗi cụm giữ độ giống cao nhất và bài khớp nhất.
+  function candidates(i, sug, rootOf, links, limit = 9) {
+    const best = new Map();
+    for (const [j, s, terms] of sug[i] || []) {
+      if (j >= i || excluded(links, j)) continue;
+      const r = rootOf[j];
+      if (!best.has(r) || best.get(r).sim < s) best.set(r, { root: r, sim: s, via: j, terms: terms || [] });
+    }
+    return [...best.values()].sort((a, b) => b.sim - a.sim).slice(0, limit);
+  }
+
+  // Cụm ≥ 2 bài có bài mới nhất nằm trong `lookback` bài ngay trước i, chưa có trong danh sách gợi ý.
+  function recent(i, rootOf, mem, skip, limit = 4, lookback = 40) {
+    const out = [], seen = new Set(skip);
+    for (let j = i - 1; j >= Math.max(0, i - lookback) && out.length < limit; j--) {
+      const r = rootOf[j];
+      if (seen.has(r) || !mem.has(r) || mem.get(r).length < 2 || !mem.get(r).includes(j)) continue;
+      seen.add(r);
+      out.push({ root: r, sim: null, via: j });
+    }
+    return out;
+  }
+
+  function search(q, i, folded, rootOf, links, skip, limit = 8) {
+    const terms = fold(q).split(/\s+/).filter(Boolean);
+    if (!terms.length) return [];
+    const out = [], seen = new Set(skip);
+    for (let j = i - 1; j >= 0 && out.length < limit; j--) {
+      if (excluded(links, j) || !terms.every((t) => folded[j].includes(t))) continue;
+      const r = rootOf[j];
+      if (seen.has(r)) continue;
+      seen.add(r);
+      out.push({ root: r, sim: null, via: j });
+    }
+    return out;
+  }
+
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = "", q = false;
+    text = text.replace(/^﻿/, "");
+    for (let k = 0; k < text.length; k++) {
+      const c = text[k];
+      if (q) {
+        if (c === '"') { if (text[k + 1] === '"') { cell += '"'; k++; } else q = false; } else cell += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[k + 1] === "\n") k++;
+        row.push(cell); cell = ""; if (row.some((v) => v !== "")) rows.push(row); row = [];
+      } else cell += c;
+    }
+    row.push(cell); if (row.some((v) => v !== "")) rows.push(row);
+    if (!rows.length) return [];
+    const head = rows[0];
+    return rows.slice(1).map((r) => Object.fromEntries(head.map((h, k) => [h, r[k] ?? ""])));
+  }
+
+  const esc = (v) => { v = String(v ?? ""); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const toCSV = (head, rows) => [head.join(","), ...rows.map((r) => head.map((h) => esc(r[h])).join(","))].join("\n") + "\n";
+
+  return { NEW, X, fold, roots, members, candidates, recent, search, parseCSV, toCSV };
+})();
+if (typeof module !== "undefined") module.exports = Core;
+</script>
+
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("data").textContent);
+  const A = D.articles, N = A.length, SUG = D.suggest;
+  const ID = new Map(A.map((a, i) => [a.id, i]));
+  const FOLD = A.map((a) => Core.fold(a.title + " " + a.sapo));
+  const $ = (id) => document.getElementById(id);
+  const KEY = (who) => `goldtool:${D.dataset}:${who}`;
+  const LAST = `goldtool:${D.dataset}:last`;
+  const HEAD = ["dataset", "annotator", "stt", "article_id", "link_to", "unsure", "labeled_at"];
+
+  // S.own: nhãn của mình {idx: {l, u, t}} · S.ctx: nhãn người khác ngoài đoạn của mình {idx: l}
+  let S = null, storageOK = true, view = [], pendingUnsure = false;
+  const OPEN = new Set();                       // bài trong thẻ gợi ý đang mở xem chi tiết
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { storageOK = false; return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { storageOK = false; } },
+  };
+  const save = () => { store.set(KEY(S.who), JSON.stringify(S)); store.set(LAST, S.who); };
+
+  function linksMap() {
+    const m = new Map();
+    for (const [i, l] of Object.entries(S.ctx)) m.set(+i, l);
+    for (const [i, v] of Object.entries(S.own)) m.set(+i, v.l);
+    return m;
+  }
+
+  const fmtT = (t) => `${t.slice(8, 10)}/${t.slice(5, 7)} ${t.slice(11, 16)}`;
+  const hoursBetween = (a, b) => (Date.parse(A[b].t) - Date.parse(A[a].t)) / 36e5;
+  const ago = (j, i) => { const h = hoursBetween(j, i); return h < 1 ? `${Math.round(h * 60)} phút trước` : `${Math.round(h)} giờ trước`; };
+  const el = (tag, attrs = {}, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); }
+    for (const k of kids) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+    return e;
+  };
+  const inRange = (i) => i >= S.from && i <= S.to;
+  const labeledCount = () => Object.keys(S.own).filter((i) => inRange(+i)).length;
+  const firstTodo = () => { for (let i = S.from; i <= S.to; i++) if (!(i in S.own)) return i; return S.to; };
+
+  // ---------------------------------------------------------------- màn hình bắt đầu
+  function showSetup(msg) {
+    $("app").classList.add("hidden"); $("setup").classList.remove("hidden");
+    $("setup-info").textContent = `${N} bài, từ ${fmtT(A[0].t)} đến ${fmtT(A[N - 1].t)} · mã bộ dữ liệu ${D.dataset}`;
+    const last = store.get(LAST);
+    const prev = last && JSON.parse(store.get(KEY(last)) || "null");
+    $("who").value = S?.who || prev?.who || "";
+    $("from").value = (S?.from ?? prev?.from ?? 0) + 1;
+    $("to").value = (S?.to ?? prev?.to ?? N - 1) + 1;
+    $("setup-msg").innerHTML = "";
+    if (msg) $("setup-msg").append(el("div", { class: "banner" }, msg));
+  }
+  $("preset-pilot").onclick = () => { $("from").value = 1; $("to").value = Math.min(100, N); };
+  $("preset-all").onclick = () => { $("from").value = 1; $("to").value = N; };
+  $("start").onclick = () => {
+    const who = $("who").value.trim().replace(/[^\p{L}\p{N}_-]+/gu, "_");
+    const from = Math.max(1, +$("from").value) - 1, to = Math.min(N, +$("to").value) - 1;
+    if (!who) return showSetup("Nhập tên người gán.");
+    if (!(from <= to)) return showSetup("Đoạn không hợp lệ.");
+    const saved = JSON.parse(store.get(KEY(who)) || "null");
+    S = saved || { who, own: {}, ctx: {}, exported: 0 };
+    S.who = who; S.from = from; S.to = to;
+    if (S.cur == null || !inRange(S.cur)) S.cur = firstTodo();
+    save(); startApp();
+  };
+  $("restore-btn").onclick = () => $("restore-file").click();
+  $("restore-file").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const rows = Core.parseCSV(await f.text());
+    const bad = rows.find((r) => r.dataset !== D.dataset);
+    if (!rows.length || bad) return showSetup(`File không thuộc bộ dữ liệu này (cần mã ${D.dataset}).`);
+    const who = rows[0].annotator;
+    const saved = JSON.parse(store.get(KEY(who)) || "null");
+    S = saved || { who, own: {}, ctx: {}, exported: 0 };
+    let n = 0;
+    for (const r of rows) {
+      const i = ID.get(r.article_id); if (i == null) continue;
+      const l = r.link_to === "x" ? Core.X : r.link_to ? ID.get(r.link_to) ?? null : Core.NEW;
+      if (l == null) continue;
+      S.own[i] = { l, u: r.unsure === "1" ? 1 : 0, t: r.labeled_at || new Date().toISOString() }; n++;
+    }
+    const idx = Object.keys(S.own).map(Number);
+    S.from = S.from ?? Math.min(...idx); S.to = S.to ?? Math.max(...idx);
+    S.from = Math.min(S.from, ...idx); S.to = Math.max(S.to, ...idx);
+    save(); showSetup(`Đã khôi phục ${n} nhãn của ${who}. Kiểm tra đoạn rồi bấm Bắt đầu.`);
+    e.target.value = "";
+  };
+
+  // ---------------------------------------------------------------- gán nhãn
+  function assign(l) {
+    const i = S.cur, links = linksMap();
+    const rootOf = Core.roots(N, links);
+    const pointing = [...links].filter(([k, j]) => j === i && k !== i).length;
+    if (l === Core.X && pointing) { alert(`Có ${pointing} bài đang nối vào bài này. Sửa các bài đó trước khi loại bài này.`); return; }
+    const changes = (i in S.own) && S.own[i].l !== l && !(l >= 0 && S.own[i].l >= 0 && rootOf[l] === rootOf[S.own[i].l]);
+    if (pointing && changes) {
+      if (!confirm(`Có ${pointing} bài khác đang nối vào bài này — đổi lựa chọn sẽ kéo cả các bài đó theo `
+        + `(gộp vào cụm mới chọn, hoặc tách ra thành cụm riêng). Tiếp tục?`)) return;
+    }
+    const u = (i in S.own) ? S.own[i].u : (pendingUnsure ? 1 : 0);
+    S.own[i] = { l, u, t: new Date().toISOString() };
+    pendingUnsure = false; OPEN.clear();
+    if (S.cur < S.to) S.cur++;
+    $("q").value = "";
+    save(); render();
+  }
+  const go = (i) => { S.cur = Math.max(S.from, Math.min(S.to, i)); pendingUnsure = false; OPEN.clear(); $("q").value = ""; $("results").innerHTML = ""; save(); render(); };
+
+  function exportCSV() {
+    const rows = Object.entries(S.own).map(([i, v]) => [+i, v]).sort((a, b) => a[0] - b[0]).map(([i, v]) => ({
+      dataset: D.dataset, annotator: S.who, stt: i + 1, article_id: A[i].id,
+      link_to: v.l === Core.X ? "x" : v.l === Core.NEW ? "" : A[v.l].id, unsure: v.u ? 1 : 0, labeled_at: v.t,
+    }));
+    const blob = new Blob(["﻿" + Core.toCSV(HEAD, rows)], { type: "text/csv;charset=utf-8" });
+    const a = el("a", { href: URL.createObjectURL(blob), download: `gan_cum_${S.who}_${S.from + 1}-${S.to + 1}_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "")}.csv` });
+    document.body.append(a); a.click(); a.remove();
+    S.exported = rows.length; save(); render();
+  }
+
+  $("ctx-file").onchange = async (e) => {
+    let n = 0, skipped = 0;
+    for (const f of e.target.files) {
+      for (const r of Core.parseCSV(await f.text())) {
+        if (r.dataset !== D.dataset) { skipped++; continue; }
+        const i = ID.get(r.article_id); if (i == null) continue;
+        if (inRange(i)) { skipped++; continue; }            // không nhìn nhãn người khác trong đoạn của mình (gán mù)
+        S.ctx[i] = r.link_to === "x" ? Core.X : r.link_to ? (ID.get(r.link_to) ?? Core.NEW) : Core.NEW; n++;
+      }
+    }
+    save(); render();
+    alert(`Đã nạp ${n} nhãn làm ngữ cảnh (bỏ qua ${skipped} dòng trong đoạn của bạn hoặc khác bộ dữ liệu).`);
+    e.target.value = "";
+  };
+
+  // ---------------------------------------------------------------- hiển thị
+  function clusterCard(n, c, i, rootOf, mem, chosenRoot) {
+    const ids = mem.get(c.root) || [c.root];
+    const sources = new Set(ids.map((j) => A[j].source));
+    const shown = [...new Set([c.via, ...ids.slice(-3).reverse()])].slice(0, 4);
+    const ul = el("ul");
+    for (const j of shown) {
+      const open = OPEN.has(j);
+      const li = el("li", { class: j === c.via ? "via" : "" },
+        el("button", { class: "more", type: "button", title: "Xem sapo và đoạn đầu nội dung bài này",
+          onclick: (e) => { e.stopPropagation(); if (open) OPEN.delete(j); else OPEN.add(j); render(); } }, open ? "▾" : "▸"),
+        el("span", { class: "t" }, `${fmtT(A[j].t)} · ${A[j].source}`), A[j].title);
+      if (A[j].summary) li.append(el("div", { class: "sv-line" }, `Sự việc: ${A[j].summary.su_viec}`));
+      if (open) {
+        li.append(el("div", { class: "detail", onclick: (e) => e.stopPropagation() },
+          A[j].summary ? el("div", { class: "peek", style: "margin-left:0" }, A[j].summary.tom_tat) : null,
+          el("div", { class: "peek", style: "margin-left:0" }, A[j].sapo || "(không có sapo)"),
+          el("div", { class: "bodytxt" }, A[j].body || "(không có nội dung)"),
+          el("a", { href: A[j].url || "#", target: "_blank", rel: "noopener", class: "small" }, "Mở bài gốc ↗")));
+      } else if (A[j].summary) {
+        li.append(el("div", { class: "peek" }, A[j].summary.tom_tat));       // đã có tóm tắt: gọn hơn sapo + nội dung
+      } else {
+        const cut = (t, n) => (t.length > n ? t.slice(0, n) + "…" : t);
+        if (A[j].sapo) li.append(el("div", { class: "peek" }, cut(A[j].sapo, 240)));
+        if (j === c.via && A[j].body) li.append(el("div", { class: "peek", style: "font-style:italic" }, cut(A[j].body.replace(/\n/g, " "), 400)));
+      }
+      ul.append(li);
+    }
+    if (ids.length > shown.length) ul.append(el("li", { class: "muted small" }, `… và ${ids.length - shown.length} bài khác`));
+    const head = el("div", { class: "head" },
+      el("span", {}, `${ids.length} bài · ${sources.size} báo`),
+      el("span", {}, `bài khớp: ${ago(c.via, i)}`));
+    if (c.sim != null) head.append(el("span", { class: "sim", title: "Độ trùng CHỮ (TF-IDF cosine) giữa tiêu đề + sapo của hai bài: từ hiếm chung nặng ký, từ phổ biến nhẹ ký. Không phải độ trùng nghĩa — thấp vẫn có thể cùng sự kiện (viết khác chữ), cao vẫn có thể khác sự kiện (giá vàng hai ngày)." }, `giống chữ ${Math.round(c.sim * 100)}%`));
+    if (c.terms && c.terms.length) head.append(el("span", { class: "terms" }, "từ chung: ", ...c.terms.map((t) => el("b", {}, t))));
+    else if (c.sim != null) head.append(el("span", { class: "terms", style: "color:var(--muted)" }, "chỉ trùng từ phổ biến"));
+    return el("div", { class: "cand" + (chosenRoot === c.root ? " chosen" : ""), onclick: () => assign(c.root) },
+      el("div", { class: "num" }, n <= 9 ? String(n) : "·"), el("div", {}, head, ul));
+  }
+
+  function render() {
+    const i = S.cur, a = A[i], links = linksMap();
+    const rootOf = Core.roots(N, links), mem = Core.members(rootOf, links);
+    const own = S.own[i];
+    const chosenRoot = own && own.l >= 0 ? rootOf[own.l] : null;
+    const done = labeledCount(), total = S.to - S.from + 1;
+
+    $("who-show").textContent = S.who;
+    $("pos").textContent = `Bài ${i - S.from + 1}/${total} của đoạn · STT ${i + 1}/${N}`;
+    $("prog").style.width = `${(100 * done / total).toFixed(1)}%`;
+    $("count").textContent = `đã gán ${done}/${total}`;
+
+    $("cur-meta").replaceChildren(el("span", {}, fmtT(a.t)), el("span", {}, a.source), el("span", {}, a.category));
+    $("cur-title").textContent = a.title;
+    if (a.summary) {
+      $("cur-sum").classList.remove("hidden");
+      $("cur-sum").replaceChildren(el("div", { class: "lbl" }, `TÓM TẮT (CLAUDE) · ${a.summary.dang_bai || ""}`),
+        el("div", { class: "sv" }, a.summary.su_viec), el("div", {}, a.summary.tom_tat));
+    } else $("cur-sum").classList.add("hidden");
+    $("cur-sapo").textContent = a.sapo || "(không có sapo)";
+    $("cur-body").textContent = a.body || "(không có nội dung)";
+    $("cur-body").scrollTop = 0;
+    $("cur-url").href = a.url || "#";
+    $("unsure").checked = own ? !!own.u : pendingUnsure;
+
+    let status;
+    if (!own) status = el("div", { class: "status todo" }, "Chưa gán");
+    else if (own.l === Core.X) status = el("div", { class: "status x" }, "Đã loại (bài tổng hợp / không hiểu được)");
+    else if (own.l === Core.NEW) {
+      const size = (mem.get(rootOf[i]) || [i]).length;
+      status = el("div", { class: "status done" }, size > 1 ? `Mở sự kiện mới — hiện có ${size - 1} bài sau nối vào` : "Mở sự kiện mới");
+    } else status = el("div", { class: "status done" }, `Cùng sự kiện với: ${A[own.l].title}`);
+    $("cur-status").replaceChildren(status);
+
+    // Đánh số liên tục: gợi ý → gần đây → kết quả tìm
+    const cands = Core.candidates(i, SUG, rootOf, links);
+    const shownRoots = cands.map((c) => c.root);
+    const rec = Core.recent(i, rootOf, mem, shownRoots);
+    const q = $("q").value;
+    const res = q ? Core.search(q, i, FOLD, rootOf, links, [...shownRoots, ...rec.map((c) => c.root)]) : [];
+    view = [...cands, ...rec, ...res];
+    let n = 0;
+    const fill = (box, list, empty) => {
+      box.replaceChildren();
+      if (!list.length) box.append(el("p", { class: "muted small" }, empty));
+      for (const c of list) box.append(clusterCard(++n, c, i, rootOf, mem, chosenRoot));
+    };
+    fill($("cands"), cands, "Không có bài nào trước đó giống về chữ — nhiều khả năng là sự kiện mới (N), hoặc thử tìm.");
+    fill($("recent"), rec, "Chưa có cụm nào ≥ 2 bài trong 40 bài gần nhất.");
+    fill($("results"), res, q ? "Không tìm thấy bài nào trước bài này khớp các từ đã gõ." : "");
+
+    $("btn-prev").disabled = i <= S.from;
+    $("btn-next").disabled = i >= S.to || !own;
+    const banners = [];
+    if (!storageOK) banners.push(el("div", { class: "banner bad" }, "Trình duyệt đang chặn lưu tự động — tiến độ sẽ MẤT khi đóng trang. Bấm Xuất CSV thường xuyên."));
+    if (done - (S.exported || 0) >= 50) banners.push(el("div", { class: "banner" }, `Đã gán thêm ${done - (S.exported || 0)} bài từ lần xuất CSV gần nhất — bấm Xuất CSV để sao lưu.`));
+    if (done === total) banners.push(el("div", { class: "banner" }, "Đã gán hết đoạn được giao. Bấm Xuất CSV và gửi file cho người điều phối."));
+    $("banners").replaceChildren(...banners);
+  }
+
+  function startApp() {
+    $("setup").classList.add("hidden"); $("app").classList.remove("hidden");
+    render(); window.scrollTo(0, 0);
+  }
+
+  $("btn-new").onclick = () => assign(Core.NEW);
+  $("btn-x").onclick = () => assign(Core.X);
+  $("unsure").onchange = (e) => { if (S.own[S.cur]) { S.own[S.cur].u = e.target.checked ? 1 : 0; save(); } else pendingUnsure = e.target.checked; };
+  $("btn-prev").onclick = () => go(S.cur - 1);
+  $("btn-next").onclick = () => go(S.cur + 1);
+  $("btn-first-todo").onclick = () => go(firstTodo());
+  $("btn-export").onclick = exportCSV;
+  $("btn-ctx").onclick = () => $("ctx-file").click();
+  $("btn-setup").onclick = () => showSetup();
+  $("btn-guide").onclick = () => $("guide").classList.toggle("hidden");
+  $("btn-q").onclick = () => render();
+  $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") render(); if (e.key === "Escape") { $("q").blur(); } });
+
+  document.addEventListener("keydown", (e) => {
+    if ($("app").classList.contains("hidden") || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") return;
+    const k = e.key.toLowerCase();
+    if (/^[1-9]$/.test(k) && view[+k - 1]) { assign(view[+k - 1].root); }
+    else if (k === "n") assign(Core.NEW);
+    else if (k === "x") assign(Core.X);
+    else if (k === "u") { $("unsure").checked = !$("unsure").checked; $("unsure").dispatchEvent(new Event("change")); }
+    else if (k === "arrowleft") { if (!$("btn-prev").disabled) go(S.cur - 1); }
+    else if (k === "arrowright") { if (!$("btn-next").disabled) go(S.cur + 1); }
+    else if (k === "/") { e.preventDefault(); $("q").focus(); }
+    else if (k === "h") $("guide").classList.toggle("hidden");
+    else return;
+    e.preventDefault();
+  });
+
+  $("guide").innerHTML = `
+    <b>Một cụm = các bài về CÙNG MỘT sự kiện tin tức</b> (mức 3 trong <code>docs/huong-dan-gan-4-muc.md</code>).
+    Với mỗi bài hỏi: <i>"Bài này kể về cùng một việc cụ thể với cụm nào đã có?"</i> — có thì chọn cụm, không thì <b>Sự kiện mới</b>.
+    Chỉ dùng tiêu đề, sapo, báo, giờ đăng; không tra Google.
+    <table>
+      <tr><th style="width:42%">Cùng cụm (cùng sự kiện)</th><th>KHÁC cụm</th></tr>
+      <tr><td>Khác báo, khác cách viết, khác khía cạnh của <b>chính việc đó</b> (con số, nhân chứng, phát biểu tại cùng buổi)</td>
+          <td>Hai <b>trận khác nhau</b> của cùng đội, cùng giải ("thắng Kuwait" ↔ "gặp Philippines")</td></tr>
+      <tr><td>Tin <b>trước</b> và tin <b>sau</b> cùng việc: "sắp thăm" ↔ "đã thăm", nhận định ↔ kết quả <b>cùng trận</b>, họp bắt đầu ↔ kết quả cùng cuộc họp</td>
+          <td>Hai diễn biến khác của cùng xung đột / đàm phán; các giai đoạn vụ án cách nhau vài tuần</td></tr>
+      <tr><td><b>Phản ứng trực tiếp</b> trong vài ngày: "vụ cháy 5 người chết" ↔ "lãnh đạo thăm nạn nhân vụ cháy"</td>
+          <td>Bài <b>phân tích / bình luận</b> chung ↔ tin cụ thể (bài phân tích thường là sự kiện mới riêng)</td></tr>
+      <tr><td>Các hoạt động <b>cùng một chuyến thăm / hội nghị / phiên toà / đợt tập trung</b> của cùng đoàn, cùng nhân vật (≤ ~7 ngày)</td>
+          <td>Cùng hội nghị / buổi lễ nhưng <b>chủ thể khác</b> (hai đoàn, hai doanh nghiệp được vinh danh); hai chặng ở hai nước</td></tr>
+      <tr><td>"X bị bắt" ↔ "X bị khởi tố" trong vài ngày</td>
+          <td>Chuỗi định kỳ khác ngày: "Giá vàng 14/9" ↔ "Giá vàng 15/9"; cùng khuôn tin khác đối tượng (điểm chuẩn hai trường)</td></tr>
+    </table>
+    <p><b>Loại (X)</b>: bài tổng hợp nhiều tin ("Tin tức thế giới 14/9: …", "Thời sự 24h", "Kết quả bóng đá hôm nay"), hoặc không hiểu được bài nói gì.
+    <b>Không chắc (U)</b>: vẫn chọn phương án bạn thấy hợp lý nhất, đánh dấu để bàn lại.
+    Phát hiện hai cụm thật ra là một: quay lại bài <b>đầu</b> của cụm sau, chọn cụm trước → hai cụm được gộp.</p>
+    <p><b>Tóm tắt (Claude)</b> — khung xanh dưới tiêu đề và dòng "Sự việc" trong thẻ gợi ý — do Claude viết từ toàn văn,
+    TỪNG bài riêng lẻ (Claude không cho biết bài nào cùng sự kiện). Dùng để đọc nhanh; quyết định cùng/khác sự kiện vẫn là của
+    bạn, và nếu tóm tắt có vẻ sai thì tin nội dung bài.</p>
+    <p>Chưa rõ? Đọc đoạn đầu nội dung bài đang gán (khung xám, cuộn được); bấm <b>▸</b> cạnh một bài trong thẻ gợi ý để xem sapo
+    và nội dung bài đó; vẫn chưa đủ thì "Mở bài gốc".</p>
+    <p class="muted small">Gợi ý chỉ dựa trên độ giống về chữ (TF-IDF), không phải mô hình — đừng tin gợi ý, đọc rồi mới chọn.
+    Nhiều bài là tin riêng một báo: không có gợi ý khớp → <b>N</b>.</p>`;
+
+  showSetup();
+  const last = store.get(LAST);
+  if (last && store.get(KEY(last))) $("setup-msg").append(el("div", { class: "banner" }, `Có tiến độ đã lưu của "${last}" — bấm Bắt đầu / tiếp tục.`));
+})();
+</script>
+</body>
+</html>
