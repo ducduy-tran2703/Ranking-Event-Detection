@@ -302,6 +302,14 @@ class SilverStore:
         """, params + [page_size, (page - 1) * page_size])
         return {"total": total, "page": page, "page_size": page_size, "items": items}
 
+    def urls(self, article_ids: list[str]) -> dict[str, str]:
+        """article_id → url cho một nhóm bài (trang chi tiết sự kiện), một truy vấn."""
+        if not article_ids:
+            return {}
+        rows = self._q("SELECT article_id, url FROM articles WHERE article_id IN (SELECT unnest(?::VARCHAR[]))",
+                       [list(article_ids)])
+        return {r["article_id"]: r["url"] for r in rows if r["url"]}
+
     def get_article(self, article_id: str) -> dict[str, Any] | None:
         rows = self._q("""
             SELECT article_id, url, source, source_raw, category, title, sapo, author,
