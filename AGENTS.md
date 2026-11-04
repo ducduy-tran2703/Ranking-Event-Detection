@@ -61,6 +61,9 @@ make types           # sinh lại kiểu TypeScript sau khi sửa apps/api/schem
 make embed           # embedding ngữ nghĩa cho nhãn yếu (tải mô hình ~135 MB lần đầu)
 make weak-labels     # sinh nhãn yếu → data/weak_labels/v3/ (cần data/lake/{gold,silver} và make embed trước)
 make agreement       # đo đồng thuận nhãn người ↔ nhãn LLM (Cohen's κ)
+make db-migrate      # áp migration Postgres (infra/db/migrations/) vào DATABASE_URL
+make ingest-status   # tình trạng từng báo trong Postgres (crawler: docs/handoff/ingest.md)
+make test-db         # test cần Postgres (TEST_DATABASE_URL), thiếu biến thì skip
 ```
 
 | Địa chỉ | Là gì |

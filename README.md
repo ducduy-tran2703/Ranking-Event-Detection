@@ -22,10 +22,15 @@ make dev                      # backend :8000 + web React :5173
 pipeline trong `data/runs/` (`make pipeline`), rồi `make build && make prod` → http://127.0.0.1:8000/trending. Chọn lần chạy
 bằng `EVENTS_RUN_DIR`; tên sự kiện 14–15/09 mặc định bị ẩn (`EVENTS_HIDE_NAMES_WINDOW`, xem docs/tong-hop.md mục 11.3).
 
+**Postgres + tầng Thu thập** (giai đoạn 1 của bản chạy liên tục): bảng bài báo/lần cào/đồng hồ, nạp Silver
+(`make ingest-import`), phát lại Silver thay crawler (`make ingest-replay`), theo dõi (`make ingest-status`). Người viết
+crawler đọc [docs/handoff/ingest.md](docs/handoff/ingest.md).
+
 Gõ `make` để xem mọi lệnh. Triển khai cho cả nhóm truy cập qua domain: [docs/tong-hop.md](docs/tong-hop.md) mục 11.4.
 
 ## Test
 
 ```bash
 make test                     # test Python (dữ liệu mẫu, không gọi mạng) + lint + kiểm tra kiểu web
+make test-db                  # test cần Postgres (đặt TEST_DATABASE_URL; không có thì tự bỏ qua)
 ```

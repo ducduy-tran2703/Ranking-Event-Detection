@@ -310,6 +310,23 @@ models/<tên>/<phiên bản>/…
 Thêm Bronze (sửa parser chạy lại được), chia Silver theo ngày đăng thành nhiều file (thêm dữ liệu = thêm file, không ghi
 đè), tên file có uuid, snapshot đóng băng. Giữ JSONL được tới vài trăm MB rồi mới cân nhắc Parquet.
 
+**Lớp Postgres cho hệ thống chạy liên tục (HIỆN TRẠNG từ 04/11/2026, giai đoạn 1).** Postgres là nơi lưu chính của bản
+"web chạy như thật" (cào liên tục → embedding → gom cụm tăng dần → đặt tên → xu hướng → API). Giai đoạn 1 mới có tầng Thu
+thập; R2 Silver vẫn là kho chung của nhóm ML và không đổi. Hướng dẫn cho người viết crawler: `docs/handoff/ingest.md`.
+
+| Bảng (`infra/db/migrations/001_ingest.sql`) | Khoá | Nội dung |
+|---|---|---|
+| `sources` | `source` | tên hiển thị, homepage, `enabled`, `crawler` ("module:Lớp"), ghi chú — nạp từ `configs/sources.yaml` |
+| `articles` | `article_id` (char 64 = sha256(url)); `url` UNIQUE | 9 trường hợp đồng 5.3 + `crawled_at` (lần đầu, không đổi), `updated_at`, `ingested_via` (`import_jsonl` / `replay` / `crawler:<tên>`), `parser_version`, `content_hash`, `quality_flags text[]`, `dup_group_id` (NULL, đánh dấu không xoá). Chỉ mục `published_at`, `(source, published_at)`, `updated_at` |
+| `crawl_runs` | `run_id` | mỗi lần một crawler/import chạy cho một báo: giờ, `status` running/ok/failed/blocked, `n_seen/new/updated/unchanged/rejected`, `reject_reasons`, `error` — chống "crawler chết âm thầm" |
+| `app_clock` | một dòng | `mode` real/replay, `sim_now`, `speed`; hàm `app_now()` = "bây giờ" của hệ thống (giai đoạn 2 worker/API đọc ở đây) |
+| `schema_migrations` | tên file | sha256 + thời điểm áp; file đã áp bị sửa → báo lỗi |
+
+Chỉ dùng Postgres ≥ 14, **không pgvector** (vector giai đoạn 2 lưu `bytea`). Migration = SQL thuần đánh số, không ORM.
+Ghi idempotent (`INSERT … ON CONFLICT (article_id)`, chỉ UPDATE khi `content_hash` đổi). Đo 04/11/2026 (Postgres 18 tạm):
+`import-jsonl` toàn bộ Silver ở máy = 28.725 bài ghi / 21 loại (`published_at` rỗng, đều Thanh Niên) trong 8,3 s, bảng
+`articles` 96 MB; chạy lại = 0 bài mới. Cờ: `missing_author` 2.195, `no_body` 183, `short_body` 146, `missing_sapo` 8.
+
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
 | Trường | Kiểu | Bắt buộc | Quy tắc | Thực tế 19/09 |
@@ -323,6 +340,13 @@ Thêm Bronze (sửa parser chạy lại được), chia Silver theo ngày đăng
 | `author` | chuỗi \| `null` | — | không có thì `null`, **không ghi chuỗi rỗng** | vietnamnet 100% · nhandan 96,3% · vnexpress 93,4% · baochinhphu 73,6% |
 | `published_at` | ISO 8601 | ✅ | **bắt buộc có múi giờ** (`+07:00`) | 100% |
 | `content_text` | chuỗi | ✅ | thân bài văn bản thuần | ~99,5–100% |
+
+**Kiểm tra khi ghi vào Postgres** (`src/eventrank/ingest/contract.py`, mọi đường vào DB đều qua đây): `article_id` tính lại
+từ `url` và phải khớp; `url` bắt buộc `https://`; `source` viết thường và phải có trong bảng `sources`; `title`, `category`
+bắt buộc; `published_at` bắt buộc **có múi giờ** (thiếu/không múi giờ → loại bài, đếm lý do); NFC + bỏ khoảng trắng thừa;
+`author` rỗng → `null`. Sapo/thân bài rỗng, bài ngắn, thiếu tác giả, ngày tương lai → **gắn cờ** `quality_flags`
+(`missing_sapo`, `no_body`, `short_body` 1–79 từ, `missing_author`, `future_date` > hiện tại 1 giờ), không loại.
+⚠ Văn bản trong DB đã NFC: offset NER Gold (tính trên Silver gốc) lệch với 264 trường NFD của kho hiện tại.
 
 **Người đọc tự chuẩn hoá** (`src/eventrank/lake/reader.py`, chỉ là lưới an toàn): `source` → thường; `author` rỗng → `null`;
 `published_at` nhóm theo **giờ Việt Nam**; tính thêm `n_words`, `title_words`.
@@ -1057,6 +1081,19 @@ LAKE_LOCAL_ROOT=tests/fixtures make dev` (5 bài mẫu). Chỉ chạy lại `mak
 | `make weak-labels` | Sinh nhãn yếu → `data/weak_labels/v3/` |
 | `make agreement` | Cohen's κ nhãn người ↔ nhãn LLM |
 | `make tunnel` | Cloudflare Tunnel tạm thời |
+| `make db-up` / `make db-down` | Postgres 16 bằng Docker ở `127.0.0.1:5433` (chỉ khi máy chưa có Postgres; cần `POSTGRES_PASSWORD`) |
+| `make db-migrate` / `make db-status` | Áp / xem migration `infra/db/migrations/` vào `DATABASE_URL` |
+| `make ingest-import` | Nạp Silver JSONL ở máy (`SILVER_GLOB`) vào Postgres, idempotent |
+| `make ingest-replay` | Phát lại Silver theo đồng hồ giả lập vào DB riêng `REPLAY_DATABASE_URL` (`REPLAY_START`, `REPLAY_SPEED`, `ARGS`) |
+| `make ingest-status` | Mỗi báo: lần cào cuối, bài mới 1h/24h, lỗi gần nhất; đồng hồ |
+| `make test-db` | Chỉ test cần Postgres (`TEST_DATABASE_URL`, role có `CREATEDB`); thiếu biến → skip |
+
+**Postgres (từ 04/11/2026, cho hệ thống chạy liên tục — chưa bắt buộc cho web demo hiện tại).** Máy có Postgres cài sẵn
+(`sudo apt install postgresql`, cổng 5432): tạo một lần `sudo -u postgres psql -c "CREATE ROLE eventrank LOGIN CREATEDB
+PASSWORD '<mật khẩu>'"`, `sudo -u postgres createdb -O eventrank eventrank` (và `eventrank_replay` cho replay). Không có thì
+`make db-up` (Docker, cổng 5433). Đặt `DATABASE_URL`, `REPLAY_DATABASE_URL`, `TEST_DATABASE_URL`, `CRAWLER_USER_AGENT` trong
+`.env` (mẫu ở `.env.example`) rồi `make db-migrate`. CLI đầy đủ: `uv run --group embed python -m eventrank.ingest --help`
+(`sources sync`, `import-jsonl`, `run --source X`, `replay`, `status`, `clock`). Chi tiết: `docs/handoff/ingest.md`.
 
 | Địa chỉ | Là gì |
 |---|---|
