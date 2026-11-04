@@ -105,3 +105,72 @@ tbody tr:hover { background: var(--hover); }
 .note li { margin-bottom: 6px; }
 .note li > div { margin: 3px 0; }
 .note p { margin: 10px 0 0; }
+
+/* ---- web demo sự kiện ---- */
+/* hai mục demo: chữ đậm + vạch ngăn với nhóm trang kiểm soát dữ liệu; mục ĐANG CHỌN vẫn chỉ nhận ra bằng nền */
+.topbar nav a.featured { color: var(--text); font-weight: 600; }
+.topbar nav a.featured + a:not(.featured) { margin-left: 8px; position: relative; }
+.topbar nav a.featured + a:not(.featured)::before { content: ""; position: absolute; left: -6px; top: 7px; bottom: 7px;
+                                                    border-left: 1px solid var(--border); }
+.badge.neutral { background: var(--hover); color: var(--muted); border: 1px solid var(--border); }
+.small { font-size: 12px; }
+.empty { padding: 18px; text-align: center; color: var(--muted); background: var(--card);
+         border: 1px dashed var(--border); border-radius: 10px; }
+.event-notice { display: flex; flex-wrap: wrap; gap: 4px 0; font-size: 12.5px; color: var(--warn);
+                background: var(--warn-bg); border-radius: 8px; padding: 6px 12px; margin-bottom: 14px; }
+.event-notice > span:not(:last-child)::after { content: "·"; margin: 0 8px; color: var(--muted); }
+.warn-text { color: var(--warn); font-size: 13px; }
+.replay { display: flex; flex-direction: column; gap: 10px; }
+.replay-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.replay-row label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.replay-now { font-size: 13.5px; }
+.slider { width: 100%; accent-color: var(--accent); padding: 0; border: 0; background: transparent; }
+.strip svg { display: block; width: 100%; height: 34px; cursor: pointer; }
+.strip-label { margin-top: 2px; min-height: 1.4em; }
+table.trend .rank { font-weight: 700; width: 2.5em; }
+table.trend .event-name { font-weight: 600; text-decoration: none; }
+table.trend.is-stale { opacity: .6; }
+.show-sm { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { font-size: 12.5px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; }
+.event-detail h1 { line-height: 1.35; }
+.event-detail h1 .badge { vertical-align: middle; }
+.event-articles { list-style: none; margin: 0; padding: 0; }
+.event-articles li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.event-articles li:last-child { border-bottom: 0; }
+.event-articles .meta { margin: 0 0 2px; }
+
+@media (max-width: 640px) {
+  .topbar, .status-bar { padding-left: 12px; padding-right: 12px; }
+  main { padding: 14px 12px 48px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .hide-sm { display: none; }
+  .show-sm { display: block; }
+  th, td { padding: 6px 6px; }
+  .replay-row button { padding: 6px 9px; }
+}
+/* chú thích nhỏ dưới KPI: không kế thừa khung của khối .note giải thích ở trên */
+.kpi .note { padding: 0; border: 0; background: none; }
+
+/* điện thoại hẹp: menu một dòng cuộn ngang, thanh trạng thái gọn → bảng hiện cao hơn */
+@media (max-width: 480px) {
+  .topbar { flex-wrap: nowrap; gap: 10px; padding: 6px 12px; }
+  .brand { font-size: 14px; white-space: nowrap; }
+  .topbar nav { flex-wrap: nowrap; overflow-x: auto; min-width: 0; scrollbar-width: none; }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar nav a { white-space: nowrap; padding: 5px 8px; }
+  .status-bar { padding: 4px 12px; gap: 6px; font-size: 11.5px; flex-wrap: nowrap; }
+  .status-bar.stale { flex-wrap: wrap; }
+  .status-info { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-actions button { padding: 3px 8px; font-size: 12px; white-space: nowrap; }
+  h1 { font-size: 19px; margin-bottom: 10px; }
+  .event-notice { font-size: 11.5px; padding: 4px 10px; margin-bottom: 10px; }
+  .card { padding: 12px; margin-bottom: 12px; }
+  .replay { gap: 6px; }
+  .replay-row { gap: 5px; }
+  .replay-row button { padding: 4px 8px; font-size: 13px; }
+  .replay-row label { flex-direction: row; align-items: center; gap: 4px; }
+  .replay-row input, .replay-row select { padding: 3px 5px; }
+  .strip svg { height: 26px; }
+  .strip-label { display: none; }
+}
