@@ -115,6 +115,9 @@ db-migrate: ## Áp migration infra/db/migrations/ vào DATABASE_URL (chạy lạ
 db-status: ## Migration nào đã áp / chưa áp / bị sửa
 	uv run --group embed python -m eventrank.common.db status
 
+db-import-run: ## Nạp một lần chạy pipeline (data/runs/<run_id>/, mặc định mới nhất) vào bảng sự kiện (ARGS="<run_dir> --replace")
+	uv run --group embed python -m eventrank.serving.db_import $(ARGS)
+
 ingest-import: ## Nạp Silver JSONL có sẵn vào DATABASE_URL (idempotent; SILVER_GLOB=…)
 	$(INGEST) import-jsonl '$(SILVER_GLOB)'
 
@@ -132,4 +135,4 @@ tunnel: ## Mở trang ra Internet qua Cloudflare Tunnel tạm thời (cần cài
 	cloudflared tunnel --url http://127.0.0.1:$(API_PORT)
 
 .PHONY: help install check-env api web dev types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline \
-	db-up db-down db-migrate db-status ingest-import ingest-replay ingest-status test-db
+	db-up db-down db-migrate db-status db-import-run ingest-import ingest-replay ingest-status test-db

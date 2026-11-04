@@ -100,3 +100,21 @@ def test_thong_ke_source_kem_ten_thu_muc_tren_kho(store):
     assert rows["BAOCHINHPHU"]["folder"] == "baochinhphu"   # thư mục đúng, chỉ sai chữ hoa
     assert rows["BAOCHINHPHU"]["source"] == "baochinhphu"
     assert rows["vnexpress"]["folder"] == "vnexpress"
+
+
+def test_co_thieu_sapo_dem_ca_rong_lan_khoang_trang(tmp_path):
+    """Cờ `missing_sapo` (trang Chất lượng dữ liệu): sapo null, rỗng hoặc chỉ khoảng trắng đều bị đếm."""
+    from eventrank.common.config import LakeConfig
+    from eventrank.lake.reader import SilverStore
+
+    d = tmp_path / "silver" / "tuoitre"
+    d.mkdir(parents=True)
+    rows = [{"article_id": "s1", "url": "u1", "source": "tuoitre", "title": "A", "sapo": None},
+            {"article_id": "s2", "url": "u2", "source": "tuoitre", "title": "B", "sapo": "  "},
+            {"article_id": "s3", "url": "u3", "source": "tuoitre", "title": "C", "sapo": "Có sapo"}]
+    (d / "x.jsonl").write_text("\n".join(__import__("json").dumps(r) for r in rows), encoding="utf-8")
+    s = SilverStore(LakeConfig(backend="local", bucket="", silver_glob="silver/*/*.jsonl",
+                               local_root=str(tmp_path)))
+    s.reload()
+    assert s.quality()["issues_per_source"][0]["missing_sapo"] == 2
+    assert {i["article_id"] for i in s.list_articles(Filters(issue="missing_sapo"))["items"]} == {"s1", "s2"}

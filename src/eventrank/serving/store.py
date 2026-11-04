@@ -28,6 +28,13 @@ vẫn có trong danh sách bài.
 nền (tính lại từ `bai_su_kien.csv` của run như bước trend đã làm; so với `manifest.steps.trend.baseline_hour`). Mốc theo
 lưới của run (start + k·step). Không phải ứng viên tại t (không có bài trong 3h, hoặc < min_so_bai bài) → điểm 0, như cách
 bước trend cộng `tong_diem`.
+
+**Chuyên mục chính của sự kiện** (`chuyen_muc_chinh` trong API): chuyên mục gặp nhiều nhất trong các bài, sau khi gộp cách viết khác nhau giữa các
+báo (`norm_category`: "Khoa học - Công Nghệ" = "Khoa học - Công nghệ", "Y Tế" → "Sức khỏe", "Quốc Tế" → "Thế giới").
+
+**Bản đồ 2D một ngày** (`ban_do/<YYYY-MM-DD>.json` trong thư mục run, sinh bằng `python -m eventrank.evaluation.event_map`):
+file chỉ chứa toạ độ + event_id, KHÔNG chứa tên; `event_map` ghép tên ĐANG HIỂN THỊ (`Event.ten`) lúc phục vụ. Ngày giao cửa
+sổ ẩn tên bị từ chối (`HiddenDateError`), kể cả khi file tồn tại.
 """
 from __future__ import annotations
 
@@ -41,7 +48,7 @@ import time
 import unicodedata
 from bisect import bisect_right
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -63,7 +70,25 @@ NEAR_DUP_JACCARD = 0.6
 (kiểm tra độc lập ước 18 vì bỏ các tên ẩn vốn là đoạn trích tiêu đề bài; ở đây giữ cả chúng cho chắc). Chỉ số khác —
 |A ∩ B| / |B| (tỉ lệ âm tiết của tên ẩn có trong tên hiển thị) — cùng ngưỡng ẩn tới 116 sự kiện, phần lớn chỉ chung chủ
 đề, nên không dùng."""
-SORTS = ("hot", "newest", "size")
+SORTS = ("hot", "newest", "size", "first_seen")
+DEFAULT_MIN_SOURCES_24H = 4
+DEFAULT_MIN_ARTICLES_24H = 20
+"""Mốc mặc định của bảng xu hướng = mốc MUỘN NHẤT mà bảng có ≥ `latest_min_candidates` sự kiện VÀ ≥ DEFAULT_MIN_SOURCES_24H
+báo, mỗi báo ≥ DEFAULT_MIN_ARTICLES_24H bài, trong 24 giờ trước mốc. Lý do: kho Silver dừng không đều (VnExpress, VietnamNet ở
+16/09; Nhân Dân, Báo Chính phủ ở 18/09; 2 báo còn lại ở 19/09), nên luật cũ (chỉ cần ≥ 10 sự kiện) chọn 19/09 08:00 — ngày
+chỉ 145 bài của 2 báo, bảng nghèo (#1 điểm 2,0). Chỉ đếm "có ≥ 1 bài" thì 19/09 08:00 vẫn đạt 4 báo (vài bài tối 18/09 của
+Báo Chính phủ) nên cần ngưỡng số bài. Run v2 (đo 04/11/2026): (4 báo, ≥ 1 bài) → 19/09 08:00; (4, ≥ 20) → 18/09 22:00, bảng 20
+sự kiện; (5, ≥ 20) → 17/09 19:00; (6, ≥ 20) → 17/09 11:00. Đổi qua manifest `export.default_min_sources_24h` /
+`export.default_min_articles_24h`; 0 báo = tắt điều kiện."""
+MAP_DIR = "ban_do"                    # thư mục bản đồ 2D trong thư mục run (eventrank.evaluation.event_map)
+DEFAULT_MAP_DATE = "2026-09-10"       # ngày mặc định của trang "Trực quan gom cụm" (ngoài cửa sổ ẩn tên)
+SIZE_BINS = (("1 bài", 1, 1), ("2 bài", 2, 2), ("3–4", 3, 4), ("5–9", 5, 9), ("10–19", 10, 19), ("≥ 20", 20, 10**9))
+# Tên chuyên mục giữa các báo: khoá = fold(tên), giá trị = tên hiển thị chung. Không có trong bảng → viết hoa chữ đầu.
+CATEGORY_ALIASES = {
+    "chinh tri": "Chính trị", "du lich": "Du lịch", "giao duc": "Giáo dục", "kinh te": "Kinh tế",
+    "khoa hoc - cong nghe": "Khoa học – Công nghệ", "phap luat": "Pháp luật", "suc khoe": "Sức khỏe",
+    "y te": "Sức khỏe", "the gioi": "Thế giới", "quoc te": "Thế giới", "the thao": "Thể thao", "van hoa": "Văn hóa",
+}
 MAX_SERIES_POINTS = 24 * 21          # sự kiện dài nhất của run v2 ~60 giờ; chặn trên phòng run khác
 NO_RUN_MESSAGE = ("Chưa có kết quả pipeline sự kiện: chạy `make pipeline` (→ data/runs/<run_id>/) "
                   "hoặc đặt EVENTS_RUN_DIR rồi khởi động lại API.")
@@ -79,6 +104,14 @@ class HideWindowError(ValueError):
     """EVENTS_HIDE_NAMES_WINDOW sai cú pháp → phần sự kiện trả 503 (an toàn: không phục vụ tên nào)."""
 
 
+class HiddenDateError(ValueError):
+    """Ngày giao cửa sổ ẩn tên: không phục vụ bản đồ của ngày đó (API trả 403)."""
+
+
+class MapNotFound(FileNotFoundError):
+    pass
+
+
 def fold(s: str) -> str:
     """Chuỗi để tìm kiếm: chữ thường, bỏ dấu tiếng Việt ("Hà Nội" → "ha noi")."""
     s = unicodedata.normalize("NFD", (s or "").lower().replace("đ", "d").replace("Đ", "d"))
@@ -92,6 +125,29 @@ def syllables(s: str) -> frozenset[str]:
 
 def syllable_jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def norm_category(raw: str | None) -> str | None:
+    """Tên chuyên mục hiển thị chung cho mọi báo ("Sức Khỏe", "Y Tế" → "Sức khỏe"); rỗng → None."""
+    raw = " ".join((raw or "").split())
+    if not raw:
+        return None
+    alias = CATEGORY_ALIASES.get(fold(raw))
+    return alias or raw[:1].upper() + raw[1:].lower()
+
+
+def day_overlaps(date: str, window: tuple[datetime, datetime] | None) -> bool:
+    """Ngày `YYYY-MM-DD` (giờ VN) có giao cửa sổ [lo, hi) không. Sai dạng → ValueError."""
+    if not _DATE.match(date or ""):
+        raise ValueError(f"ngày phải có dạng YYYY-MM-DD: {date!r}")
+    lo = trending.day(date)
+    return bool(window) and lo < window[1] and lo + timedelta(days=1) > window[0]
+
+
+def parse_vn_time(value: str) -> float:
+    """Chuỗi ISO (không múi giờ = giờ VN; chỉ ngày = 00:00) → timestamp. Sai → ValueError."""
+    dt = datetime.fromisoformat(value)
+    return (dt.replace(tzinfo=VN) if dt.tzinfo is None else dt).timestamp()
 
 
 def rel_label(path: str | Path) -> str:
@@ -189,6 +245,7 @@ class Event:
     luc_cao_nhat: str | None
     so_gio_trong_top10: int
     key: str                    # chuỗi tìm kiếm = fold(tên hiển thị + medoid_title)
+    chuyen_muc: str | None = None   # chuyên mục gặp nhiều nhất trong các bài (norm_category)
 
     def summary(self) -> dict[str, Any]:
         return {"event_id": self.event_id, "ten": self.ten, "nguon_ten": self.nguon_ten, "ten_bi_an": self.ten_bi_an,
@@ -196,13 +253,14 @@ class Event:
                 "sources": [{"source": s, "n": n} for s, n in sorted(self.sources.items(), key=lambda x: (-x[1], x[0]))],
                 "first_seen": self.first_seen, "last_seen": self.last_seen, "medoid_title": self.medoid_title,
                 "tong_diem": self.tong_diem, "diem_cao_nhat": self.diem_cao_nhat, "luc_cao_nhat": self.luc_cao_nhat,
-                "so_gio_trong_top10": self.so_gio_trong_top10}
+                "so_gio_trong_top10": self.so_gio_trong_top10, "chuyen_muc_chinh": self.chuyen_muc}
 
 
 class EventStore:
     """Một lần chạy pipeline trong RAM. Mọi tên trả ra đi qua `Event.ten` (đã áp cửa sổ ẩn tên lúc nạp)."""
 
-    def __init__(self, run_dir: str | Path, hide_window: tuple[datetime, datetime] | None):
+    def __init__(self, run_dir: str | Path, hide_window: tuple[datetime, datetime] | None,
+                 default_min_sources: int | None = None, default_min_articles: int | None = None):
         t0 = time.perf_counter()
         self.run_dir = Path(run_dir)
         for f in ("manifest.json", "su_kien.csv", "bai_su_kien.csv"):
@@ -221,17 +279,32 @@ class EventStore:
         for r in rows:
             self.events[r["event_id"]] = self._event(r, r["event_id"] in in_win or r["event_id"] in near)
         del rows                                       # tên mô hình gốc không sống quá hàm nạp
+        path = self.run_dir / "xu_huong.csv"
+        self._index(_read_csv(self.run_dir / "bai_su_kien.csv"), _read_csv(path) if path.is_file() else [],
+                    default_min_sources, default_min_articles)
+        self.load_seconds = round(time.perf_counter() - t0, 2)
+
+    def _index(self, article_rows: Iterable[dict[str, Any]], trend_rows: Iterable[dict[str, Any]],
+               default_min_sources: int | None = None, default_min_articles: int | None = None) -> None:
+        """Dựng chỉ mục truy vấn từ dòng bài (cột như bai_su_kien.csv) + dòng xu hướng top-K (cột như xu_huong.csv).
+        Dùng chung cho bản đọc thư mục run và bản đọc Postgres (`serving.db_store.DbEventStore`): mọi logic lọc/sắp/
+        chuỗi điểm nằm một chỗ. Cần sẵn `self.manifest`, `self.events`, `self.hide_window`."""
         # bài của từng sự kiện, sắp theo thời gian
         self.articles: dict[str, list[dict[str, Any]]] = {}
         all_ts: list[float] = []
-        for r in _read_csv(self.run_dir / "bai_su_kien.csv"):
+        src_ts: dict[str, list[float]] = {}
+        for r in article_rows:
             ts = datetime.fromisoformat(r["published_at"]).timestamp()
             all_ts.append(ts)
+            src_ts.setdefault(r["source"], []).append(ts)
             self.articles.setdefault(r["event_id"], []).append(
                 {"article_id": r["article_id"], "published_at": r["published_at"], "ts": ts, "source": r["source"],
                  "category": r.get("category") or None, "title": r.get("title", ""), "is_medoid": r.get("is_medoid") == "1"})
-        for xs in self.articles.values():
+        for eid, xs in self.articles.items():
             xs.sort(key=lambda a: a["ts"])
+            cats = Counter(c for c in (norm_category(a["category"]) for a in xs) if c)
+            if eid in self.events and cats:              # nhiều nhất; hoà thì theo thứ tự chữ cái (ổn định)
+                self.events[eid].chuyen_muc = min(cats.items(), key=lambda kv: (-kv[1], kv[0]))[0]
 
         # tham số + lưới mốc + mức nền của bước trend
         self.cfg = {**trending.DEFAULTS, **(self.manifest.get("config", {}).get("trending") or {})}
@@ -250,8 +323,7 @@ class EventStore:
         # bảng xu hướng top-K mỗi giờ
         self.trend: dict[int, list[dict[str, Any]]] = {}
         self.rank: dict[tuple[str, int], int] = {}
-        path = self.run_dir / "xu_huong.csv"
-        for r in (_read_csv(path) if path.is_file() else []):
+        for r in trend_rows:
             k = self._k(datetime.fromisoformat(r["t"]).timestamp())
             row = {"hang": int(r["hang"]), "event_id": r["event_id"], "score": float(r["score"]),
                    "so_bai_den_t": int(r["so_bai_den_t"]), "so_bai_3h": int(r["so_bai_3h"]), "so_bao": int(r["so_bao"]),
@@ -261,15 +333,29 @@ class EventStore:
             self.rank[(r["event_id"], k)] = row["hang"]
         for rows in self.trend.values():
             rows.sort(key=lambda x: x["hang"])
-        need = int(self.manifest.get("config", {}).get("export", {}).get("latest_min_candidates", 10))
-        full = [k for k, rows in self.trend.items() if len(rows) >= need]
-        self.default_k = max(full) if full else (max(self.trend) if self.trend else self.n_steps)
+        export_cfg = self.manifest.get("config", {}).get("export", {}) or {}
+        need = int(export_cfg.get("latest_min_candidates", 10))
+        self.default_min_sources = int(default_min_sources if default_min_sources is not None
+                                       else export_cfg.get("default_min_sources_24h", DEFAULT_MIN_SOURCES_24H))
+        self.default_min_articles = int(default_min_articles if default_min_articles is not None
+                                        else export_cfg.get("default_min_articles_24h", DEFAULT_MIN_ARTICLES_24H))
+        for xs in src_ts.values():
+            xs.sort()
+
+        def sources_24h(k: int) -> int:
+            hi = self._t(k).timestamp()
+            return sum(bisect_right(xs, hi) - bisect_right(xs, hi - 86400) >= max(1, self.default_min_articles)
+                       for xs in src_ts.values())
+
+        full = sorted((k for k, rows in self.trend.items() if len(rows) >= need), reverse=True)
+        rich = next((k for k in full if sources_24h(k) >= self.default_min_sources), None)
+        self.default_k = rich if rich is not None else (
+            full[0] if full else (max(self.trend) if self.trend else self.n_steps))
         self.sources = sorted({s for e in self.events.values() for s in e.sources})
         self.n_articles = len(all_ts)
         self.data_from = _iso(min(all_ts)) if all_ts else None
         self.data_to = _iso(max(all_ts)) if all_ts else None
         self.loaded_at = datetime.now().astimezone()
-        self.load_seconds = round(time.perf_counter() - t0, 2)
 
     # ------------------------------------------------------------------ nạp
     @classmethod
@@ -384,27 +470,37 @@ class EventStore:
             e = self.events.get(r["event_id"])
             if e is None:
                 continue
-            items.append({**r, "ten": e.ten, "nguon_ten": e.nguon_ten, "ten_bi_an": e.ten_bi_an})
+            items.append({**r, "ten": e.ten, "nguon_ten": e.nguon_ten, "ten_bi_an": e.ten_bi_an,
+                          "chuyen_muc_chinh": e.chuyen_muc, "first_seen": e.first_seen})
         return {"t": self._t(k).isoformat(), "t_truoc": self._t(k - 1).isoformat() if k > 1 else None,
                 "t_sau": self._t(k + 1).isoformat() if k < self.n_steps else None,
                 "mac_dinh": self._t(self.default_k).isoformat(), "items": items}
 
     def list_events(self, q: str | None = None, source: str | None = None, date_from: str | None = None,
                     date_to: str | None = None, min_size: int = 2, sort: str = "hot", page: int = 1,
-                    page_size: int = 20) -> dict[str, Any]:
+                    page_size: int = 20, category: str | None = None, first_from: str | None = None,
+                    first_to: str | None = None) -> dict[str, Any]:
+        """`category`: so với chuyên mục chính (không phân biệt hoa/thường, dấu). `first_from`/`first_to`: ISO (không múi giờ
+        = giờ VN), lọc theo LÚC XUẤT HIỆN (bài đầu) trong [first_from, first_to] — trang chủ dùng cho "Mới xuất hiện"."""
         if sort not in SORTS:
             raise ValueError(f"sort không hợp lệ: {sort} (chọn {', '.join(SORTS)})")
         lo = trending.day(date_from).timestamp() if date_from else None
         hi = (trending.day(date_to) + timedelta(days=1)).timestamp() if date_to else None
+        f_lo = parse_vn_time(first_from) if first_from else None
+        f_hi = parse_vn_time(first_to) if first_to else None
         needle = fold(q) if q else ""
         src = (source or "").strip().lower()
+        cat = fold(norm_category(category) or "") if category else ""
         hits = [e for e in self.events.values()
                 if e.size >= min_size and (not src or src in e.sources) and (not needle or needle in e.key)
-                and (lo is None or e.last_ts >= lo) and (hi is None or e.first_ts < hi)]
+                and (lo is None or e.last_ts >= lo) and (hi is None or e.first_ts < hi)
+                and (not cat or fold(e.chuyen_muc or "") == cat)
+                and (f_lo is None or e.first_ts >= f_lo) and (f_hi is None or e.first_ts <= f_hi)]
         key: Callable[[Event], tuple] = {
             "hot": lambda e: (-(e.tong_diem or 0.0), -e.size, -e.last_ts, e.event_id),
             "newest": lambda e: (-e.last_ts, -e.size, e.event_id),
-            "size": lambda e: (-e.size, -(e.tong_diem or 0.0), -e.last_ts, e.event_id)}[sort]
+            "size": lambda e: (-e.size, -(e.tong_diem or 0.0), -e.last_ts, e.event_id),
+            "first_seen": lambda e: (-e.first_ts, -e.size, e.event_id)}[sort]
         hits.sort(key=key)
         page_size = max(1, min(page_size, 100))
         page = max(1, page)
@@ -449,10 +545,75 @@ class EventStore:
             except Exception:                    # thiếu URL không được làm hỏng trang sự kiện
                 log.exception("không lấy được URL bài từ Silver")
         series, cut = self.series(event_id)
-        by_cat = Counter(a["category"] for a in arts if a["category"])
+        by_cat = Counter(c for c in (norm_category(a["category"]) for a in arts) if c)   # cùng bảng gộp với chuyen_muc_chinh
         return {**e.summary(),
                 "chuyen_muc": [{"category": c, "n": n} for c, n in by_cat.most_common()],
                 "bai": [{"article_id": a["article_id"], "title": a["title"], "source": a["source"],
                          "category": a["category"], "published_at": a["published_at"], "is_medoid": a["is_medoid"],
                          "url": url_of.get(a["article_id"])} for a in arts],
                 "chuoi": series, "chuoi_bi_cat": cut}
+
+    # ------------------------------------------------------------------ thống kê + bản đồ (trang "Dữ liệu & mô hình")
+    def stats(self, date: str | None = None) -> dict[str, Any]:
+        """Phân bố kích thước sự kiện, số báo (sự kiện ≥ 2 bài), chuyên mục (sự kiện ≥ 2 bài). Chỉ là SỐ ĐẾM, không có tên.
+
+        `date` (YYYY-MM-DD, giờ VN) → thêm `ngay`: số bài đăng trong ngày, số sự kiện có bài trong ngày, số sự kiện có
+        ≥ 2 bài TRONG ngày, số báo có bài trong ngày (đếm trên bài của run)."""
+        sizes = Counter(e.size for e in self.events.values())
+        multi = [e for e in self.events.values() if e.size >= 2]
+        n_src = Counter(min(e.n_sources, 6) for e in multi)
+        cats = Counter(e.chuyen_muc for e in multi if e.chuyen_muc)
+        out: dict[str, Any] = {
+            "n_su_kien": len(self.events), "n_su_kien_nhieu_bai": len(multi),
+            "kich_thuoc": [{"nhan": lab, "n": sum(v for s, v in sizes.items() if lo <= s <= hi)}
+                           for lab, lo, hi in SIZE_BINS],
+            "so_bao": [{"so_bao": k, "n": n_src.get(k, 0)} for k in range(1, 7)],
+            "chuyen_muc": [{"category": c, "n": n} for c, n in sorted(cats.items(), key=lambda kv: (-kv[1], kv[0]))],
+            "ngay": None,
+        }
+        if date:
+            if not _DATE.match(date):
+                raise ValueError(f"ngày phải có dạng YYYY-MM-DD: {date!r}")
+            lo = trending.day(date).timestamp()
+            hi = lo + 86400
+            per_event: Counter[str] = Counter()
+            srcs: set[str] = set()
+            for eid, arts in self.articles.items():
+                for a in arts:
+                    if lo <= a["ts"] < hi:
+                        per_event[eid] += 1
+                        srcs.add(a["source"])
+            out["ngay"] = {"date": date, "so_bai": sum(per_event.values()), "so_su_kien": len(per_event),
+                           "so_su_kien_nhieu_bai": sum(n >= 2 for n in per_event.values()), "so_bao": len(srcs)}
+        return out
+
+    def map_dates(self) -> list[str]:
+        """Các ngày có file bản đồ, BỎ ngày giao cửa sổ ẩn tên (không quảng cáo ngày không phục vụ)."""
+        d = self.run_dir / MAP_DIR
+        if not d.is_dir():
+            return []
+        return sorted(p.stem for p in d.glob("*.json")
+                      if _DATE.match(p.stem) and not day_overlaps(p.stem, self.hide_window))
+
+    def event_map(self, date: str) -> dict[str, Any]:
+        """Bản đồ 2D của một ngày + tên ĐANG HIỂN THỊ của các sự kiện được tô màu. Ngày trong cửa sổ → HiddenDateError."""
+        if day_overlaps(date, self.hide_window):
+            raise HiddenDateError(f"Ngày {date} thuộc cửa sổ ẩn tên của tập test đặt tên — không phục vụ bản đồ.")
+        path = self.run_dir / MAP_DIR / f"{date}.json"
+        if not path.is_file():
+            raise MapNotFound(f"Chưa có bản đồ ngày {date}: chạy `python -m eventrank.evaluation.event_map --date {date}`.")
+        m = json.loads(path.read_text(encoding="utf-8"))
+        top = []
+        for k, t in enumerate(m.get("top", [])):
+            e = self.events.get(t["event_id"])
+            if e is None:                       # bản đồ của run khác → bỏ màu, không đoán tên
+                continue
+            top.append({"k": k, "event_id": e.event_id, "ten": e.ten, "nguon_ten": e.nguon_ten,
+                        "ten_bi_an": e.ten_bi_an, "n": int(t["n"]), "size": e.size, "n_sources": e.n_sources})
+        valid = {t["k"] for t in top}
+        pts = [[float(x), float(y), int(k) if int(k) in valid else -1] for x, y, k in m.get("diem", [])]
+        return {"date": m.get("date", date), "run_id": m.get("run_id", self.run_id), "model_version":
+                m.get("model_version", ""), "tsne": m.get("tsne", {}), "n_bai": int(m.get("n_bai", len(pts))),
+                "n_su_kien": int(m.get("n_su_kien", 0)), "n_su_kien_nhieu_bai": int(m.get("n_su_kien_nhieu_bai", 0)),
+                "khac_run": m.get("run_id", self.run_id) != self.run_id,
+                "su_kien": top, "diem": pts, "ngay_co_san": self.map_dates()}

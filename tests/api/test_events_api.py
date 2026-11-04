@@ -158,9 +158,10 @@ def _leaks(text: str) -> list[str]:
 
 def test_ten_mo_hinh_trong_cua_so_khong_lo_o_bat_ky_endpoint_nao(client, events):
     """Duyệt MỌI endpoint sự kiện (mọi mốc xu hướng, mọi trang danh sách, mọi chi tiết, tìm kiếm) + OpenAPI."""
-    urls = ["/api/runs/current", "/api/trending/times", "/api/trending", "/openapi.json"]
+    urls = ["/api/runs/current", "/api/trending/times", "/api/trending", "/openapi.json", "/api/events/stats",
+            "/api/events/map/dates"]
     urls += [f"/api/trending?t={t.replace('+', '%2B')}" for t in _all_times(client)]
-    for sort in ("hot", "newest", "size"):
+    for sort in ("hot", "newest", "size", "first_seen"):
         urls += [f"/api/events?min_size=1&sort={sort}&page={p}&page_size=2" for p in range(1, 5)]
     urls += [f"/api/events?min_size=1&q={w}" for w in SECRET_WORDS + [n.split()[0] for n in SECRET_NAMES]]
     urls += [f"/api/events/{eid}" for eid in events.events]
@@ -410,3 +411,114 @@ def test_chon_run_day_du_moi_nhat_theo_manifest(tmp_path):
 def test_ngay_khong_co_tren_lich_tra_422(client):
     for p in ({"date_from": "2026-02-30"}, {"date_to": "2026-13-01"}):
         assert client.get("/api/events", params=p).status_code == 422
+
+
+# ---------------------------------------------------------------- chuyên mục, "mới xuất hiện", thống kê, bản đồ 2D
+def test_chuan_hoa_chuyen_muc_giua_cac_bao():
+    assert ES.norm_category("Khoa học - Công Nghệ") == ES.norm_category("Khoa học - Công nghệ")
+    assert ES.norm_category("Y Tế") == ES.norm_category("Sức Khỏe") == "Sức khỏe"
+    assert ES.norm_category("Quốc Tế") == "Thế giới"
+    assert ES.norm_category("THỜI SỰ") == "Thời sự" and ES.norm_category("  ") is None
+
+
+def test_chuyen_muc_chinh_va_loc_theo_chuyen_muc(client):
+    body = client.get("/api/events", params={"min_size": 1, "category": "thoi su", "page_size": 100}).json()
+    assert body["total"] == len(EVENTS) and {i["chuyen_muc_chinh"] for i in body["items"]} == {"Thời sự"}
+    assert client.get("/api/events", params={"min_size": 1, "category": "Thể thao"}).json()["total"] == 0
+    item = client.get("/api/trending", params={"t": "2026-09-13T09:00"}).json()["items"][0]
+    assert item["chuyen_muc_chinh"] == "Thời sự" and item["first_seen"].startswith("2026-09-13T08:00")
+
+
+def test_moi_xuat_hien_loc_theo_bai_dau_va_sap_muon_truoc(client):
+    body = client.get("/api/events", params={"min_size": 1, "sort": "first_seen", "first_from": "2026-09-13",
+                                             "first_to": "2026-09-13T23:59"}).json()
+    assert [i["event_id"] for i in body["items"]] == ["E20260913-cccccccc", "E20260913-aaaaaaaa"]   # 22h trước 8h
+    body = client.get("/api/events", params={"min_size": 1, "first_from": "2026-09-13", "first_to": "2026-09-13T09:00"})
+    assert [i["event_id"] for i in body.json()["items"]] == ["E20260913-aaaaaaaa"]                  # chưa tới 22h
+    assert client.get("/api/events", params={"first_from": "hôm qua"}).status_code == 422
+
+
+def test_thong_ke_su_kien_va_so_lieu_mot_ngay(client):
+    d = client.get("/api/events/stats", params={"date": "2026-09-13"}).json()
+    assert d["n_su_kien"] == len(EVENTS) and sum(b["n"] for b in d["kich_thuoc"]) == len(EVENTS)
+    assert d["kich_thuoc"][0] == {"nhan": "1 bài", "n": 1} and sum(b["n"] for b in d["so_bao"]) == d["n_su_kien_nhieu_bai"]
+    # 13/09: 3 bài của aaaaaaaa + 1 bài 22h của cccccccc → 2 sự kiện, 1 sự kiện có ≥ 2 bài trong ngày, 3 báo
+    assert d["ngay"] == {"date": "2026-09-13", "so_bai": 4, "so_su_kien": 2, "so_su_kien_nhieu_bai": 1, "so_bao": 3}
+    assert client.get("/api/events/stats").json()["ngay"] is None
+    assert _leaks(client.get("/api/events/stats", params={"date": "2026-09-14"}).text) == []
+
+
+def _write_map(run_dir, date, top, diem):
+    d = run_dir / ES.MAP_DIR
+    d.mkdir(exist_ok=True)
+    (d / f"{date}.json").write_text(json.dumps({"date": date, "run_id": run_dir.name, "model_version": "m",
+                                                "tsne": {"perplexity": 25}, "n_bai": len(diem), "n_su_kien": 2,
+                                                "n_su_kien_nhieu_bai": 1, "top": top, "diem": diem}), encoding="utf-8")
+
+
+def test_ban_do_dung_ten_dang_hien_thi_va_tu_choi_ngay_trong_cua_so(client, run_dir):
+    # 20/08: sự kiện ngoài cửa sổ nhưng tên mô hình gần trùng tên ẩn → bản đồ phải dùng tên medoid
+    _write_map(run_dir, "2026-08-20", [{"event_id": "E20260820-0000bbbb", "n": 2}, {"event_id": "E20990101-deadbeef", "n": 1}],
+               [[1.0, 2.0, 0], [3.0, 4.0, 0], [50.0, 50.0, 1], [9.0, 9.0, -1]])
+    _write_map(run_dir, "2026-09-14", [{"event_id": "E20260914-bbbbbbbb", "n": 3}], [[1.0, 1.0, 0]])
+    m = client.get("/api/events/map", params={"date": "2026-08-20"})
+    assert m.status_code == 200 and _leaks(m.text) == []
+    body = m.json()
+    assert [e["ten"] for e in body["su_kien"]] == ["Giá cổ phiếu lập đỉnh"] and body["su_kien"][0]["ten_bi_an"]
+    assert [p[2] for p in body["diem"]] == [0, 0, -1, -1]           # sự kiện không có trong run → bỏ màu
+    assert body["ngay_co_san"] == ["2026-08-20"]                     # 14/09 có file nhưng không được liệt kê
+    r = client.get("/api/events/map", params={"date": "2026-09-14"})
+    assert r.status_code == 403 and _leaks(r.text) == []
+    assert client.get("/api/events/map", params={"date": "2026-09-01"}).status_code == 404
+    assert client.get("/api/events/map", params={"date": "10/09"}).status_code == 422
+    assert client.get("/api/events/map/dates").json() == {"dates": ["2026-08-20"], "mac_dinh": "2026-08-20"}
+
+
+def test_dung_ban_do_tu_vector_dem(run_dir, tmp_path, monkeypatch):
+    import numpy as np
+
+    from eventrank.evaluation import event_map
+
+    monkeypatch.delenv("EVENTS_HIDE_NAMES_WINDOW", raising=False)
+    with open(run_dir / "bai_su_kien.csv", encoding="utf-8") as f:
+        ids = [r["article_id"] for r in csv.DictReader(f)]
+    rng = np.random.default_rng(0)
+    E = rng.normal(size=(len(ids), 8)).astype(np.float32)
+    np.savez(tmp_path / "emb.npz", ids=np.array(ids), E=E)
+    m = event_map.build_map(run_dir, "2026-09-13", tmp_path / "emb.npz", top=1)
+    assert m["n_bai"] == 4 and m["n_su_kien"] == 2 and m["n_su_kien_nhieu_bai"] == 1
+    assert m["top"] == [{"event_id": "E20260913-aaaaaaaa", "n": 3}]
+    assert sorted(p[2] for p in m["diem"]) == [-1, 0, 0, 0]
+    assert all(0 <= p[0] <= 100 and 0 <= p[1] <= 100 for p in m["diem"])
+    assert "ten" not in json.dumps(m) and _leaks(json.dumps(m, ensure_ascii=False)) == []   # file không chứa tên
+    with pytest.raises(ValueError, match="cửa sổ ẩn tên"):
+        event_map.build_map(run_dir, "2026-09-15", tmp_path / "emb.npz")
+
+
+def _sources_24h(store, k, min_articles):
+    hi = store._t(k).timestamp()
+    by = Counter(a["source"] for arts in store.articles.values() for a in arts if hi - 86400 < a["ts"] <= hi)
+    return sum(n >= min_articles for n in by.values())
+
+
+def test_moc_mac_dinh_can_du_bao_trong_24_gio(run_dir):
+    """Mốc mặc định = mốc muộn nhất có đủ sự kiện VÀ đủ báo (mỗi báo ≥ N bài) trong 24 giờ; không có mốc nào đạt → luật cũ."""
+    old = EventStore(run_dir, WINDOW, default_min_sources=0)
+    assert old.default_k == max(old.trend)                      # fixture: latest_min_candidates = 1 → mốc có bảng muộn nhất
+    # mọi cặp ngưỡng: mốc chọn ra = mốc muộn nhất đạt điều kiện (không mốc nào đạt → luật cũ)
+    lui = 0
+    for ms in (1, 2, 3):
+        for ma in (1, 2, 3):
+            s = EventStore(run_dir, WINDOW, default_min_sources=ms, default_min_articles=ma)
+            ok = [k for k in s.trend if _sources_24h(s, k, ma) >= ms]
+            assert s.default_k == (max(ok) if ok else old.default_k), (ms, ma)
+            lui += s.default_k < old.default_k
+    assert lui > 0                                              # có trường hợp phải lùi về mốc sớm hơn
+    assert s.trend_times()["mac_dinh"] == s.trending()["t"]
+    none = EventStore(run_dir, WINDOW, default_min_sources=6, default_min_articles=50)   # không mốc nào đạt
+    assert none.default_k == old.default_k
+
+
+def test_chuyen_muc_cua_cac_bai_dung_ten_da_gop(client):
+    d = client.get("/api/events/E20260913-aaaaaaaa").json()
+    assert d["chuyen_muc"] == [{"category": "Thời sự", "n": 3}]

@@ -264,8 +264,70 @@ export interface paths {
         /**
          * Events List
          * @description Danh sách sự kiện. q khớp tên ĐANG HIỂN THỊ hoặc tiêu đề bài đại diện (không phân biệt hoa/thường, dấu).
+         *     category = chuyên mục chính; first_from/first_to (ISO, không múi giờ = giờ VN) lọc theo lúc xuất hiện;
+         *     sort=first_seen: xuất hiện muộn nhất trước.
          */
         get: operations["events_list_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events Stats
+         * @description Số đếm (không có tên): kích thước sự kiện, số báo, chuyên mục; `date` → thêm số liệu của ngày đó.
+         */
+        get: operations["events_stats_api_events_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/map/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events Map Dates
+         * @description Các ngày đã có bản đồ 2D (không gồm ngày thuộc cửa sổ ẩn tên).
+         */
+        get: operations["events_map_dates_api_events_map_dates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events Map
+         * @description Bản đồ t-SNE các bài của một ngày + tên đang hiển thị của các sự kiện lớn nhất. Ngày trong cửa sổ ẩn tên → 403.
+         */
+        get: operations["events_map_api_events_map_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -401,6 +463,19 @@ export interface components {
             /** Max Date */
             max_date: string | null;
         };
+        /** DayStats */
+        DayStats: {
+            /** Date */
+            date: string;
+            /** So Bai */
+            so_bai: number;
+            /** So Su Kien */
+            so_su_kien: number;
+            /** So Su Kien Nhieu Bai */
+            so_su_kien_nhieu_bai: number;
+            /** So Bao */
+            so_bao: number;
+        };
         /** DuplicateTitle */
         DuplicateTitle: {
             /** Title */
@@ -459,6 +534,8 @@ export interface components {
             luc_cao_nhat: string | null;
             /** So Gio Trong Top10 */
             so_gio_trong_top10: number;
+            /** Chuyen Muc Chinh */
+            chuyen_muc_chinh: string | null;
             /** Chuyen Muc */
             chuyen_muc: components["schemas"]["CategoryN"][];
             /** Bai */
@@ -467,6 +544,33 @@ export interface components {
             chuoi: components["schemas"]["EventPoint"][];
             /** Chuoi Bi Cat */
             chuoi_bi_cat: boolean;
+        };
+        /** EventMap */
+        EventMap: {
+            /** Date */
+            date: string;
+            /** Run Id */
+            run_id: string;
+            /** Model Version */
+            model_version: string;
+            /** Tsne */
+            tsne: {
+                [key: string]: number | string;
+            };
+            /** N Bai */
+            n_bai: number;
+            /** N Su Kien */
+            n_su_kien: number;
+            /** N Su Kien Nhieu Bai */
+            n_su_kien_nhieu_bai: number;
+            /** Khac Run */
+            khac_run: boolean;
+            /** Su Kien */
+            su_kien: components["schemas"]["MapEvent"][];
+            /** Diem */
+            diem: number[][];
+            /** Ngay Co San */
+            ngay_co_san: string[];
         };
         /** EventPage */
         EventPage: {
@@ -493,6 +597,20 @@ export interface components {
             ung_vien: boolean;
             /** Hang */
             hang: number | null;
+        };
+        /** EventStats */
+        EventStats: {
+            /** N Su Kien */
+            n_su_kien: number;
+            /** N Su Kien Nhieu Bai */
+            n_su_kien_nhieu_bai: number;
+            /** Kich Thuoc */
+            kich_thuoc: components["schemas"]["SizeBin"][];
+            /** So Bao */
+            so_bao: components["schemas"]["SourcesBin"][];
+            /** Chuyen Muc */
+            chuyen_muc: components["schemas"]["CategoryN"][];
+            ngay: components["schemas"]["DayStats"] | null;
         };
         /** EventSummary */
         EventSummary: {
@@ -524,6 +642,8 @@ export interface components {
             luc_cao_nhat: string | null;
             /** So Gio Trong Top10 */
             so_gio_trong_top10: number;
+            /** Chuyen Muc Chinh */
+            chuyen_muc_chinh: string | null;
         };
         /** FileInfo */
         FileInfo: {
@@ -591,6 +711,8 @@ export interface components {
             articles: number;
             /** Missing Author */
             missing_author: number;
+            /** Missing Sapo */
+            missing_sapo: number;
             /** Empty Content */
             empty_content: number;
             /** Short Content */
@@ -603,6 +725,32 @@ export interface components {
             duplicate_url: number;
             /** Duplicate Id */
             duplicate_id: number;
+        };
+        /** MapDates */
+        MapDates: {
+            /** Dates */
+            dates: string[];
+            /** Mac Dinh */
+            mac_dinh: string | null;
+        };
+        /** MapEvent */
+        MapEvent: {
+            /** K */
+            k: number;
+            /** Event Id */
+            event_id: string;
+            /** Ten */
+            ten: string;
+            /** Nguon Ten */
+            nguon_ten: string;
+            /** Ten Bi An */
+            ten_bi_an: boolean;
+            /** N */
+            n: number;
+            /** Size */
+            size: number;
+            /** N Sources */
+            n_sources: number;
         };
         /** Meta */
         Meta: {
@@ -718,6 +866,13 @@ export interface components {
             /** Ghi Chu */
             ghi_chu: string[];
         };
+        /** SizeBin */
+        SizeBin: {
+            /** Nhan */
+            nhan: string;
+            /** N */
+            n: number;
+        };
         /** SourceCount */
         SourceCount: {
             /** Source */
@@ -747,6 +902,13 @@ export interface components {
             pct_short_content: number;
             /** Median Words */
             median_words: number | null;
+        };
+        /** SourcesBin */
+        SourcesBin: {
+            /** So Bao */
+            so_bao: number;
+            /** N */
+            n: number;
         };
         /** TimelinePoint */
         TimelinePoint: {
@@ -792,6 +954,10 @@ export interface components {
             van_toc: number;
             /** Tuoi Gio */
             tuoi_gio: number;
+            /** Chuyen Muc Chinh */
+            chuyen_muc_chinh: string | null;
+            /** First Seen */
+            first_seen: string;
         };
         /** TrendTimes */
         TrendTimes: {
@@ -1227,10 +1393,13 @@ export interface operations {
             query?: {
                 q?: string | null;
                 source?: string | null;
+                category?: string | null;
                 date_from?: string | null;
                 date_to?: string | null;
+                first_from?: string | null;
+                first_to?: string | null;
                 min_size?: number;
-                sort?: "hot" | "newest" | "size";
+                sort?: "hot" | "newest" | "size" | "first_seen";
                 page?: number;
                 page_size?: number;
             };
@@ -1247,6 +1416,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_stats_api_events_stats_get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventStats"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_map_dates_api_events_map_dates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapDates"];
+                };
+            };
+        };
+    };
+    events_map_api_events_map_get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventMap"];
                 };
             };
             /** @description Validation Error */

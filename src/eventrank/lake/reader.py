@@ -23,6 +23,7 @@ COLUMNS = {
 SHORT_CONTENT_WORDS = 80
 ISSUES = {
     "missing_author": "author IS NULL",
+    "missing_sapo": "sapo IS NULL OR trim(sapo) = ''",
     "empty_content": "n_words = 0",
     "short_content": f"n_words BETWEEN 1 AND {SHORT_CONTENT_WORDS - 1}",
     "bad_date": "published_at IS NULL",
