@@ -95,7 +95,41 @@ pipeline: ## Chạy trọn: gom cụm → đặt tên → xu hướng → xuất
 events-viz: ## Trang trực quan bảng sự kiện (sau make cluster) → data/events/v1/truc_quan.html
 	uv run --group embed python -m eventrank.evaluation.events_viz $(ARGS)
 
+# ---------------------------------------------------------------- Postgres + tầng Thu thập (docs/handoff/ingest.md)
+COMPOSE = docker compose --env-file .env -f infra/docker-compose.yml
+INGEST = uv run --group embed python -m eventrank.ingest
+SILVER_GLOB ?= data/lake/silver/*/*.jsonl
+REPLAY_START ?= 2026-08-01T00:00+07:00
+REPLAY_SPEED ?= 60
+REPLAY_DB_ENV ?= REPLAY_DATABASE_URL
+
+db-up: ## Bật Postgres 16 bằng Docker ở 127.0.0.1:5433 (chỉ khi máy chưa có Postgres; cần POSTGRES_PASSWORD trong .env)
+	$(COMPOSE) up -d --wait
+
+db-down: ## Tắt Postgres Docker (giữ dữ liệu trong volume)
+	$(COMPOSE) down
+
+db-migrate: ## Áp migration infra/db/migrations/ vào DATABASE_URL (chạy lại không làm gì)
+	uv run --group embed python -m eventrank.common.db migrate
+
+db-status: ## Migration nào đã áp / chưa áp / bị sửa
+	uv run --group embed python -m eventrank.common.db status
+
+ingest-import: ## Nạp Silver JSONL có sẵn vào DATABASE_URL (idempotent; SILVER_GLOB=…)
+	$(INGEST) import-jsonl '$(SILVER_GLOB)'
+
+ingest-replay: ## Phát lại Silver theo đồng hồ giả lập vào DB RIÊNG (REPLAY_DATABASE_URL; REPLAY_START, REPLAY_SPEED, ARGS)
+	uv run --group embed python -m eventrank.common.db migrate --db-env $(REPLAY_DB_ENV)
+	$(INGEST) replay --db-env $(REPLAY_DB_ENV) --start $(REPLAY_START) --speed $(REPLAY_SPEED) --glob '$(SILVER_GLOB)' $(ARGS)
+
+ingest-status: ## Tình trạng từng báo: lần cào cuối, bài mới 1h/24h, lỗi gần nhất; đồng hồ
+	$(INGEST) status
+
+test-db: ## Chỉ chạy test cần Postgres (TEST_DATABASE_URL; role có CREATEDB) — thiếu biến thì skip
+	uv run --group embed pytest -q -m db -rs
+
 tunnel: ## Mở trang ra Internet qua Cloudflare Tunnel tạm thời (cần cài cloudflared)
 	cloudflared tunnel --url http://127.0.0.1:$(API_PORT)
 
-.PHONY: help install check-env api web dev types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline
+.PHONY: help install check-env api web dev types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline \
+	db-up db-down db-migrate db-status ingest-import ingest-replay ingest-status test-db
