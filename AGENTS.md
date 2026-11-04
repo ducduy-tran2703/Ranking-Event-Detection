@@ -14,11 +14,11 @@
 
 | Tầng | Thành phần | Lưu ở đâu |
 |---|---|---|
-| 1. Thu thập | Crawler: sitemap (backfill), RSS (tin mới), hộp "Xem nhiều" | → R2 `silver/` (hiện tại) · `bronze/` (hướng tới) |
-| 2. Kho dữ liệu | **Hiện có: Silver (văn bản) + Gold (NER) dạng JSONL**, cùng nhãn yếu v1 (`weak_label_NguyenDinhHieu/`). Hướng tới: Bronze → Silver → Gold → snapshots | Cloudflare R2, bucket `vietnam-news-datalake` — xem `docs/tong-hop.md` mục 5.2 |
-| 3. Xử lý / ML | NER → nhãn yếu → embedding → gom cụm → đặt tên → xu hướng | Đọc/ghi R2; huấn luyện trên Kaggle/Colab |
-| 4. Phục vụ | FastAPI + Postgres (sự kiện, tên, điểm, thông báo đã gửi) | Postgres |
-| 5. Giao diện | Web dashboard, mobile app (thông báo đẩy) | — |
+| 1. Thu thập | Crawler: sitemap (backfill), RSS (tin mới), hộp "Xem nhiều" | Postgres `articles` (khung `eventrank.ingest`, chưa có crawler thật) · R2 `silver/` (kho chung, do từng người cào) |
+| 2. Kho dữ liệu | **Hiện có: Silver (văn bản) + Gold (NER) dạng JSONL**, nhãn yếu, mô hình, kết quả chạy, dump DB (các prefix `…_NguyenDinhHieu/`). Hướng tới: Bronze → Silver → Gold → snapshots | Cloudflare R2, bucket `vietnam-news-datalake` — xem `docs/tong-hop.md` mục 5.2 |
+| 3. Xử lý / ML | NER → nhãn yếu → embedding → gom cụm → đặt tên → xu hướng (hiện chạy **theo lô**: `make pipeline` → `data/runs/<run_id>/`) | Huấn luyện trên Kaggle; suy luận ở máy; ghi `data/` |
+| 4. Phục vụ | FastAPI (`apps/api/`) đọc run (`EVENTS_BACKEND=files`) hoặc Postgres (`db`) | Postgres (`infra/db/migrations/`) |
+| 5. Giao diện | Web React (`apps/web/`); mobile app (thông báo đẩy) chưa làm | — |
 
 Tầng dưới **không được import** tầng trên. Chiều phụ thuộc trong `src/`:
 `common ← ingest ← lake ← nlp ← weak_labels ← embeddings ← clustering ← naming, trending ← serving ← apps`
@@ -31,6 +31,7 @@ Tầng dưới **không được import** tầng trên. Chiều phụ thuộc tr
 | NLP, WEAK | `src/eventrank/{nlp,weak_labels}/` | B |
 | EMB, CLUST | `src/eventrank/{embeddings,clustering}/`, `training/` | C |
 | NAME, TREND, EVAL | `src/eventrank/{naming,trending,evaluation}/` | D |
+| SERVING | `src/eventrank/serving/` — điều phối pipeline, nạp run/DB cho API | — |
 | API | `apps/api/main.py` — backend FastAPI | A |
 | Trang kiểm soát dữ liệu (nội bộ) | `apps/api/static/` — HTML/JS thuần, FastAPI phục vụ trực tiếp | A |
 | WEB (công khai) | `apps/web/` — React + Vite + TypeScript | chia theo trang |
@@ -39,16 +40,24 @@ Tầng dưới **không được import** tầng trên. Chiều phụ thuộc tr
 
 Thư mục nào chưa tồn tại là **chưa đến giai đoạn đó** — không tự tạo trước khi được yêu cầu.
 
-## Trạng thái hiện tại (cập nhật 04/10/2026)
+## Trạng thái hiện tại (cập nhật 04/11/2026)
+
+Bảng đầy đủ (kèm số đo, mốc so sánh, CI): `docs/tong-hop.md` mục 0.2. Nhãn đối chiếu hầu hết do **Claude** gán, chưa phải người.
 
 | Phần | Trạng thái | Đọc gì trước |
 |---|---|---|
-| Thu thập + kho Silver | chạy được, 6 báo, ~28,7 nghìn bài | `docs/tong-hop.md` mục 5.2–5.3 |
-| Gold (NER) | có trên R2, do thành viên khác làm; offset tính trên văn bản ghép `Tiêu đề: …\n\nSapo: …\n\nNội dung:\n…` | `data/lake/gold/README.md` (tải về), `docs/tong-hop.md` mục 5.4–5.5 |
-| **Nhãn yếu** (`src/eventrank/weak_labels/`) | **v3 xong**: precision cặp dương 0,93, recall 0,28 (đo bằng Claude gán mù, có trọng số theo tầng) | **`docs/tong-hop.md` mục 7** |
-| Định nghĩa "sự kiện" | **đã chốt Gói 1 / hướng E**: đơn vị = sự kiện tin tức, nhóm cha = câu chuyện | `docs/tong-hop.md` mục 4 |
-| Embedding, gom cụm, đặt tên, xu hướng | **chưa làm** (thư mục chưa tồn tại) | `docs/tong-hop.md` mục 7.13, 8, 9 |
-| Web/API kiểm soát dữ liệu | chạy được | `docs/tong-hop.md` mục 11 |
+| Kho Silver + Gold (NER) trên R2 | có; 6 báo, 28.746 bài, dữ liệu tĩnh đến 19/09/2026; Gold offset tính trên văn bản ghép `Tiêu đề: …\n\nSapo: …\n\nNội dung:\n…` | `docs/tong-hop.md` mục 5.2–5.5 |
+| Thu thập + Postgres (`001_ingest`) | khung crawler + import/replay xong, có test; **chưa có crawler thật** (mọi báo `enabled: false`) | `docs/tong-hop.md` mục 16, 17.4 |
+| Định nghĩa "sự kiện" | **đã chốt Gói 1 / hướng E** + thang 4 mức + quy tắc R1–R6 | `docs/tong-hop.md` mục 4 |
+| Nhãn yếu (`src/eventrank/weak_labels/`) | v3 nhị phân (precision 0,93, recall 0,28) + **v4 4 mức `final_v3`** (dữ liệu train hiện tại) | `docs/tong-hop.md` mục 7 |
+| Embedding | 7 mô hình đã đo; pipeline dùng bkai fine-tune v1 (`bkai_ft_v1_s44`) | `docs/tong-hop.md` mục 8 |
+| Gom cụm, đặt tên, xu hướng | **chạy theo lô** (`make pipeline`); run đang phục vụ `data/runs/2026-11-03_v2`; gom cụm B-Cubed 0,967 (nhãn Claude); đặt tên chưa có số trên tập test; xu hướng chưa đánh giá | `docs/tong-hop.md` mục 9, 10 |
+| Tầng sự kiện Postgres (`002_events`), API, web | chạy được; web có khu tài khoản **giả lập** (`VITE_AUTH_MOCK`) | `docs/tong-hop.md` mục 11, 16 |
+| Worker liên tục, đối chiếu ID, thông báo, tài khoản thật (003–006), mobile | chưa làm | `docs/tong-hop.md` mục 18 |
+
+⚠ **Ẩn tên cửa sổ 14–15/09/2026** (tập test đặt tên cần tên người viết mù): không đưa tên mô hình của sự kiện giao cửa sổ này
+(và tên gần trùng) vào tài liệu, web, DB, ví dụ; không đặt `EVENTS_HIDE_NAMES_WINDOW=off` khi có người xem. Chi tiết
+`docs/tong-hop.md` mục 11.3.
 
 ## Lệnh thường dùng
 
@@ -60,21 +69,23 @@ make test            # test Python + lint + kiểm tra kiểu frontend
 make types           # sinh lại kiểu TypeScript sau khi sửa apps/api/schemas.py
 make embed           # embedding ngữ nghĩa cho nhãn yếu (tải mô hình ~135 MB lần đầu)
 make weak-labels     # sinh nhãn yếu → data/weak_labels/v3/ (cần data/lake/{gold,silver} và make embed trước)
+make pipeline        # gom cụm → đặt tên → xu hướng → data/runs/<run_id>/ (docs/tong-hop.md mục 9.4)
+make db-import-run   # nạp một run vào tầng sự kiện Postgres
 make agreement       # đo đồng thuận nhãn người ↔ nhãn LLM (Cohen's κ)
 make db-migrate      # áp migration Postgres (infra/db/migrations/) vào DATABASE_URL
-make ingest-status   # tình trạng từng báo trong Postgres (crawler: docs/handoff/ingest.md)
+make ingest-status   # tình trạng từng báo trong Postgres (viết crawler: docs/tong-hop.md mục 17.4)
 make test-db         # test cần Postgres (TEST_DATABASE_URL), thiếu biến thì skip
 ```
 
 | Địa chỉ | Là gì |
 |---|---|
 | http://127.0.0.1:5173 | Web React (Vite) — tự chuyển tiếp `/api` sang backend |
-| http://127.0.0.1:8000 | Trang kiểm soát dữ liệu nội bộ |
+| http://127.0.0.1:8000 | Trang kiểm soát dữ liệu nội bộ (sau `make build`: web React; trang cũ ở `/legacy/`) |
 | http://127.0.0.1:8000/docs | Tài liệu API tự sinh |
 
 - **Test** luôn dùng dữ liệu mẫu trong `tests/fixtures/`, không cần khoá, không gọi mạng.
 - **Trang kiểm soát** chỉ **đọc** R2 (`LAKE_BACKEND=r2`), nên dùng khoá *Object Read only*.
-- **Code ghi dữ liệu** mặc định ghi vào máy (`LAKE_BACKEND=local`). **Chỉ ghi lên R2 khi người dùng yêu cầu rõ.**
+- **Code ghi dữ liệu** chỉ ghi vào máy (`data/`, gitignored) hoặc Postgres; không lệnh nào tự ghi R2. **Chỉ ghi lên R2 khi người dùng yêu cầu rõ**, vào prefix mới.
 
 ---
 
@@ -126,7 +137,7 @@ make test-db         # test cần Postgres (TEST_DATABASE_URL), thiếu biến t
 ## 5. Git
 
 - **Không tự commit, không tự push** nếu người dùng chưa yêu cầu rõ.
-- Làm trên nhánh `feat/<module>-<mô-tả>`; merge vào `dev` qua Pull Request, điền đủ mẫu PR.
+- `main` = bản sản phẩm, `dev` = bản thử nghiệm. Làm trên nhánh `feat/<module>-<mô-tả>` tách từ `dev`; merge vào `dev` qua Pull Request, điền đủ mẫu PR.
 - Commit message bắt đầu bằng mã module: `[LAKE] ghi Silver theo lô`.
 - Không `push --force` lên `dev` hoặc `main`.
 
@@ -134,7 +145,7 @@ make test-db         # test cần Postgres (TEST_DATABASE_URL), thiếu biến t
 
 - Git và Pull Request là cơ chế đồng bộ duy nhất. **Không** tạo file registry/lock/nhật ký dùng chung trong repo — mỗi người ở một máy, một nhánh, các file đó chỉ gây xung đột merge.
 - Nhật ký thay đổi nằm trong **mô tả Pull Request** (mẫu ở `.github/pull_request_template.md`).
-- Bàn giao một module cho người khác → viết `docs/handoff/<module>.md`: trạng thái, việc còn dở, lệnh kiểm tra, cạm bẫy.
+- Bàn giao một module cho người khác → viết/cập nhật **mục bàn giao của module trong `docs/tong-hop.md`** (mục 17, xem 17.6): trạng thái, việc còn dở, lệnh kiểm tra, cạm bẫy. Không tạo file `docs/handoff/` riêng — dự án giữ **một** tài liệu tổng.
 - Đổi schema dữ liệu hoặc cấu trúc key trên bucket → sửa `docs/tong-hop.md` mục 5.2 / 5.3 **trong cùng PR**.
 
 ## 7. Báo cáo kết quả

@@ -54,7 +54,7 @@ def database_url(env: str = "DATABASE_URL") -> str:
         raise DatabaseConfigError(
             f"Thiếu biến môi trường {env}. Đặt trong .env, ví dụ "
             f"{env}=postgresql://eventrank:<mật khẩu>@127.0.0.1:5432/eventrank "
-            "(xem .env.example và docs/handoff/ingest.md).")
+            "(xem .env.example và docs/tong-hop.md mục 16.5).")
     # Chấp nhận URL postgresql:// hoặc chuỗi "host=… dbname=…" của libpq.
     if not url.startswith(("postgresql://", "postgres://")) and "://" in url:
         raise DatabaseConfigError(f"{env} không phải URL Postgres (postgresql://…); "

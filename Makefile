@@ -95,7 +95,7 @@ pipeline: ## Chạy trọn: gom cụm → đặt tên → xu hướng → xuất
 events-viz: ## Trang trực quan bảng sự kiện (sau make cluster) → data/events/v1/truc_quan.html
 	uv run --group embed python -m eventrank.evaluation.events_viz $(ARGS)
 
-# ---------------------------------------------------------------- Postgres + tầng Thu thập (docs/handoff/ingest.md)
+# ---------------------------------------------------------------- Postgres + tầng Thu thập (docs/tong-hop.md mục 16, 17.4)
 COMPOSE = docker compose --env-file .env -f infra/docker-compose.yml
 INGEST = uv run --group embed python -m eventrank.ingest
 SILVER_GLOB ?= data/lake/silver/*/*.jsonl

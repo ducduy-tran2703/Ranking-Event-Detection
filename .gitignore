@@ -223,7 +223,7 @@ __marimo__/
 CLAUDE.local.md
 
 # Du lieu data lake (khong commit)
-data/
+/data/
 *.parquet
 *.html.gz
 

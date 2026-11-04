@@ -72,7 +72,7 @@ def test_moi_crawler_da_dang_ky_qua_hop_dong_tren_fixture(src):
     d = FIXTURES / src["source"]
     assert (d / "routes.yaml").exists(), (
         f"{src['source']}: crawler đã đăng ký nhưng thiếu {d}/routes.yaml + trang mẫu "
-        "(docs/handoff/ingest.md)")
+        "(docs/tong-hop.md mục 17.4.5)")
     crawler = sources.load_crawler(src["crawler"])
     assert crawler.source == src["source"]
     testing.check_crawler(crawler, testing.fixture_client_from_dir(d))

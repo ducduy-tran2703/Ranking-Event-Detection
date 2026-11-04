@@ -19,7 +19,7 @@ CSV lưu mỗi bài một dòng, `link_to` là:
 Cụm = thành phần liên thông của các liên kết. Nhờ vậy người gán đoạn sau nối được vào cụm của người gán đoạn trước.
 
 Gợi ý cụm trong công cụ lấy từ TF-IDF tiêu đề + sapo, KHÔNG từ mô hình embedding đang được chấm — người gán hay theo
-gợi ý, gợi ý bằng mô hình sẽ kéo đáp án về phía mô hình đó. Định nghĩa sự kiện: docs/huong-dan-gan-4-muc.md (mức 3).
+gợi ý, gợi ý bằng mô hình sẽ kéo đáp án về phía mô hình đó. Định nghĩa sự kiện: docs/tong-hop.md mục 4.8 (mức 3).
 """
 from __future__ import annotations
 
