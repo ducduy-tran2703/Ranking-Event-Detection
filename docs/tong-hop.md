@@ -356,6 +356,25 @@ trong DB; tên mô hình bị loại (`ten_mo_hinh`) không được ghi. Nạp 
 tính lại bằng `trending.score_at` và đối chiếu top-K từng mốc với `xu_huong.csv` (lệch → dừng). Nạp run `2026-11-03_v2`
 (04/11/2026): 19.938 sự kiện (1.027 ẩn tên), 28.725 bài + vector, 18.396 dòng điểm trên 1.200 mốc, 13–15 s (nạp lại cùng thời gian). Similarity trong cụm (≥ 2 bài): TB 0,895, thấp nhất 0,797.
 
+**Tầng Tài khoản trong Postgres (migration 003–006, từ 04/11/2026).** Theo bản thiết kế database (`pbl/thiet-ke-database.html`);
+nghiệp vụ `src/eventrank/accounts/` (auth, me, admin, cli), HTTP `apps/api/accounts.py`, test `tests/api/test_accounts_api.py`.
+
+| File | Bảng | Ghi chú |
+|---|---|---|
+| `003_auth.sql` | `users`, `user_sessions`, `auth_tokens`, `login_attempts`, `user_settings` | Mật khẩu Argon2id (PHC); token phiên/email chỉ lưu sha256; email duy nhất trong tài khoản CÒN SỐNG (`deleted_at IS NULL`) |
+| `004_user_features.sql` | `event_bookmarks`, `event_follows`, `topic_subscriptions`, `feedback_reports` | FK vào `events`; chủ đề duy nhất theo `lower(value)`, ≤ 50/người; báo sai: khách gửi được (IP giữ 90 ngày) |
+| `005_notifications.sql` | `notifications`, `email_outbox` | Bản demo CHƯA gửi thư: thư nằm ở `email_outbox` + link ghi vào log máy chủ |
+| `006_admin.sql` | `audit_logs`, `api_tokens` | Khoá API chỉ hiện đầy đủ một lần; DB giữ sha256 + 10 ký tự đầu |
+
+Chưa làm (migration sau): `oauth_identities` (Google), `event_views` (cá nhân hoá), `push_devices`,
+`notification_deliveries` (cổng thông báo + mobile). Luật: sai mật khẩu 5 lần/15 phút → khoá 15 phút (423); 30 lần sai/15
+phút từ một IP → 429; không lộ email đã đăng ký (đăng ký/quên mật khẩu/đăng nhập trả cùng phản hồi, email lạ vẫn chạy Argon2
+trên băm giả); phiên "giữ đăng nhập" trượt 30 ngày (không thì 12 giờ), tối đa 90 ngày; đặt lại mật khẩu thu hồi MỌI phiên,
+đổi mật khẩu thu hồi các phiên khác; CSRF: cookie `csrf_token` + header `X-CSRF-Token` cho mọi POST/PUT/DELETE khi đã đăng
+nhập. Đăng ký trên web luôn là `user` — admin đầu tiên: `uv run python -m eventrank.accounts create-user --email … --role
+admin` (mật khẩu từ `ACCOUNT_PASSWORD` hoặc hỏi). Dọn dữ liệu cá nhân quá hạn: `python -m eventrank.accounts cleanup`.
+Nạp lại lớp sự kiện (`db_import`) bị CHẶN khi đã có dòng nào trong các bảng này trỏ vào một sự kiện.
+
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
 | Trường | Kiểu | Bắt buộc | Quy tắc | Thực tế 19/09 |
@@ -1157,6 +1176,11 @@ không cần khoá, không gọi mạng (`uv run pytest -q`, `uv run ruff check 
 | `GET /api/events/stats?date=` | Số đếm, không có tên: phân bố kích thước sự kiện, số báo (sự kiện ≥ 2 bài), chuyên mục chính; `date` → `ngay` (số bài, số sự kiện, số sự kiện ≥ 2 bài TRONG ngày, số báo) |
 | `GET /api/events/map/dates` | Các ngày đã có bản đồ 2D (bỏ ngày thuộc cửa sổ ẩn tên) + ngày mặc định (10/09/2026) |
 | `GET /api/events/map?date=` | Bản đồ t-SNE các bài một ngày (`data/runs/<run_id>/ban_do/<date>.json`, sinh bằng `python -m eventrank.evaluation.event_map --date …`: perplexity 25, cosine, init pca, random_state 0, vector đệm `data/events/cache/emb_<model_version>.npz`) + tên ĐANG HIỂN THỊ của 8 sự kiện nhiều bài nhất trong ngày. File không chứa tên. Ngày giao cửa sổ ẩn tên → **403** (cả script cũng từ chối); chưa có file → 404 |
+| `POST /api/auth/register · login · logout · logout-all · verify-email · forgot-password · reset-password · change-password`, `GET /api/auth/me` | Tài khoản (cookie phiên `er_session` HttpOnly + `csrf_token`); 204 hoặc `AccountUser`; 401 sai thông tin / chưa đăng nhập, 423 đang khoá, 429 quá nhiều lần |
+| `GET/POST /api/me/follows`, `PUT/DELETE /api/me/follows/{event_id}`, `GET/POST /api/me/bookmarks`, `DELETE /api/me/bookmarks/{event_id}`, `GET/POST /api/me/subscriptions`, `DELETE /api/me/subscriptions/{id}`, `GET/PUT /api/me/settings`, `GET /api/me/sessions`, `DELETE /api/me/sessions/{id}`, `GET /api/me/notifications`, `POST /api/me/notifications/read`, `DELETE /api/me` | "Của tôi" (cần đăng nhập; ghi cần header `X-CSRF-Token`) |
+| `POST /api/events/{event_id}/feedback` | Báo sai, khách gửi được (≤ 20/giờ mỗi IP hoặc tài khoản) |
+| `GET /api/admin/users`, `PUT /api/admin/users/{id}`, `POST /api/admin/users/{id}/unlock`, `GET /api/admin/outbox`, `GET/POST /api/admin/api-tokens`, `DELETE /api/admin/api-tokens/{id}` | Quản trị (vai trò admin) |
+| `GET /api/admin/feedback`, `PUT /api/admin/feedback/{id}` | Xử lý báo sai (editor hoặc admin) |
 
 `/api/events` có thêm `category` (chuyên mục chính — chuyên mục gặp nhiều nhất trong các bài, đã gộp cách viết giữa các báo:
 "Y Tế"/"Sức Khỏe" → "Sức khỏe", "Quốc Tế" → "Thế giới"), `first_from`/`first_to` (ISO, không múi giờ = giờ VN; lọc theo bài
@@ -1173,10 +1197,7 @@ con trỏ vào ô tìm), `/events/:id`, `/chuyen-muc`, `/du-lieu/chat-luong`, `/
 `src/content/models.ts`, mỗi số ghi nguồn), `/du-lieu/gom-cum?ngay=`; tài khoản — `/login?next=`, `/register`,
 `/forgot-password`, `/reset-password?token=`, `/verify-email?token=`, `/me`; quản trị (vai trò admin) — `/admin/thu-thap`,
 `/admin/bao-sai`, `/admin/thu`, `/admin/nguoi-dung`, `/admin/khoa-api`, `/admin/kho/…` (7 trang kiểm soát dữ liệu cũ; `/time`,
-`/categories`, `/quality`, `/articles`, `/sources` cũ chuyển hướng vào đây). **Tài khoản chưa có backend** (bảng 003–006,
-`/api/auth/*`, `/api/me/*`, `/api/admin/*` theo thiết kế database): `src/api/{auth,me,admin}.ts` có adapter máy chủ thật theo hợp
-đồng dự kiến và adapter **giả lập** lưu localStorage, bật mặc định bằng `VITE_AUTH_MOCK` (đặt `0` khi có backend). Giả lập: tài
-khoản mẫu `admin@example.com` / `bientap@example.com` / `ban@example.com`, mật khẩu `matkhau-demo`; trang hiện dải "Bản xem trước".
+`/categories`, `/quality`, `/articles`, `/sources` cũ chuyển hướng vào đây). **Tài khoản có backend** (04/11/2026, `apps/api/accounts.py` + `src/eventrank/accounts/`, bảng 003–006): web gọi máy chủ thật mặc định; `VITE_AUTH_MOCK=1` bật lại adapter **giả lập** lưu localStorage (chỉ khi làm frontend không có Postgres; tài khoản mẫu `admin@example.com` / `bientap@example.com` / `ban@example.com`, mật khẩu `matkhau-demo`, trang hiện dải "Bản xem trước").
 
 **Sự kiện (API cho web):** đọc MỘT lần chạy pipeline ở máy (`eventrank/serving/store.py`), không đọc R2:
 `EVENTS_RUN_DIR`, không đặt thì lần chạy **đầy đủ** mới nhất trong `data/runs/` (manifest không có `--start/--end`,
