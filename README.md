@@ -18,6 +18,10 @@ make dev                      # backend :8000 + web React :5173
 | http://127.0.0.1:8000 | Trang kiểm soát dữ liệu nội bộ (`apps/api/static/`) — chỉ đọc |
 | http://127.0.0.1:8000/docs | Tài liệu API tự sinh |
 
+**Web demo sự kiện** (bảng xu hướng "phát lại" theo giờ 01/08–19/09/2026, danh sách và chi tiết sự kiện): cần một lần chạy
+pipeline trong `data/runs/` (`make pipeline`), rồi `make build && make prod` → http://127.0.0.1:8000/trending. Chọn lần chạy
+bằng `EVENTS_RUN_DIR`; tên sự kiện 14–15/09 mặc định bị ẩn (`EVENTS_HIDE_NAMES_WINDOW`, xem docs/tong-hop.md mục 11.3).
+
 Gõ `make` để xem mọi lệnh. Triển khai cho cả nhóm truy cập qua domain: [docs/tong-hop.md](docs/tong-hop.md) mục 11.4.
 
 ## Test

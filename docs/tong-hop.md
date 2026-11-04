@@ -1082,10 +1082,28 @@ không cần khoá, không gọi mạng (`uv run pytest -q`, `uv run ruff check 
 | `GET /api/stats/timeline?granularity=day\|hour&source=` | Số bài theo thời gian |
 | `GET /api/files` | Danh sách file trên kho |
 | `POST /api/admin/reload` | Nạp lại dữ liệu từ kho (= nút "Tải lại từ kho") |
+| `GET /api/runs/current` | Lần chạy pipeline sự kiện đang phục vụ: `run_id`, phiên bản, số lượng, cửa sổ ẩn tên, ghi chú hạn chế |
+| `GET /api/trending/times` | Khoảng mốc giờ có bảng xu hướng (`dau`, `cuoi`, `buoc_gio`, `mac_dinh`) + số sự kiện trên bảng từng giờ |
+| `GET /api/trending?t=` | Top-20 xu hướng tại giờ `t` (ISO; không múi giờ = giờ VN; làm tròn xuống) + `t_truoc`/`t_sau`; bỏ `t` → mốc cuối có ≥ 10 sự kiện |
+| `GET /api/events?q=&source=&date_from=&date_to=&min_size=&sort=hot\|newest\|size&page=&page_size=` | Danh sách sự kiện (mặc định ≥ 2 bài, `hot` = tổng điểm theo giờ); `q` khớp tên đang hiển thị/tiêu đề medoid, không phân biệt dấu |
+| `GET /api/events/{event_id}` | Chi tiết: bài (URL từ Silver), số bài theo báo, chuỗi số bài + điểm xu hướng theo giờ (tính lại bằng `trending.score.score_at`) |
 
 `issue`: `missing_author`, `empty_content`, `short_content`, `bad_date`, `future_date`, `duplicate_url`, `duplicate_id`.
 `sort`: `newest`, `oldest`, `longest`, `shortest`. Ngày `YYYY-MM-DD` theo giờ Việt Nam. Tiếng Việt trong URL phải mã hoá (dùng
 `curl -G --data-urlencode`). Server nạp dữ liệu một lần lúc khởi động và giữ trong RAM.
+
+**Sự kiện (web demo `/trending`, `/events`):** đọc MỘT lần chạy pipeline ở máy (`eventrank/serving/store.py`), không đọc R2:
+`EVENTS_RUN_DIR`, không đặt thì lần chạy **đầy đủ** mới nhất trong `data/runs/` (manifest không có `--start/--end`,
+`finished_at` muộn nhất; không theo thời điểm sửa file); log server ghi run đã chọn. Không có run → 5 endpoint trên trả
+**503** ("chạy `make pipeline`", không chứa đường dẫn tuyệt đối), các trang bài báo vẫn chạy. `event_id` sai dạng
+(`^E\d{8}-[0-9a-f]{8}$`), ngày sai dạng hoặc không có trên lịch, `t` ngoài khoảng → 422; không có sự kiện → 404.
+**Ẩn tên tập test:** `EVENTS_HIDE_NAMES_WINDOW` (giờ VN, gồm cả hai ngày; **không đặt hoặc rỗng = mặc định
+`2026-09-14..2026-09-15`; chỉ `off` mới tắt**, kèm cảnh báo trong log). Bị ẩn: sự kiện giao cửa sổ, và sự kiện ngoài cửa sổ
+có tên mô hình gần trùng một tên mô hình (kể cả tên bị loại) của sự kiện trong cửa sổ — Jaccard âm tiết ≥ 0,6
+(`NEAR_DUP_JACCARD`; run v2: 1.001 + 26 sự kiện). Sự kiện bị ẩn hiển thị tiêu đề medoid, `nguon_ten = "an"`,
+`ten_bi_an = true`; tên mô hình bị bỏ ngay lúc nạp, không endpoint nào trả ra (kể cả tìm kiếm). Không phục vụ
+`events.json`/`ten_su_kien.csv`. `/api/runs/current` có thêm khoảng dữ liệu (`du_lieu_tu/den`, `pham_vi_tu/den`). Run v2:
+nạp ~0,65 s, ~60 MB RAM, phản hồi 1–11 ms.
 
 ### 11.4 Triển khai cho cả nhóm
 
