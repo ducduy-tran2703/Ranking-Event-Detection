@@ -21,7 +21,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from apps.api import schemas
+from apps.api import accounts, schemas
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
 from eventrank.serving.db_store import DbEventStore, event_store_from_env
@@ -105,8 +105,9 @@ Events = Annotated[EventStore, Depends(get_events)]
 
 
 def create_app(store: SilverStore | None = None, events: EventStore | None = None,
-               load_events: bool | None = None) -> FastAPI:
-    """`load_events`: tự nạp kết quả pipeline lúc khởi động (mặc định: chỉ khi không truyền `store`, tức chạy thật)."""
+               load_events: bool | None = None, db_url: str | None = None) -> FastAPI:
+    """`load_events`: tự nạp kết quả pipeline lúc khởi động (mặc định: chỉ khi không truyền `store`, tức chạy thật).
+    `db_url`: Postgres cho tài khoản (test truyền DB tạm); không truyền → DATABASE_URL, mở lười ở yêu cầu đầu tiên."""
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if app.state.store is None:                      # test truyền store sẵn thì bỏ qua
@@ -129,11 +130,15 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
                                           else f"Không nạp được kết quả pipeline sự kiện (xem log server). "
                                                f"{NO_RUN_MESSAGE}")
         yield
+        if app.state.db_pool is not None:
+            app.state.db_pool.close()
 
     app = FastAPI(title="Ranking-Event-Detection — Kiểm soát dữ liệu", lifespan=lifespan)
     app.state.store = store
     app.state.events = events
     app.state.events_error = None
+    app.state.db_url = db_url
+    app.state.db_pool = None
 
     @app.exception_handler(ValueError)
     async def bad_request(_: Request, exc: ValueError) -> JSONResponse:
@@ -284,6 +289,8 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
     @app.post("/api/admin/reload", response_model=schemas.ReloadResult)
     def reload(s: Store) -> dict[str, Any]:
         return s.reload()
+
+    app.include_router(accounts.router)   # /api/auth, /api/me, /api/admin, báo sai — trước route SPA bắt-tất-cả
 
     add_basic_auth(app)
 
