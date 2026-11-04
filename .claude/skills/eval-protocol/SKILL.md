@@ -18,7 +18,7 @@ Một con số **không có baseline và không có khoảng tin cậy** thì kh
 ## Tập vàng
 
 - Một **khoảng thời gian liền mạch**, phủ đủ mọi báo. Lấy ngẫu nhiên từ nhiều tuần thì gần như không còn cụm nào.
-- Gán nhãn **theo thứ tự thời gian**, theo `docs/annotation-guideline.md`.
+- Gán nhãn **theo thứ tự thời gian**, theo `docs/tong-hop.md` mục 4.8 (định nghĩa 4 mức + quy tắc ranh giới R1–R6); công cụ gán ở mục 10.2.
 - Gán **trước** khi xem output mô hình. Công cụ gán chỉ gợi ý bằng baseline TF-IDF, không gợi ý bằng mô hình đang so sánh.
 - Đo đồng thuận người–người (B-Cubed giữa 2 người) — đó là trần của mọi mô hình.
 

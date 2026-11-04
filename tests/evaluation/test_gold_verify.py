@@ -46,3 +46,12 @@ def test_ap_ket_qua_bao_loi_khi_kiem_cum_lam_mat_bai():
     cl = gv.cluster_list(PROP)
     with pytest.raises(ValueError, match="K0001"):
         gv.apply(_arts(6), cl, {"K0001": {"groups": [{"name": "A", "members": [1, 2]}], "x": []}}, {})
+
+
+def test_quy_tac_gan_lay_dung_doan_trong_tai_lieu_tong_hop():
+    """Prompt agent chép mục 4.8.1–4.8.7 của docs/tong-hop.md: đổi tiêu đề mà quên sửa hằng → test này đỏ."""
+    rules = gv._rules()
+    assert rules.startswith(gv.RULES_START)
+    assert "Mức 3" in rules and "R1" in rules and "R6" in rules
+    assert gv.RULES_END not in rules
+    assert "Gán tay (cho người)" not in rules

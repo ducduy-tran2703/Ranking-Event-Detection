@@ -80,7 +80,7 @@ def cmd_run(conn: psycopg.Connection, a: argparse.Namespace) -> int:
         raise CliError(f"{a.source}: chưa có crawler (trường `crawler:` trong "
                        "configs/sources.yaml)")
     if not enabled and not a.force:
-        raise CliError(f"{a.source}: enabled = false. Bật sau checklist docs/handoff/ingest.md, "
+        raise CliError(f"{a.source}: enabled = false. Bật sau checklist docs/tong-hop.md mục 17.4.8, "
                        "hoặc --force để chạy thử")
     crawler = sources.load_crawler(spec)
     if crawler.source != a.source:

@@ -24,7 +24,11 @@ import numpy as np
 
 from eventrank.evaluation.gold_clusters import DEFAULT_OUT, ROOT, _articles
 
-RULES_DOC = ROOT / "docs/huong-dan-gan-4-muc.md"
+# Quy tắc gán (định nghĩa 4 mức + R1–R6) = docs/tong-hop.md từ mục 4.8.1 đến hết 4.8.7, chép nguyên văn vào prompt agent.
+# Đổi tiêu đề hai mục này trong tài liệu thì sửa hai hằng dưới (test: tests/evaluation/test_gold_verify.py).
+RULES_DOC = ROOT / "docs/tong-hop.md"
+RULES_START = "#### 4.8.1 Bốn mức"
+RULES_END = "#### 4.8.8 Gán tay (cho người)"
 
 
 def cluster_list(proposals: list[dict]) -> list[dict]:
@@ -132,7 +136,8 @@ def excluded_by(arts: list[dict], verdicts: dict) -> list[int]:
 # ---------------------------------------------------------------- chuẩn bị đầu vào cho agent
 def _rules() -> str:
     doc = RULES_DOC.read_text(encoding="utf-8")
-    return doc[doc.index("## Bốn mức"):doc.index("## Gán tay (cho người)")]
+    start = doc.index(RULES_START)
+    return doc[start:doc.index(RULES_END, start)]
 
 
 def _line(a: dict, s: dict | None) -> str:

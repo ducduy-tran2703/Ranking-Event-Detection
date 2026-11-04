@@ -7,7 +7,7 @@
 #   display_name  tên hiển thị
 #   homepage      trang chủ
 #   enabled       true thì `ingest run --source X` mới chạy crawler. CHỈ bật sau checklist trong
-#                 docs/handoff/ingest.md (test hợp đồng xanh, lát cắt 12 bài, kiểm tra chất lượng).
+#                 docs/tong-hop.md mục 17.4.8 (test hợp đồng xanh, lát cắt 12 bài, kiểm tra chất lượng).
 #   crawler       "module:Lớp" của crawler, ví dụ eventrank.ingest.crawlers.tuoitre:TuoiTreRss.
 #                 Để trống = chưa có crawler. Crawler đã đăng ký PHẢI có fixture trong
 #                 tests/fixtures/crawlers/<source>/ (tests/ingest/test_crawler_contract.py tự kiểm).

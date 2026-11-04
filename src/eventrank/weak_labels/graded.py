@@ -17,7 +17,7 @@ CoSENT chỉ dùng THỨ TỰ giữa các cặp, nên giá trị 0,6 / 0,3 khôn
 
 Nguồn nhãn: tái dùng toàn bộ cặp ứng viên + đặc trưng của v3 (`data/weak_labels/v3/pairs.jsonl`, không chạy lại
 embedding). Luật gán phần chắc chắn (mức 3, mức 1 kiểu khuôn tin, mức 0); phần còn lại là VÙNG XÁM, Claude gán
-mù theo `docs/huong-dan-gan-4-muc.md`. Mức 2 chỉ đến từ Claude: luật "chung thực thể nổi bật nhưng p thấp" lẫn
+mù theo `docs/tong-hop.md` mục 4.8. Mức 2 chỉ đến từ Claude: luật "chung thực thể nổi bật nhưng p thấp" lẫn
 quá nhiều loại (chung sản phẩm, chung hội nghị, bài tổng hợp, cặp cùng sự kiện bị bỏ sót).
 
 Ba tập Claude gán, không chồng nhau:
