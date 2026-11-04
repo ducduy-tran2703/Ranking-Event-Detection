@@ -1,7 +1,9 @@
 // Hook lấy dữ liệu. React Query lo phần lưu tạm, tải lại, và trạng thái đang tải / lỗi,
 // nên các trang chỉ việc hiển thị.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError, type ArticleQuery, type Granularity, type StatsFilter } from "./client";
+import {
+  api, ApiError, type ArticleQuery, type EventQuery, type Granularity, type StatsFilter,
+} from "./client";
 
 /**
  * Lấy dữ liệu hoặc ném lỗi, dựa trên MÃ HTTP THẬT chứ không dựa trên các lỗi được khai báo trong
@@ -85,4 +87,47 @@ export const useArticle = (articleId: string) =>
     queryKey: ["article", articleId],
     queryFn: () =>
       unwrap(api.GET("/api/articles/{article_id}", { params: { path: { article_id: articleId } } })),
+  });
+
+// ---------------------------------------------------------------- sự kiện (kết quả pipeline)
+// Dữ liệu một lần chạy pipeline không đổi khi server đang chạy → lưu tạm lâu, không tự tải lại.
+const RUN_STALE = 10 * 60_000;
+
+export const useRunInfo = () =>
+  useQuery({
+    queryKey: ["run"],
+    queryFn: () => unwrap(api.GET("/api/runs/current")),
+    staleTime: RUN_STALE,
+  });
+
+export const useTrendTimes = () =>
+  useQuery({
+    queryKey: ["trend-times"],
+    queryFn: () => unwrap(api.GET("/api/trending/times")),
+    staleTime: RUN_STALE,
+  });
+
+/** t: "YYYY-MM-DDTHH:00" giờ Việt Nam; bỏ trống → mốc mặc định của server. */
+export const useTrending = (t: string | undefined) =>
+  useQuery({
+    queryKey: ["trending", t ?? ""],
+    queryFn: () => unwrap(api.GET("/api/trending", { params: { query: t ? { t } : {} } })),
+    staleTime: RUN_STALE,
+    placeholderData: keepPreviousData, // phát tự động không bị nháy trắng giữa các giờ
+  });
+
+export const useEvents = (query: EventQuery) =>
+  useQuery({
+    queryKey: ["events", query],
+    queryFn: () => unwrap(api.GET("/api/events", { params: { query } })),
+    staleTime: RUN_STALE,
+    placeholderData: keepPreviousData,
+  });
+
+export const useEvent = (eventId: string) =>
+  useQuery({
+    queryKey: ["event", eventId],
+    queryFn: () =>
+      unwrap(api.GET("/api/events/{event_id}", { params: { path: { event_id: eventId } } })),
+    staleTime: RUN_STALE,
   });

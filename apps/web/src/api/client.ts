@@ -17,11 +17,19 @@ export type IssueCounts = Schemas["IssueCounts"];
 export type RawSourceValue = Schemas["RawSourceValue"];
 export type FileInfo = Schemas["FileInfo"];
 export type Freshness = Schemas["Freshness"];
+export type RunInfo = Schemas["RunInfo"];
+export type TrendTimes = Schemas["TrendTimes"];
+export type Trending = Schemas["Trending"];
+export type TrendItem = Schemas["TrendItem"];
+export type EventSummary = Schemas["EventSummary"];
+export type EventDetail = Schemas["EventDetail"];
+export type EventPoint = Schemas["EventPoint"];
 
 type QueryOf<P extends keyof paths> = paths[P] extends { get: { parameters: { query?: infer Q } } }
   ? NonNullable<Q>
   : never;
 export type ArticleQuery = QueryOf<"/api/articles">;
+export type EventQuery = QueryOf<"/api/events">;
 export type StatsFilter = QueryOf<"/api/stats/categories">; // source, category, q, date_from, date_to, issue
 export type Granularity = "day" | "hour";
 

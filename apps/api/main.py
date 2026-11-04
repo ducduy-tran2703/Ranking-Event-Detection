@@ -1,22 +1,39 @@
-"""FastAPI: trang kiểm soát dữ liệu Silver. Chỉ đọc — không có endpoint ghi hay xoá dữ liệu kho.
+"""FastAPI: trang kiểm soát dữ liệu Silver + web demo sự kiện. Chỉ đọc — không có endpoint ghi hay xoá dữ liệu kho.
+
+Sự kiện (/api/trending, /api/events, /api/runs/current) đọc kết quả MỘT lần chạy pipeline ở máy (`EventStore`,
+`EVENTS_RUN_DIR` hoặc run mới nhất trong data/runs/). Chưa có run → các endpoint đó trả 503, phần Silver vẫn chạy.
+Tên sự kiện giao cửa sổ `EVENTS_HIDE_NAMES_WINDOW` (mặc định 14–15/09/2026) bị ẩn — xem eventrank/serving/store.py.
 
 Chạy:  uv run uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
 """
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from apps.api import schemas
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
+from eventrank.serving.store import (
+    EVENT_ID_PATTERN,
+    NO_RUN_MESSAGE,
+    EventStore,
+    HideWindowError,
+    RunNotFound,
+    rel_label,
+)
+
+log = logging.getLogger(__name__)
+ulog = logging.getLogger("uvicorn.error")   # logger uvicorn đã cấu hình sẵn → dòng log hiện trên terminal
 
 STATIC_DIR = Path(__file__).parent / "static"          # trang kiểm soát nội bộ (HTML/JS thuần)
 WEB_DIST = Path(__file__).parent.parent / "web" / "dist"  # web React đã đóng gói (make build)
@@ -70,21 +87,47 @@ def get_filters(
                    date_from=date_from or None, date_to=date_to or None, issue=issue or None)
 
 
+def get_events(request: Request) -> EventStore:
+    ev = request.app.state.events
+    if ev is None:
+        raise HTTPException(503, request.app.state.events_error or NO_RUN_MESSAGE)
+    return ev
+
+
 Store = Annotated[SilverStore, Depends(get_store)]
 Filt = Annotated[Filters, Depends(get_filters)]
+Events = Annotated[EventStore, Depends(get_events)]
 
 
-def create_app(store: SilverStore | None = None) -> FastAPI:
+def create_app(store: SilverStore | None = None, events: EventStore | None = None,
+               load_events: bool | None = None) -> FastAPI:
+    """`load_events`: tự nạp kết quả pipeline lúc khởi động (mặc định: chỉ khi không truyền `store`, tức chạy thật)."""
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if app.state.store is None:                      # test truyền store sẵn thì bỏ qua
             s = SilverStore(load_config())
             s.reload()
             app.state.store = s
+        if app.state.events is None and (store is None if load_events is None else load_events):
+            try:
+                ev = EventStore.from_env()
+                app.state.events = ev
+                ulog.info("sự kiện: run %s (%s), nạp %.2fs; ẩn tên %d sự kiện (%d trong cửa sổ, %d gần trùng)",
+                          ev.run_id, rel_label(ev.run_dir), ev.load_seconds, ev.n_hidden_window + ev.n_hidden_near,
+                          ev.n_hidden_window, ev.n_hidden_near)
+            except Exception as exc:  # noqa: BLE001 - thiếu/hỏng run chỉ tắt phần sự kiện (503), không tắt cả API
+                log.warning("không nạp được kết quả pipeline sự kiện: %r", exc)
+                ulog.warning("không nạp được kết quả pipeline sự kiện: %r", exc)
+                # Trả cho trình duyệt thông báo không chứa đường dẫn tuyệt đối; chi tiết ở log server.
+                app.state.events_error = (str(exc) if isinstance(exc, (RunNotFound, HideWindowError))
+                                          else f"Không nạp được kết quả pipeline sự kiện (xem log server). "
+                                               f"{NO_RUN_MESSAGE}")
         yield
 
     app = FastAPI(title="Ranking-Event-Detection — Kiểm soát dữ liệu", lifespan=lifespan)
     app.state.store = store
+    app.state.events = events
+    app.state.events_error = None
 
     @app.exception_handler(ValueError)
     async def bad_request(_: Request, exc: ValueError) -> JSONResponse:
@@ -142,6 +185,57 @@ def create_app(store: SilverStore | None = None) -> FastAPI:
         row = s.get_article(article_id)
         if row is None:
             raise HTTPException(404, "Không tìm thấy bài")
+        return row
+
+    # ------------------------------------------------------------ sự kiện (kết quả pipeline)
+    @app.get("/api/runs/current", response_model=schemas.RunInfo)
+    def run_current(ev: Events) -> dict[str, Any]:
+        """Lần chạy pipeline đang phục vụ: phiên bản, số lượng, các hạn chế cần ghi rõ trên giao diện."""
+        return ev.run_info()
+
+    @app.get("/api/trending/times", response_model=schemas.TrendTimes)
+    def trending_times(ev: Events) -> dict[str, Any]:
+        """Khoảng mốc giờ có bảng xu hướng + số sự kiện trên bảng ở từng mốc (cho thanh trượt phát lại)."""
+        return ev.trend_times()
+
+    @app.get("/api/trending", response_model=schemas.Trending)
+    def trending_at(ev: Events, t: Annotated[str | None, Query(max_length=40)] = None) -> dict[str, Any]:
+        """Top-20 xu hướng tại mốc t (ISO; không múi giờ = giờ VN; làm tròn xuống theo giờ). Bỏ trống → mốc mặc định."""
+        if not t:
+            return ev.trending()
+        try:
+            k = ev.parse_t(t)
+        except ValueError as exc:
+            raise HTTPException(422, f"t không hợp lệ: {exc}") from exc
+        return ev.trending(k)
+
+    @app.get("/api/events", response_model=schemas.EventPage)
+    def events_list(
+        ev: Events,
+        q: Annotated[str | None, Query(max_length=200)] = None,
+        source: Annotated[str | None, Query(max_length=40)] = None,
+        date_from: Annotated[str | None, Query(pattern=DATE)] = None,
+        date_to: Annotated[str | None, Query(pattern=DATE)] = None,
+        min_size: Annotated[int, Query(ge=1)] = 2,
+        sort: Literal["hot", "newest", "size"] = "hot",
+        page: Annotated[int, Query(ge=1)] = 1,
+        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        """Danh sách sự kiện. q khớp tên ĐANG HIỂN THỊ hoặc tiêu đề bài đại diện (không phân biệt hoa/thường, dấu)."""
+        try:
+            return ev.list_events(q=q or None, source=source or None, date_from=date_from or None,
+                                  date_to=date_to or None, min_size=min_size, sort=sort, page=page,
+                                  page_size=page_size)
+        except ValueError as exc:            # ngày đúng dạng nhưng không có trên lịch (2026-02-30)
+            raise HTTPException(422, f"Tham số không hợp lệ: {exc}") from exc
+
+    @app.get("/api/events/{event_id}", response_model=schemas.EventDetail)
+    def event_detail(ev: Events, s: Store,
+                     event_id: Annotated[str, PathParam(pattern=EVENT_ID_PATTERN)]) -> dict[str, Any]:
+        """Một sự kiện: các bài (kèm URL từ Silver nếu có), số bài + điểm xu hướng theo giờ trên toàn đời sống."""
+        row = ev.get_event(event_id, urls=getattr(s, "urls", None))
+        if row is None:
+            raise HTTPException(404, "Không tìm thấy sự kiện")
         return row
 
     @app.post("/api/admin/reload", response_model=schemas.ReloadResult)
