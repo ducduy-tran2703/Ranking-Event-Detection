@@ -24,6 +24,10 @@ export type TrendItem = Schemas["TrendItem"];
 export type EventSummary = Schemas["EventSummary"];
 export type EventDetail = Schemas["EventDetail"];
 export type EventPoint = Schemas["EventPoint"];
+export type EventStats = Schemas["EventStats"];
+export type EventMap = Schemas["EventMap"];
+export type MapEvent = Schemas["MapEvent"];
+export type SourceOverview = Schemas["SourceOverview"];
 
 type QueryOf<P extends keyof paths> = paths[P] extends { get: { parameters: { query?: infer Q } } }
   ? NonNullable<Q>
@@ -33,8 +37,23 @@ export type EventQuery = QueryOf<"/api/events">;
 export type StatsFilter = QueryOf<"/api/stats/categories">; // source, category, q, date_from, date_to, issue
 export type Granularity = "day" | "hour";
 
+/** Câu tiếng Việt cho người đọc theo mã HTTP; `detail` của API chỉ dùng khi là CHUỖI (không bao giờ in JSON). */
+export function apiMessage(status: number, detail: unknown): string {
+  const raw = typeof detail === "string" ? detail
+    : detail && typeof detail === "object" && typeof (detail as { detail?: unknown }).detail === "string"
+      ? (detail as { detail: string }).detail : "";
+  const text = raw.trim().replace(/\s+/g, " ").slice(0, 300);
+  const base: Record<number, string> = {
+    400: "Yêu cầu không hợp lệ.", 401: "Bạn cần đăng nhập.", 403: "Không có quyền xem nội dung này.",
+    404: "Không tìm thấy dữ liệu.", 422: "Tham số trên đường dẫn không hợp lệ.",
+    503: "Máy chủ chưa sẵn sàng phục vụ dữ liệu này.",
+  };
+  const head = base[status] ?? (status >= 500 ? `Máy chủ gặp lỗi (mã ${status}). Thử lại sau.` : `Lỗi ${status}.`);
+  return text && !text.startsWith("{") && !text.startsWith("[") ? `${head} ${text}` : head;
+}
+
 export class ApiError extends Error {
-  constructor(public status: number, detail: unknown) {
-    super(`Lỗi ${status}: ${typeof detail === "object" ? JSON.stringify(detail) : String(detail)}`);
+  constructor(public status: number, public detail: unknown) {
+    super(apiMessage(status, detail));
   }
 }

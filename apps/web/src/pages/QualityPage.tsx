@@ -7,9 +7,11 @@ import { SourceBadge } from "../components/SourceBadge";
 import { ErrorBox, Loading } from "../components/Status";
 import { fmtInt } from "../lib/format";
 import { pivot } from "../lib/pivot";
+import { kho } from "../lib/routes";
 
 const ISSUES: { key: keyof Omit<IssueCounts, "source" | "articles">; label: string; rule: string }[] = [
   { key: "missing_author", label: "Thiếu tác giả", rule: "author rỗng hoặc null" },
+  { key: "missing_sapo", label: "Thiếu sapo", rule: "sapo rỗng hoặc null" },
   { key: "empty_content", label: "Thân bài rỗng", rule: "content_text rỗng" },
   { key: "short_content", label: "Quá ngắn", rule: "1–79 từ" },
   { key: "bad_date", label: "Ngày hỏng", rule: "published_at không đọc được" },
@@ -76,7 +78,7 @@ export function QualityPage() {
                     const cls = pct >= 20 ? "bad" : pct >= 5 ? "warn" : "";
                     return (
                       <td key={i.key} className="num">
-                        <Link to={`/articles?source=${r.source}&issue=${i.key}`}>{fmtInt(n)}</Link>{" "}
+                        <Link to={`${kho.articles}?source=${r.source}&issue=${i.key}`}>{fmtInt(n)}</Link>{" "}
                         <span className={`badge ${cls}`}>{pct}%</span>
                       </td>
                     );

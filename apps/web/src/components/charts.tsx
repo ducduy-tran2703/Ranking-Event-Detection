@@ -5,8 +5,8 @@ import {
 import { sourceColor } from "./SourceBadge";
 
 type Row = Record<string, string | number>;
-const AXIS = { fontSize: 12, fill: "#8b949e" };
-const GRID = "#8b949e33";
+const AXIS = { fontSize: 12, fill: "var(--muted)" };
+const GRID = "var(--border)";
 const TOOLTIP = {
   contentStyle: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 },
   labelStyle: { color: "var(--text)", fontWeight: 600 },

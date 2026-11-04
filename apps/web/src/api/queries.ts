@@ -91,43 +91,54 @@ export const useArticle = (articleId: string) =>
 
 // ---------------------------------------------------------------- sự kiện (kết quả pipeline)
 // Dữ liệu một lần chạy pipeline không đổi khi server đang chạy → lưu tạm lâu, không tự tải lại.
+// Các *Options dùng chung cho hook và cho prefetch theo route (api/prefetch.ts) → cùng khoá, không gọi trùng.
 const RUN_STALE = 10 * 60_000;
 
-export const useRunInfo = () =>
-  useQuery({
-    queryKey: ["run"],
-    queryFn: () => unwrap(api.GET("/api/runs/current")),
-    staleTime: RUN_STALE,
-  });
+export const runOptions = () => ({
+  queryKey: ["run"], queryFn: () => unwrap(api.GET("/api/runs/current")), staleTime: RUN_STALE,
+});
+export const trendTimesOptions = () => ({
+  queryKey: ["trend-times"], queryFn: () => unwrap(api.GET("/api/trending/times")), staleTime: RUN_STALE,
+});
+/** t: "YYYY-MM-DDTHH:MM" giờ Việt Nam; bỏ trống → mốc mặc định của server. */
+export const trendingOptions = (t: string | undefined) => ({
+  queryKey: ["trending", t ?? ""],
+  queryFn: () => unwrap(api.GET("/api/trending", { params: { query: t ? { t } : {} } })),
+  staleTime: RUN_STALE,
+});
+export const eventsOptions = (query: EventQuery) => ({
+  queryKey: ["events", query], queryFn: () => unwrap(api.GET("/api/events", { params: { query } })), staleTime: RUN_STALE,
+});
+export const eventOptions = (eventId: string) => ({
+  queryKey: ["event", eventId],
+  queryFn: () => unwrap(api.GET("/api/events/{event_id}", { params: { path: { event_id: eventId } } })),
+  staleTime: RUN_STALE,
+});
+export const eventStatsOptions = (date?: string) => ({
+  queryKey: ["event-stats", date ?? ""],
+  queryFn: () => unwrap(api.GET("/api/events/stats", { params: { query: date ? { date } : {} } })),
+  staleTime: RUN_STALE,
+});
 
-export const useTrendTimes = () =>
-  useQuery({
-    queryKey: ["trend-times"],
-    queryFn: () => unwrap(api.GET("/api/trending/times")),
-    staleTime: RUN_STALE,
-  });
-
-/** t: "YYYY-MM-DDTHH:00" giờ Việt Nam; bỏ trống → mốc mặc định của server. */
+export const useRunInfo = () => useQuery(runOptions());
+export const useTrendTimes = () => useQuery(trendTimesOptions());
 export const useTrending = (t: string | undefined) =>
-  useQuery({
-    queryKey: ["trending", t ?? ""],
-    queryFn: () => unwrap(api.GET("/api/trending", { params: { query: t ? { t } : {} } })),
-    staleTime: RUN_STALE,
-    placeholderData: keepPreviousData, // phát tự động không bị nháy trắng giữa các giờ
-  });
+  useQuery({ ...trendingOptions(t), placeholderData: keepPreviousData });   // phát tự động không nháy trắng
+export const useEvents = (query: EventQuery, enabled = true) =>
+  useQuery({ ...eventsOptions(query), enabled, placeholderData: keepPreviousData });
+export const useEvent = (eventId: string) => useQuery(eventOptions(eventId));
 
-export const useEvents = (query: EventQuery) =>
+/** Phân bố kích thước / số báo / chuyên mục; `date` → thêm số liệu của ngày đó (trang chủ). */
+export const useEventStats = (date?: string) => useQuery({ ...eventStatsOptions(date), placeholderData: keepPreviousData });
+
+export const useMapDates = () =>
+  useQuery({ queryKey: ["map-dates"], queryFn: () => unwrap(api.GET("/api/events/map/dates")), staleTime: RUN_STALE });
+
+export const useEventMap = (date: string | undefined, enabled = true) =>
   useQuery({
-    queryKey: ["events", query],
-    queryFn: () => unwrap(api.GET("/api/events", { params: { query } })),
+    enabled,
+    queryKey: ["event-map", date ?? ""],
+    queryFn: () => unwrap(api.GET("/api/events/map", { params: { query: date ? { date } : {} } })),
     staleTime: RUN_STALE,
     placeholderData: keepPreviousData,
-  });
-
-export const useEvent = (eventId: string) =>
-  useQuery({
-    queryKey: ["event", eventId],
-    queryFn: () =>
-      unwrap(api.GET("/api/events/{event_id}", { params: { path: { event_id: eventId } } })),
-    staleTime: RUN_STALE,
   });

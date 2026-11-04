@@ -7,10 +7,11 @@ import { Pagination } from "../components/Pagination";
 import { SourceBadge } from "../components/SourceBadge";
 import { ErrorBox, Loading } from "../components/Status";
 import { fmtInt } from "../lib/format";
+import { kho } from "../lib/routes";
 
 const PAGE_SIZE = 20;
 const ISSUE_LABELS: Record<string, string> = {
-  missing_author: "Thiếu tác giả", empty_content: "Thân bài rỗng", short_content: "Quá ngắn",
+  missing_author: "Thiếu tác giả", missing_sapo: "Thiếu sapo", empty_content: "Thân bài rỗng", short_content: "Quá ngắn",
   bad_date: "Ngày hỏng", future_date: "Ngày tương lai", duplicate_url: "URL trùng", duplicate_id: "article_id trùng",
 };
 const SORTS = { newest: "Mới nhất", oldest: "Cũ nhất", longest: "Dài nhất", shortest: "Ngắn nhất" } as const;
@@ -84,7 +85,7 @@ export function ArticlesPage() {
                   <SourceBadge source={a.source} /> · {a.category ?? "—"} · {a.published_at ?? "—"} ·{" "}
                   {fmtInt(a.n_words)} từ{!a.author && <> · <span className="badge warn">thiếu tác giả</span></>}
                 </div>
-                <Link to={`/articles/${a.article_id}`} className="title">{a.title ?? "(không có tiêu đề)"}</Link>
+                <Link to={kho.article(a.article_id)} className="title">{a.title ?? "(không có tiêu đề)"}</Link>
                 <p className="muted">{a.sapo}</p>
               </li>
             ))}
