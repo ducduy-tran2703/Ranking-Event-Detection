@@ -7,6 +7,7 @@ import { SourceBadge } from "../components/SourceBadge";
 import { ErrorBox, Loading } from "../components/Status";
 import { fmtInt } from "../lib/format";
 import { pivot } from "../lib/pivot";
+import { kho } from "../lib/routes";
 
 function daysBefore(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -81,7 +82,7 @@ export function OverviewPage() {
                 const md = median(perDay.get(s.source) ?? []);
                 return (
                   <tr key={s.source}>
-                    <td><Link to={`/articles?source=${s.source}`}><SourceBadge source={s.source} /></Link></td>
+                    <td><Link to={`${kho.articles}?source=${s.source}`}><SourceBadge source={s.source} /></Link></td>
                     <td className="num">{fmtInt(s.articles)}</td>
                     <td>{s.first_published?.slice(0, 10) ?? "—"}</td>
                     <td>{s.last_published?.slice(0, 10) ?? "—"}</td>

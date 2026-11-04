@@ -1,0 +1,13 @@
+# Cấu hình pipeline gom cụm sự kiện (python -m eventrank.clustering.pipeline / make cluster).
+# Chọn theo kết quả chấm trên tập vàng 14–15/09/2026 (src/eventrank/evaluation/cluster_eval.py, 02/11/2026):
+# bkai fine-tune v1 + agglo = B-Cubed F1 0,967 [0,955; 0,976] trên 15/09, cao nhất trong 22 cấu hình.
+# Ngưỡng gắn với mô hình (mỗi mô hình một thang cosine): đổi mô hình → chọn lại ngưỡng trên 14/09 VÀ tăng algo_version.
+algo_version: v1
+model: data/models/bkai_ft_v1_s44          # = models/embedding_v1_NguyenDinhHieu/ trên R2 (seed 44)
+model_version: bkai_ft_v1_s44
+prep: pyvi                                 # NFC + tách từ pyvi, giống lúc fine-tune
+algo: agglo                                # average-linkage; single_pass kém hơn 0,007 F1
+threshold: 0.83                            # chọn trên 14/09; đúng lại trên 15/09 (không mất F1)
+window_hours: 48
+# Phương án dự phòng nếu tập vàng có người duyệt mà v1 không còn hơn (v1 được dùng khi dựng tập vàng → có thể thiên lệch):
+#   model: data/models/bkai-v4-cosent-s42_2026-10-30, model_version: bkai_v2_s42, threshold: 0.85 (F1 0,960)

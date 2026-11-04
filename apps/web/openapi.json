@@ -728,6 +728,448 @@
         }
       }
     },
+    "/api/runs/current": {
+      "get": {
+        "summary": "Run Current",
+        "description": "Lần chạy pipeline đang phục vụ: phiên bản, số lượng, các hạn chế cần ghi rõ trên giao diện.",
+        "operationId": "run_current_api_runs_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trending/times": {
+      "get": {
+        "summary": "Trending Times",
+        "description": "Khoảng mốc giờ có bảng xu hướng + số sự kiện trên bảng ở từng mốc (cho thanh trượt phát lại).",
+        "operationId": "trending_times_api_trending_times_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrendTimes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trending": {
+      "get": {
+        "summary": "Trending At",
+        "description": "Top-20 xu hướng tại mốc t (ISO; không múi giờ = giờ VN; làm tròn xuống theo giờ). Bỏ trống → mốc mặc định.",
+        "operationId": "trending_at_api_trending_get",
+        "parameters": [
+          {
+            "name": "t",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "T"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trending"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "summary": "Events List",
+        "description": "Danh sách sự kiện. q khớp tên ĐANG HIỂN THỊ hoặc tiêu đề bài đại diện (không phân biệt hoa/thường, dấu).\ncategory = chuyên mục chính; first_from/first_to (ISO, không múi giờ = giờ VN) lọc theo lúc xuất hiện;\nsort=first_seen: xuất hiện muộn nhất trước.",
+        "operationId": "events_list_api_events_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "first_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "First From"
+            }
+          },
+          {
+            "name": "first_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "First To"
+            }
+          },
+          {
+            "name": "min_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 2,
+              "title": "Min Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "hot",
+                "newest",
+                "size",
+                "first_seen"
+              ],
+              "type": "string",
+              "default": "hot",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/stats": {
+      "get": {
+        "summary": "Events Stats",
+        "description": "Số đếm (không có tên): kích thước sự kiện, số báo, chuyên mục; `date` → thêm số liệu của ngày đó.",
+        "operationId": "events_stats_api_events_stats_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/map/dates": {
+      "get": {
+        "summary": "Events Map Dates",
+        "description": "Các ngày đã có bản đồ 2D (không gồm ngày thuộc cửa sổ ẩn tên).",
+        "operationId": "events_map_dates_api_events_map_dates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapDates"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/map": {
+      "get": {
+        "summary": "Events Map",
+        "description": "Bản đồ t-SNE các bài của một ngày + tên đang hiển thị của các sự kiện lớn nhất. Ngày trong cửa sổ ẩn tên → 403.",
+        "operationId": "events_map_api_events_map_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventMap"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}": {
+      "get": {
+        "summary": "Event Detail",
+        "description": "Một sự kiện: các bài (kèm URL từ Silver nếu có), số bài + điểm xu hướng theo giờ trên toàn đời sống.",
+        "operationId": "event_detail_api_events__event_id__get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/reload": {
       "post": {
         "summary": "Reload",
@@ -1039,6 +1481,24 @@
         ],
         "title": "CategoryCount"
       },
+      "CategoryN": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "n"
+        ],
+        "title": "CategoryN"
+      },
       "DateRange": {
         "properties": {
           "min_date": {
@@ -1070,6 +1530,39 @@
           "max_date"
         ],
         "title": "DateRange"
+      },
+      "DayStats": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "so_bai": {
+            "type": "integer",
+            "title": "So Bai"
+          },
+          "so_su_kien": {
+            "type": "integer",
+            "title": "So Su Kien"
+          },
+          "so_su_kien_nhieu_bai": {
+            "type": "integer",
+            "title": "So Su Kien Nhieu Bai"
+          },
+          "so_bao": {
+            "type": "integer",
+            "title": "So Bao"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "so_bai",
+          "so_su_kien",
+          "so_su_kien_nhieu_bai",
+          "so_bao"
+        ],
+        "title": "DayStats"
       },
       "DuplicateTitle": {
         "properties": {
@@ -1108,6 +1601,537 @@
           "source_list"
         ],
         "title": "DuplicateTitle"
+      },
+      "EventArticle": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "published_at": {
+            "type": "string",
+            "title": "Published At"
+          },
+          "is_medoid": {
+            "type": "boolean",
+            "title": "Is Medoid"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "title",
+          "source",
+          "category",
+          "published_at",
+          "is_medoid",
+          "url"
+        ],
+        "title": "EventArticle"
+      },
+      "EventDetail": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "ten": {
+            "type": "string",
+            "title": "Ten"
+          },
+          "nguon_ten": {
+            "type": "string",
+            "title": "Nguon Ten"
+          },
+          "ten_bi_an": {
+            "type": "boolean",
+            "title": "Ten Bi An"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCount"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "first_seen": {
+            "type": "string",
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "type": "string",
+            "title": "Last Seen"
+          },
+          "medoid_title": {
+            "type": "string",
+            "title": "Medoid Title"
+          },
+          "tong_diem": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tong Diem"
+          },
+          "diem_cao_nhat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diem Cao Nhat"
+          },
+          "luc_cao_nhat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Luc Cao Nhat"
+          },
+          "so_gio_trong_top10": {
+            "type": "integer",
+            "title": "So Gio Trong Top10"
+          },
+          "chuyen_muc_chinh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chuyen Muc Chinh"
+          },
+          "chuyen_muc": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryN"
+            },
+            "type": "array",
+            "title": "Chuyen Muc"
+          },
+          "bai": {
+            "items": {
+              "$ref": "#/components/schemas/EventArticle"
+            },
+            "type": "array",
+            "title": "Bai"
+          },
+          "chuoi": {
+            "items": {
+              "$ref": "#/components/schemas/EventPoint"
+            },
+            "type": "array",
+            "title": "Chuoi"
+          },
+          "chuoi_bi_cat": {
+            "type": "boolean",
+            "title": "Chuoi Bi Cat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "ten",
+          "nguon_ten",
+          "ten_bi_an",
+          "size",
+          "n_sources",
+          "sources",
+          "first_seen",
+          "last_seen",
+          "medoid_title",
+          "tong_diem",
+          "diem_cao_nhat",
+          "luc_cao_nhat",
+          "so_gio_trong_top10",
+          "chuyen_muc_chinh",
+          "chuyen_muc",
+          "bai",
+          "chuoi",
+          "chuoi_bi_cat"
+        ],
+        "title": "EventDetail"
+      },
+      "EventMap": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "tsne": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Tsne"
+          },
+          "n_bai": {
+            "type": "integer",
+            "title": "N Bai"
+          },
+          "n_su_kien": {
+            "type": "integer",
+            "title": "N Su Kien"
+          },
+          "n_su_kien_nhieu_bai": {
+            "type": "integer",
+            "title": "N Su Kien Nhieu Bai"
+          },
+          "khac_run": {
+            "type": "boolean",
+            "title": "Khac Run"
+          },
+          "su_kien": {
+            "items": {
+              "$ref": "#/components/schemas/MapEvent"
+            },
+            "type": "array",
+            "title": "Su Kien"
+          },
+          "diem": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Diem"
+          },
+          "ngay_co_san": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ngay Co San"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "run_id",
+          "model_version",
+          "tsne",
+          "n_bai",
+          "n_su_kien",
+          "n_su_kien_nhieu_bai",
+          "khac_run",
+          "su_kien",
+          "diem",
+          "ngay_co_san"
+        ],
+        "title": "EventMap"
+      },
+      "EventPage": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EventSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "items"
+        ],
+        "title": "EventPage"
+      },
+      "EventPoint": {
+        "properties": {
+          "t": {
+            "type": "string",
+            "title": "T"
+          },
+          "so_bai": {
+            "type": "integer",
+            "title": "So Bai"
+          },
+          "so_bai_den_t": {
+            "type": "integer",
+            "title": "So Bai Den T"
+          },
+          "diem": {
+            "type": "number",
+            "title": "Diem"
+          },
+          "ung_vien": {
+            "type": "boolean",
+            "title": "Ung Vien"
+          },
+          "hang": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hang"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t",
+          "so_bai",
+          "so_bai_den_t",
+          "diem",
+          "ung_vien",
+          "hang"
+        ],
+        "title": "EventPoint"
+      },
+      "EventStats": {
+        "properties": {
+          "n_su_kien": {
+            "type": "integer",
+            "title": "N Su Kien"
+          },
+          "n_su_kien_nhieu_bai": {
+            "type": "integer",
+            "title": "N Su Kien Nhieu Bai"
+          },
+          "kich_thuoc": {
+            "items": {
+              "$ref": "#/components/schemas/SizeBin"
+            },
+            "type": "array",
+            "title": "Kich Thuoc"
+          },
+          "so_bao": {
+            "items": {
+              "$ref": "#/components/schemas/SourcesBin"
+            },
+            "type": "array",
+            "title": "So Bao"
+          },
+          "chuyen_muc": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryN"
+            },
+            "type": "array",
+            "title": "Chuyen Muc"
+          },
+          "ngay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DayStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_su_kien",
+          "n_su_kien_nhieu_bai",
+          "kich_thuoc",
+          "so_bao",
+          "chuyen_muc",
+          "ngay"
+        ],
+        "title": "EventStats"
+      },
+      "EventSummary": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "ten": {
+            "type": "string",
+            "title": "Ten"
+          },
+          "nguon_ten": {
+            "type": "string",
+            "title": "Nguon Ten"
+          },
+          "ten_bi_an": {
+            "type": "boolean",
+            "title": "Ten Bi An"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCount"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "first_seen": {
+            "type": "string",
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "type": "string",
+            "title": "Last Seen"
+          },
+          "medoid_title": {
+            "type": "string",
+            "title": "Medoid Title"
+          },
+          "tong_diem": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tong Diem"
+          },
+          "diem_cao_nhat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diem Cao Nhat"
+          },
+          "luc_cao_nhat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Luc Cao Nhat"
+          },
+          "so_gio_trong_top10": {
+            "type": "integer",
+            "title": "So Gio Trong Top10"
+          },
+          "chuyen_muc_chinh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chuyen Muc Chinh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "ten",
+          "nguon_ten",
+          "ten_bi_an",
+          "size",
+          "n_sources",
+          "sources",
+          "first_seen",
+          "last_seen",
+          "medoid_title",
+          "tong_diem",
+          "diem_cao_nhat",
+          "luc_cao_nhat",
+          "so_gio_trong_top10",
+          "chuyen_muc_chinh"
+        ],
+        "title": "EventSummary"
       },
       "FileInfo": {
         "properties": {
@@ -1230,6 +2254,24 @@
         ],
         "title": "Health"
       },
+      "HideWindow": {
+        "properties": {
+          "tu_ngay": {
+            "type": "string",
+            "title": "Tu Ngay"
+          },
+          "den_ngay": {
+            "type": "string",
+            "title": "Den Ngay"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tu_ngay",
+          "den_ngay"
+        ],
+        "title": "HideWindow"
+      },
       "HourPoint": {
         "properties": {
           "hour": {
@@ -1267,6 +2309,10 @@
             "type": "integer",
             "title": "Missing Author"
           },
+          "missing_sapo": {
+            "type": "integer",
+            "title": "Missing Sapo"
+          },
           "empty_content": {
             "type": "integer",
             "title": "Empty Content"
@@ -1297,6 +2343,7 @@
           "source",
           "articles",
           "missing_author",
+          "missing_sapo",
           "empty_content",
           "short_content",
           "bad_date",
@@ -1305,6 +2352,82 @@
           "duplicate_id"
         ],
         "title": "IssueCounts"
+      },
+      "MapDates": {
+        "properties": {
+          "dates": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dates"
+          },
+          "mac_dinh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac Dinh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dates",
+          "mac_dinh"
+        ],
+        "title": "MapDates"
+      },
+      "MapEvent": {
+        "properties": {
+          "k": {
+            "type": "integer",
+            "title": "K"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "ten": {
+            "type": "string",
+            "title": "Ten"
+          },
+          "nguon_ten": {
+            "type": "string",
+            "title": "Nguon Ten"
+          },
+          "ten_bi_an": {
+            "type": "boolean",
+            "title": "Ten Bi An"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "k",
+          "event_id",
+          "ten",
+          "nguon_ten",
+          "ten_bi_an",
+          "n",
+          "size",
+          "n_sources"
+        ],
+        "title": "MapEvent"
       },
       "Meta": {
         "properties": {
@@ -1499,6 +2622,17 @@
             "type": "string",
             "title": "Source"
           },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
           "n": {
             "type": "integer",
             "title": "N"
@@ -1508,6 +2642,7 @@
         "required": [
           "source_raw",
           "source",
+          "folder",
           "n"
         ],
         "title": "RawSourceValue"
@@ -1535,6 +2670,179 @@
           "loaded_at"
         ],
         "title": "ReloadResult"
+      },
+      "RunInfo": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Versions"
+          },
+          "loaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Loaded At"
+          },
+          "load_seconds": {
+            "type": "number",
+            "title": "Load Seconds"
+          },
+          "n_su_kien": {
+            "type": "integer",
+            "title": "N Su Kien"
+          },
+          "n_su_kien_nhieu_bai": {
+            "type": "integer",
+            "title": "N Su Kien Nhieu Bai"
+          },
+          "n_bai": {
+            "type": "integer",
+            "title": "N Bai"
+          },
+          "nguon_bao": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nguon Bao"
+          },
+          "du_lieu_tu": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Du Lieu Tu"
+          },
+          "du_lieu_den": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Du Lieu Den"
+          },
+          "pham_vi_tu": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pham Vi Tu"
+          },
+          "pham_vi_den": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pham Vi Den"
+          },
+          "xu_huong_tu": {
+            "type": "string",
+            "title": "Xu Huong Tu"
+          },
+          "xu_huong_den": {
+            "type": "string",
+            "title": "Xu Huong Den"
+          },
+          "cua_so_an_ten": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HideWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "n_su_kien_bi_an": {
+            "type": "integer",
+            "title": "N Su Kien Bi An"
+          },
+          "ghi_chu": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ghi Chu"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "versions",
+          "loaded_at",
+          "load_seconds",
+          "n_su_kien",
+          "n_su_kien_nhieu_bai",
+          "n_bai",
+          "nguon_bao",
+          "du_lieu_tu",
+          "du_lieu_den",
+          "pham_vi_tu",
+          "pham_vi_den",
+          "xu_huong_tu",
+          "xu_huong_den",
+          "cua_so_an_ten",
+          "n_su_kien_bi_an",
+          "ghi_chu"
+        ],
+        "title": "RunInfo"
+      },
+      "SizeBin": {
+        "properties": {
+          "nhan": {
+            "type": "string",
+            "title": "Nhan"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nhan",
+          "n"
+        ],
+        "title": "SizeBin"
+      },
+      "SourceCount": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "n"
+        ],
+        "title": "SourceCount"
       },
       "SourceOverview": {
         "properties": {
@@ -1615,6 +2923,24 @@
         ],
         "title": "SourceOverview"
       },
+      "SourcesBin": {
+        "properties": {
+          "so_bao": {
+            "type": "integer",
+            "title": "So Bao"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "so_bao",
+          "n"
+        ],
+        "title": "SourcesBin"
+      },
       "TimelinePoint": {
         "properties": {
           "bucket": {
@@ -1660,6 +2986,182 @@
           "n"
         ],
         "title": "TitleWordsBin"
+      },
+      "TrendItem": {
+        "properties": {
+          "hang": {
+            "type": "integer",
+            "title": "Hang"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "ten": {
+            "type": "string",
+            "title": "Ten"
+          },
+          "nguon_ten": {
+            "type": "string",
+            "title": "Nguon Ten"
+          },
+          "ten_bi_an": {
+            "type": "boolean",
+            "title": "Ten Bi An"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "so_bai_den_t": {
+            "type": "integer",
+            "title": "So Bai Den T"
+          },
+          "so_bai_3h": {
+            "type": "integer",
+            "title": "So Bai 3H"
+          },
+          "so_bao": {
+            "type": "integer",
+            "title": "So Bao"
+          },
+          "n_nguon_hd": {
+            "type": "number",
+            "title": "N Nguon Hd"
+          },
+          "van_toc": {
+            "type": "number",
+            "title": "Van Toc"
+          },
+          "tuoi_gio": {
+            "type": "number",
+            "title": "Tuoi Gio"
+          },
+          "chuyen_muc_chinh": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chuyen Muc Chinh"
+          },
+          "first_seen": {
+            "type": "string",
+            "title": "First Seen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hang",
+          "event_id",
+          "ten",
+          "nguon_ten",
+          "ten_bi_an",
+          "score",
+          "so_bai_den_t",
+          "so_bai_3h",
+          "so_bao",
+          "n_nguon_hd",
+          "van_toc",
+          "tuoi_gio",
+          "chuyen_muc_chinh",
+          "first_seen"
+        ],
+        "title": "TrendItem"
+      },
+      "TrendTimes": {
+        "properties": {
+          "dau": {
+            "type": "string",
+            "title": "Dau"
+          },
+          "cuoi": {
+            "type": "string",
+            "title": "Cuoi"
+          },
+          "buoc_gio": {
+            "type": "number",
+            "title": "Buoc Gio"
+          },
+          "so_moc": {
+            "type": "integer",
+            "title": "So Moc"
+          },
+          "mac_dinh": {
+            "type": "string",
+            "title": "Mac Dinh"
+          },
+          "so_su_kien": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "So Su Kien"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dau",
+          "cuoi",
+          "buoc_gio",
+          "so_moc",
+          "mac_dinh",
+          "so_su_kien"
+        ],
+        "title": "TrendTimes"
+      },
+      "Trending": {
+        "properties": {
+          "t": {
+            "type": "string",
+            "title": "T"
+          },
+          "t_truoc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "T Truoc"
+          },
+          "t_sau": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "T Sau"
+          },
+          "mac_dinh": {
+            "type": "string",
+            "title": "Mac Dinh"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TrendItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t",
+          "t_truoc",
+          "t_sau",
+          "mac_dinh",
+          "items"
+        ],
+        "title": "Trending"
       },
       "ValidationError": {
         "properties": {

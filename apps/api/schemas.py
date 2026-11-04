@@ -116,6 +116,7 @@ class IssueCounts(BaseModel):
     source: str
     articles: int
     missing_author: int
+    missing_sapo: int
     empty_content: int
     short_content: int
     bad_date: int
@@ -127,6 +128,7 @@ class IssueCounts(BaseModel):
 class RawSourceValue(BaseModel):
     source_raw: str | None
     source: str
+    folder: str | None      # tên thư mục trên kho: silver/<folder>/<tên file>
     n: int
 
 
@@ -176,3 +178,184 @@ class Freshness(BaseModel):
     has_newer_data: bool          # trên kho có file sửa SAU lần nạp gần nhất
     newer_files: list[str]
     checked_at: datetime
+
+
+# ---------------------------------------------------------------- sự kiện (kết quả pipeline, data/runs/<run_id>/)
+# nguon_ten: model (ViT5) | medoid (rơi về tiêu đề bài đại diện) | title (sự kiện 1 bài) | an (tên đang ẩn — cửa sổ tập
+# test đặt tên; `ten` khi đó là tiêu đề bài đại diện, tên mô hình KHÔNG được trả ra ở bất kỳ đâu).
+class HideWindow(BaseModel):
+    tu_ngay: str
+    den_ngay: str
+
+
+class RunInfo(BaseModel):
+    run_id: str
+    versions: dict[str, str]
+    loaded_at: datetime
+    load_seconds: float
+    n_su_kien: int
+    n_su_kien_nhieu_bai: int
+    n_bai: int
+    nguon_bao: list[str]
+    du_lieu_tu: str | None     # bài sớm nhất / muộn nhất của run (giờ VN)
+    du_lieu_den: str | None
+    pham_vi_tu: str | None     # giới hạn --start/--end của lần chạy (None = cả kho)
+    pham_vi_den: str | None
+    xu_huong_tu: str
+    xu_huong_den: str
+    cua_so_an_ten: HideWindow | None
+    n_su_kien_bi_an: int
+    ghi_chu: list[str]
+
+
+class TrendTimes(BaseModel):
+    dau: str               # mốc đầu (giờ VN); mốc thứ i = dau + i · buoc_gio
+    cuoi: str
+    buoc_gio: float
+    so_moc: int
+    mac_dinh: str          # mốc cuối có ≥ 10 sự kiện trên bảng
+    so_su_kien: list[int]  # số sự kiện trên bảng ở từng mốc
+
+
+class TrendItem(BaseModel):
+    hang: int
+    event_id: str
+    ten: str
+    nguon_ten: str
+    ten_bi_an: bool
+    score: float
+    so_bai_den_t: int
+    so_bai_3h: int
+    so_bao: int
+    n_nguon_hd: float
+    van_toc: float
+    tuoi_gio: float
+    chuyen_muc_chinh: str | None   # chuyên mục gặp nhiều nhất trong các bài (đã gộp cách viết giữa các báo)
+    first_seen: str                # bài đầu tiên của sự kiện (giờ VN)
+
+
+class Trending(BaseModel):
+    t: str
+    t_truoc: str | None
+    t_sau: str | None
+    mac_dinh: str
+    items: list[TrendItem]
+
+
+class SourceCount(BaseModel):
+    source: str
+    n: int
+
+
+class EventSummary(BaseModel):
+    event_id: str
+    ten: str
+    nguon_ten: str
+    ten_bi_an: bool
+    size: int
+    n_sources: int
+    sources: list[SourceCount]
+    first_seen: str
+    last_seen: str
+    medoid_title: str
+    tong_diem: float | None
+    diem_cao_nhat: float | None
+    luc_cao_nhat: str | None
+    so_gio_trong_top10: int
+    chuyen_muc_chinh: str | None
+
+
+class EventPage(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[EventSummary]
+
+
+class EventArticle(BaseModel):
+    article_id: str
+    title: str
+    source: str
+    category: str | None
+    published_at: str
+    is_medoid: bool
+    url: str | None
+
+
+class EventPoint(BaseModel):
+    t: str                 # mốc giờ (giờ VN)
+    so_bai: int            # số bài đăng trong (t − 1 giờ, t]
+    so_bai_den_t: int
+    diem: float            # điểm xu hướng tính lại tại t; 0 khi không là ứng viên
+    ung_vien: bool
+    hang: int | None       # hạng trên bảng top-20 tại t (None: ngoài bảng)
+
+
+class CategoryN(BaseModel):
+    category: str
+    n: int
+
+
+class EventDetail(EventSummary):
+    chuyen_muc: list[CategoryN]
+    bai: list[EventArticle]
+    chuoi: list[EventPoint]
+    chuoi_bi_cat: bool
+
+
+# ---------------------------------------------------------------- thống kê sự kiện + bản đồ 2D (trang "Dữ liệu & mô hình")
+class SizeBin(BaseModel):
+    nhan: str              # "1 bài", "2 bài", "3–4", …
+    n: int                 # số sự kiện
+
+
+class SourcesBin(BaseModel):
+    so_bao: int            # 1–6 (6 = từ 6 báo trở lên)
+    n: int                 # số sự kiện ≥ 2 bài
+
+
+class DayStats(BaseModel):
+    date: str
+    so_bai: int                  # bài của run đăng trong ngày (giờ VN)
+    so_su_kien: int              # sự kiện có ít nhất 1 bài trong ngày
+    so_su_kien_nhieu_bai: int    # sự kiện có ≥ 2 bài TRONG ngày
+    so_bao: int
+
+
+class EventStats(BaseModel):
+    n_su_kien: int
+    n_su_kien_nhieu_bai: int
+    kich_thuoc: list[SizeBin]
+    so_bao: list[SourcesBin]
+    chuyen_muc: list[CategoryN]  # chuyên mục chính của sự kiện ≥ 2 bài
+    ngay: DayStats | None
+
+
+class MapEvent(BaseModel):
+    k: int                 # chỉ số màu; điểm có k này thuộc sự kiện
+    event_id: str
+    ten: str               # tên ĐANG HIỂN THỊ (đã áp luật ẩn tên)
+    nguon_ten: str
+    ten_bi_an: bool
+    n: int                 # số bài của sự kiện trong ngày
+    size: int
+    n_sources: int
+
+
+class EventMap(BaseModel):
+    date: str
+    run_id: str
+    model_version: str
+    tsne: dict[str, float | int | str]
+    n_bai: int
+    n_su_kien: int
+    n_su_kien_nhieu_bai: int
+    khac_run: bool             # bản đồ sinh từ run khác run đang phục vụ
+    su_kien: list[MapEvent]
+    diem: list[list[float]]    # [x, y, k] — x, y trong [0, 100]; k = -1: sự kiện khác
+    ngay_co_san: list[str]
+
+
+class MapDates(BaseModel):
+    dates: list[str]
+    mac_dinh: str | None

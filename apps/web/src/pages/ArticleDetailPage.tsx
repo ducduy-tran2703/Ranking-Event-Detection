@@ -3,6 +3,7 @@ import { useArticle } from "../api/queries";
 import { SourceBadge } from "../components/SourceBadge";
 import { ErrorBox, Loading } from "../components/Status";
 import { fmtInt } from "../lib/format";
+import { kho } from "../lib/routes";
 
 export function ArticleDetailPage() {
   const { articleId = "" } = useParams();
@@ -29,7 +30,7 @@ export function ArticleDetailPage() {
         <dt>source gốc</dt><dd><code>{data.source_raw}</code></dd>
         <dt>published_at gốc</dt><dd><code>{data.published_at_raw}</code></dd>
         <dt>File trên kho</dt><dd><code>{data.source_file}</code></dd>
-        <dt>Cùng nguồn</dt><dd><Link to={`/articles?source=${data.source}`}>Xem các bài khác của {data.source}</Link></dd>
+        <dt>Cùng nguồn</dt><dd><Link to={`${kho.articles}?source=${data.source}`}>Xem các bài khác của {data.source}</Link></dd>
       </dl>
       {/* React tự thoát ký tự đặc biệt khi hiển thị chuỗi: nội dung cào về không thể chèn mã */}
       <div className="content">{data.content_text || "(thân bài rỗng)"}</div>

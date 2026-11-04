@@ -7,6 +7,7 @@ import { SourceBadge } from "../components/SourceBadge";
 import { ErrorBox, Loading } from "../components/Status";
 import { fmtInt } from "../lib/format";
 import { pivot } from "../lib/pivot";
+import { kho } from "../lib/routes";
 
 export function CategoriesPage() {
   const { filter } = useUrlFilter();
@@ -46,7 +47,7 @@ export function CategoriesPage() {
                   {sources.map((s) => (
                     <td key={s} className="num">
                       {Number(row[s]) > 0 ? (
-                        <Link to={`/articles?source=${s}&category=${encodeURIComponent(String(row.category))}`}>
+                        <Link to={`${kho.articles}?source=${s}&category=${encodeURIComponent(String(row.category))}`}>
                           {fmtInt(Number(row[s]))}
                         </Link>
                       ) : <span className="muted">—</span>}

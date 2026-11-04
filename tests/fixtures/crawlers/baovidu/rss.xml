@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Báo Ví Dụ — Tin mới</title>
+    <link>https://bao-vi-du.example/</link>
+    <item>
+      <title>Hà Nội khởi công cầu mới bắc qua sông Hồng</title>
+      <link>https://bao-vi-du.example/thoi-su/bai-1.html</link>
+      <pubDate>Wed, 16 Sep 2026 07:07:00 +0700</pubDate>
+      <description>Sáng 16/9, thành phố khởi công cây cầu thứ 9 bắc qua sông Hồng.</description>
+    </item>
+    <item>
+      <title>Tuyển Việt Nam thắng 2-0</title>
+      <link>https://bao-vi-du.example/the-thao/bai-2.html</link>
+      <pubDate>Wed, 16 Sep 2026 21:30:00 +0700</pubDate>
+      <description>Video bàn thắng.</description>
+    </item>
+    <item>
+      <title>Giá vàng tăng phiên thứ ba liên tiếp</title>
+      <link>https://bao-vi-du.example/kinh-te/bai-3.html</link>
+      <pubDate>Thu, 17 Sep 2026 09:15:00 +0700</pubDate>
+      <description>Giá vàng miếng sáng nay tiếp tục tăng.</description>
+    </item>
+    <item>
+      <title>Bài đã bị gỡ</title>
+      <link>https://bao-vi-du.example/thoi-su/bai-4.html</link>
+      <pubDate>Thu, 17 Sep 2026 10:00:00 +0700</pubDate>
+    </item>
+  </channel>
+</rss>

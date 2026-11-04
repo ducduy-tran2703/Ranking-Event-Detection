@@ -1,0 +1,47 @@
+# Bảng alias thực thể cho nhãn yếu (src/eventrank/weak_labels/entities.py).
+#
+# Khoá bên trái và bên phải đều là KHOÁ ĐÃ CHUẨN HOÁ: chữ thường, NFC, bỏ dấu chấm / gạch nối /
+# khoảng trắng. Ví dụ "TP. HCM" → "tphcm", "Kim Sang-sik" → "kimsangsik".
+# Chỉ cần ghi những cặp mà khoá tự động KHÔNG gộp được. Các biến thể hoa/thường, dấu chấm,
+# khoảng trắng ("TP.HCM" / "TPHCM" / "TP HCM") đã được gộp tự động.
+#
+# Dạng: biến_thể: dạng_chuẩn
+# Alias sự kiện không ghi năm ("asiad" → "asiad20") an toàn vì cặp chỉ được sinh trong cửa sổ 7 ngày.
+aliases:
+  # Địa danh
+  thànhphốhồchíminh: tphcm
+  tphồchíminh: tphcm
+  hcm: tphcm
+  sàigòn: tphcm
+  hoakỳ: mỹ
+  nướcmỹ: mỹ
+  liênbangnga: nga
+  vươngquốcanh: anh
+  australia: úc
+  # Người
+  trump: donaldtrump
+  putin: vladimirputin
+  zelensky: volodymyrzelensky
+  # Tổ chức
+  bộgdđt: bộgiáodụcvàđàotạo
+  bộgd&đt: bộgiáodụcvàđàotạo
+  bộvhttdl: bộvănhóathểthaovàdulịch
+  bộkh&cn: bộkhoahọcvàcôngnghệ
+  bộkhcn: bộkhoahọcvàcôngnghệ
+  tuyểnviệtnam: độituyểnviệtnam
+  đtviệtnam: độituyểnviệtnam
+  manchesterunited: mu
+  manutd: mu
+  manchestercity: mancity
+  cụcdựtrữliênbangmỹ: fed
+  lhq: liênhợpquốc
+  # Sự kiện
+  fifaaseancup2026: aseancup2026
+  fifaaseancup: aseancup2026
+  aseancup: aseancup2026
+  asiad2026: asiad20
+  asiad: asiad20
+  quốckhánh29: quốckhánh
+  usopen: mỹmởrộng
+  usopen2026: mỹmởrộng
+  premierleague: ngoạihạnganh

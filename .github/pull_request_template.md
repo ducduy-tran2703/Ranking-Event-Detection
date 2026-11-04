@@ -8,7 +8,7 @@
 
 ## Tác động tới module khác
 
-<!-- "Không" hoặc mô tả cụ thể. Đổi schema / cấu trúc key trên bucket → đã sửa docs/lake-layout.md hoặc docs/data-contracts.md trong PR này chưa? -->
+<!-- "Không" hoặc mô tả cụ thể. Đổi schema / cấu trúc key trên bucket → đã sửa docs/tong-hop.md mục 5.2 / 5.3 trong PR này chưa? -->
 
 ## Đã kiểm tra
 

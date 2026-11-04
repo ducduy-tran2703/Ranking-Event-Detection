@@ -23,6 +23,7 @@ COLUMNS = {
 SHORT_CONTENT_WORDS = 80
 ISSUES = {
     "missing_author": "author IS NULL",
+    "missing_sapo": "sapo IS NULL OR trim(sapo) = ''",
     "empty_content": "n_words = 0",
     "short_content": f"n_words BETWEEN 1 AND {SHORT_CONTENT_WORDS - 1}",
     "bad_date": "published_at IS NULL",
@@ -263,8 +264,13 @@ class SilverStore:
         return {
             "short_content_words": SHORT_CONTENT_WORDS,
             "issues_per_source": per_source,
-            "raw_source_values": self._q(
-                "SELECT source_raw, source, count(*) AS n FROM articles GROUP BY 1, 2 ORDER BY 3 DESC"),
+            "raw_source_values": self._q("""
+                SELECT source_raw,
+                       source,
+                       -- tên thư mục trên kho, lấy từ đường dẫn file: silver/<thư mục>/<tên file>
+                       NULLIF(regexp_extract(source_file, 'silver/([^/]+)/', 1), '') AS folder,
+                       count(*) AS n
+                FROM articles GROUP BY 1, 2, 3 ORDER BY 4 DESC"""),
             "words_histogram": self._q("""
                 SELECT source, least(n_words // 100, 20) * 100 AS bin, count(*) AS n
                 FROM articles GROUP BY 1, 2 ORDER BY 2, 1"""),
@@ -296,6 +302,14 @@ class SilverStore:
             LIMIT ? OFFSET ?
         """, params + [page_size, (page - 1) * page_size])
         return {"total": total, "page": page, "page_size": page_size, "items": items}
+
+    def urls(self, article_ids: list[str]) -> dict[str, str]:
+        """article_id → url cho một nhóm bài (trang chi tiết sự kiện), một truy vấn."""
+        if not article_ids:
+            return {}
+        rows = self._q("SELECT article_id, url FROM articles WHERE article_id IN (SELECT unnest(?::VARCHAR[]))",
+                       [list(article_ids)])
+        return {r["article_id"]: r["url"] for r in rows if r["url"]}
 
     def get_article(self, article_id: str) -> dict[str, Any] | None:
         rows = self._q("""

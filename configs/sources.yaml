@@ -1,0 +1,88 @@
+# Nguồn tin của tầng Thu thập. Đưa vào bảng Postgres `sources` bằng:
+#   uv run --group embed python -m eventrank.ingest sources sync
+# (`ingest run` / `import-jsonl` / `replay` cũng tự đồng bộ trước khi chạy).
+#
+# Trường:
+#   source        khoá, viết thường không dấu = trường `source` trong Silver (docs/tong-hop.md mục 5.3)
+#   display_name  tên hiển thị
+#   homepage      trang chủ
+#   enabled       true thì `ingest run --source X` mới chạy crawler. CHỈ bật sau checklist trong
+#                 docs/handoff/ingest.md (test hợp đồng xanh, lát cắt 12 bài, kiểm tra chất lượng).
+#   crawler       "module:Lớp" của crawler, ví dụ eventrank.ingest.crawlers.tuoitre:TuoiTreRss.
+#                 Để trống = chưa có crawler. Crawler đã đăng ký PHẢI có fixture trong
+#                 tests/fixtures/crawlers/<source>/ (tests/ingest/test_crawler_contract.py tự kiểm).
+#   rss / sitemap URL đầu vào cho người viết crawler — CHƯA khảo sát lại; người viết crawler điền sau
+#                 khi tự kiểm robots.txt (skill add-news-source, bước 1). Không đoán.
+#   notes         bẫy đã biết (docs/tong-hop.md mục 5.1, 6.5; .claude/skills/add-news-source)
+#
+# Crawler VÍ DỤ (eventrank.ingest.crawlers.example_rss) cố ý KHÔNG đăng ký ở đây — chỉ để đọc mẫu.
+
+sources:
+  - source: tuoitre
+    display_name: Tuổi Trẻ
+    homepage: https://tuoitre.vn
+    enabled: false
+    crawler: ""
+    rss: []          # TODO người viết crawler
+    sitemap: ""      # khảo sát 15/09: StaticSitemaps/sitemaps-YYYY-M-D1-D2.xml, mỗi file 5 ngày
+    notes: >-
+      lastmod trong sitemap ghi 2011-01-01 → lọc theo TÊN FILE, không theo lastmod.
+      Silver hiện có: data/lake/silver/tuoitre/ (5.447 bài).
+
+  - source: thanhnien
+    display_name: Thanh Niên
+    homepage: https://thanhnien.vn
+    enabled: false
+    crawler: ""
+    rss: []          # TODO người viết crawler
+    sitemap: ""      # khảo sát 15/09: sitemaps/sitemaps-YYYY-M-D1-D2.xml, mỗi file 5 ngày
+    notes: >-
+      JSON-LD NewsArticle đầy đủ (headline, description, datePublished có múi giờ, articleSection).
+      Ngày trong thân trang có kiểu "10.9" — chỉ lấy datePublished từ JSON-LD/meta.
+
+  - source: vietnamnet
+    display_name: VietnamNet
+    homepage: https://vietnamnet.vn
+    enabled: false
+    crawler: ""
+    rss: []          # TODO người viết crawler
+    sitemap: ""      # khảo sát 15/09: sitemap-article-MM-YYYY-NN.xml
+    notes: >-
+      Sitemap chia phần tối đa 1.000 URL — phải duyệt HẾT các phần của tháng.
+
+  - source: nhandan
+    display_name: Nhân Dân
+    homepage: https://nhandan.vn
+    enabled: false
+    crawler: ""
+    rss: []          # TODO người viết crawler
+    sitemap: ""      # TODO chưa khảo sát
+    notes: >-
+      Silver hiện nằm ở thư mục baonhandan/ (trước đó baodantri/) nhưng trường source = NHANDAN →
+      chuẩn hoá về "nhandan". Thống nhất tên thư mục/file khi viết crawler mới.
+
+  - source: vnexpress
+    display_name: VnExpress
+    homepage: https://vnexpress.net
+    enabled: false
+    crawler: ""
+    rss: []          # TODO người viết crawler — CHỈ dùng RSS
+    sitemap: ""      # KHÔNG dùng: sitemap theo ngày 302 về trang chủ
+    notes: >-
+      robots.txt chặn đích danh Scrapy, news-please và bot AI → không dùng Scrapy, không vượt chặn.
+      Sitemap 302 → trang chủ: get_xml() phải ném NotXmlError, không coi là sitemap rỗng.
+      Không backfill được qua sitemap, chỉ RSS (không lấy lại được quá khứ → theo dõi `ingest status`).
+
+  - source: baochinhphu
+    display_name: Báo Chính phủ
+    homepage: https://baochinhphu.vn
+    enabled: false
+    crawler: ""
+    rss: []          # TODO người viết crawler
+    sitemap: ""      # TODO chưa khảo sát
+    notes: >-
+      Silver cũ ghi source = BAOCHINHPHU (viết hoa) → crawler mới ghi "baochinhphu".
+      Có bài từ 2023; 73,6% bài có tác giả.
+
+# Nếu thêm Dân Trí: sitemap có BOM (get_xml() tự bỏ), chỉ mục dừng ở 7/2026 (tháng 9 trả 404),
+# robots.txt có Crawl-delay: 1 (client vẫn giữ tối thiểu 2 s).

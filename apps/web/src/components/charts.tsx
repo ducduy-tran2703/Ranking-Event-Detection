@@ -5,8 +5,8 @@ import {
 import { sourceColor } from "./SourceBadge";
 
 type Row = Record<string, string | number>;
-const AXIS = { fontSize: 12, fill: "#8b949e" };
-const GRID = "#8b949e33";
+const AXIS = { fontSize: 12, fill: "var(--muted)" };
+const GRID = "var(--border)";
 const TOOLTIP = {
   contentStyle: { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 },
   labelStyle: { color: "var(--text)", fontWeight: 600 },
@@ -78,6 +78,42 @@ export function HorizontalStackedBars({ data, yKey, sources }: {
         <Legend />
         {sources.map((s) => <Bar key={s} dataKey={s} stackId="a" fill={sourceColor(s)} />)}
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/**
+ * Một chuỗi theo giờ (trang chi tiết sự kiện). Hai đại lượng khác thang đo (số bài, điểm) vẽ HAI biểu đồ
+ * chung trục thời gian và chung `syncId` (di chuột ở biểu đồ này hiện cả mốc ở biểu đồ kia) — không dùng hai trục y.
+ */
+export function HourlySeries({ data, xKey, yKey, label, kind, syncId, height = 200, decimals = 0 }: {
+  data: Row[]; xKey: string; yKey: string; label: string; kind: "bar" | "line"; syncId?: string;
+  height?: number; decimals?: number;
+}) {
+  const fmt = (v: unknown) =>
+    typeof v === "number" ? v.toLocaleString("vi-VN", { maximumFractionDigits: decimals }) : String(v);
+  const common = (
+    <>
+      <CartesianGrid stroke={GRID} vertical={false} />
+      <XAxis dataKey={xKey} tick={AXIS} minTickGap={28} />
+      <YAxis tick={AXIS} allowDecimals={decimals > 0} width={40} />
+      <Tooltip {...TOOLTIP} formatter={(v) => [fmt(v), label]} />
+    </>
+  );
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      {kind === "bar" ? (
+        <BarChart data={data} syncId={syncId}>
+          {common}
+          <Bar dataKey={yKey} name={label} fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={18} />
+        </BarChart>
+      ) : (
+        <LineChart data={data} syncId={syncId}>
+          {common}
+          <Line dataKey={yKey} name={label} stroke="var(--accent)" dot={false} strokeWidth={2}
+                type="linear" isAnimationActive={false} />
+        </LineChart>
+      )}
     </ResponsiveContainer>
   );
 }

@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng sự kiện v1</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --raised: #ffffff;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10); --hl: #fff6d6; --code: #f0efec;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+  --o1: #86b6ef; --o2: #5598e7; --o3: #2a78d6; --o4: #1c5cab; --o5: #104281; --o6: #0d366b;
+  --seq-lo: #eef4fc; --seq-hi: #104281; --mark: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raised: #222221;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --hl: #3a3420; --code: #2c2c2a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+    --o1: #184f95; --o2: #1c5cab; --o3: #256abf; --o4: #3987e5; --o5: #6da7ec; --o6: #9ec5f4;
+    --seq-lo: #1f2630; --seq-hi: #6da7ec; --mark: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --raised: #222221;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --hl: #3a3420; --code: #2c2c2a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+  --o1: #184f95; --o2: #1c5cab; --o3: #256abf; --o4: #3987e5; --o5: #6da7ec; --o6: #9ec5f4;
+  --seq-lo: #1f2630; --seq-hi: #6da7ec; --mark: #e66767;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1000px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 44px 0 10px; padding-top: 12px; border-top: 1px solid var(--grid); }
+h3 { font-size: 15px; margin: 14px 0 4px; }
+p, li { max-width: 74ch; }
+.sub { color: var(--ink-2); margin: 0 0 16px; }
+.small { font-size: 13px; color: var(--ink-2); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+a { color: var(--s1); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin: 8px 0 20px; }
+nav.toc a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--grid); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 16px 0; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .k { font-size: 13px; color: var(--ink-2); }
+.tile .v { font-size: 28px; font-weight: 600; line-height: 1.2; margin: 4px 0 2px; }
+.tile .d { font-size: 12.5px; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+.explain { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin: 8px 0 0; }
+.explain > div { font-size: 14px; }
+.explain b.h { display: block; font-size: 13px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.explain p { margin: 0 0 6px; }
+.callout { background: var(--hl); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-2); margin: 2px 0 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 2px 0 8px; font-size: 13px; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13px; padding: 4px 10px; background: var(--surface); color: var(--ink-2); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+input, select { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--axis); border-radius: 8px; background: var(--raised); color: var(--ink); }
+svg text { font-family: inherit; }
+.chart { width: 100%; height: auto; display: block; }
+.tip { position: fixed; pointer-events: none; z-index: 10; background: var(--raised); color: var(--ink); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.14); display: none; max-width: 320px; }
+.tip b { font-size: 15px; }
+.tip .row { display: flex; align-items: center; gap: 6px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font-size: 13px; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.heat td.c { text-align: center; font-variant-numeric: tabular-nums; min-width: 64px; font-size: 13px; }
+.ev { border-bottom: 1px solid var(--grid); }
+.ev > summary { cursor: pointer; padding: 8px 4px; list-style: none; display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: baseline; }
+.ev > summary::-webkit-details-marker { display: none; }
+.ev[open] > summary { background: var(--hl); }
+.ev .t { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ev .meta { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.art { display: grid; grid-template-columns: 92px 92px 1fr; gap: 8px; font-size: 13px; padding: 3px 4px 3px 12px; }
+.art .s { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); }
+.art.m .ti { font-weight: 600; }
+.pager { display: flex; gap: 8px; align-items: center; margin: 10px 0; font-size: 13px; color: var(--ink-2); }
+.pager button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); cursor: pointer; }
+@media (max-width: 680px) {
+  h1 { font-size: 23px; }
+  .explain { grid-template-columns: 1fr; }
+  .ev > summary { grid-template-columns: 1fr auto; }
+  .ev > summary .t { grid-column: 1 / -1; }
+  .art { grid-template-columns: 1fr; gap: 0; padding-left: 8px; border-bottom: 1px dashed var(--grid); }
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Trực quan bảng sự kiện v1</h1>
+<p class="sub" id="sub"></p>
+<nav class="toc">
+  <a href="#tongquan">Tổng quan</a><a href="#kichthuoc">Kích thước</a><a href="#thoigian">Theo ngày</a>
+  <a href="#bando">Bản đồ sự kiện</a><a href="#sobao">Số báo</a><a href="#keodai">Kéo dài</a><a href="#lan">Tốc độ lan</a>
+  <a href="#dongdua">Báo nào đưa cùng nhau</a><a href="#dautien">Ai đưa trước</a><a href="#chuyenmuc">Chuyên mục</a>
+  <a href="#chatluong">Chất lượng</a><a href="#duyet">Duyệt sự kiện</a>
+</nav>
+
+<section id="tongquan">
+<div class="tiles" id="tiles"></div>
+<div class="callout">
+<p><b>Trang này cho xem gì?</b> Kết quả của bước <b>gom cụm</b>: hệ thống đọc 6 báo, rồi gom các bài nói về <b>cùng một sự việc
+thực tế</b> (một trận đấu, một chuyến thăm, một vụ án…) thành <b>một sự kiện</b>. Mỗi bài được biến thành vector bằng mô hình bkai
+fine-tune, sau đó gom bằng agglomerative average-linkage: hai nhóm bài được gộp khi độ giống trung bình (cosine) ≥ <span id="th"></span>
+và các bài đăng cách nhau không quá <span id="win"></span> giờ.</p>
+<p>Đơn vị của mọi biểu đồ dưới đây là <b>sự kiện</b>, không phải bài báo. Phần lớn sự kiện chỉ có 1 bài (tin chỉ một báo đưa); điều đó
+là bình thường. Các biểu đồ từ mục "Bản đồ sự kiện" trở đi chỉ xét <b>sự kiện từ 2 bài trở lên</b>, vì đó mới là chỗ việc gom cụm
+có tác dụng.</p>
+</div>
+</section>
+
+<section id="kichthuoc">
+<h2>1. Một sự kiện có bao nhiêu bài?</h2>
+<div class="card">
+  <div class="controls"><div class="seg" id="sw-size"><button data-v="events" aria-pressed="true">Đếm sự kiện</button><button data-v="articles" aria-pressed="false">Đếm bài</button></div></div>
+  <svg class="chart" id="c-size" role="img" aria-label="Phân bố kích thước sự kiện"></svg>
+</div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Mỗi cột là một nhóm kích thước (số bài trong sự kiện). Nút <b>Đếm sự kiện</b>: chiều cao = có bao nhiêu
+  sự kiện cỡ đó. Nút <b>Đếm bài</b>: chiều cao = tổng số bài nằm trong các sự kiện cỡ đó.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-size"></p></div>
+</div>
+</section>
+
+<section id="thoigian">
+<h2>2. Dữ liệu theo ngày</h2>
+<div class="card">
+  <div class="legend" id="lg-day"></div>
+  <svg class="chart" id="c-day" role="img" aria-label="Số bài mỗi ngày theo báo"></svg>
+</div>
+<div class="card">
+  <h3>Tỉ lệ bài nằm trong sự kiện nhiều bài, theo ngày</h3>
+  <svg class="chart" id="c-share" role="img" aria-label="Tỉ lệ bài thuộc sự kiện nhiều bài theo ngày"></svg>
+</div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Biểu đồ trên: mỗi cột là một ngày, chia màu theo báo, chiều cao = số bài đăng ngày đó.
+  Biểu đồ dưới: trong các bài của ngày đó, bao nhiêu phần trăm được gom chung với ít nhất một bài khác.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-day"></p></div>
+</div>
+</section>
+
+<section id="bando">
+<h2>3. Bản đồ sự kiện theo thời gian</h2>
+<div class="card">
+  <div class="legend" id="lg-map"></div>
+  <svg class="chart" id="c-map" role="img" aria-label="Các sự kiện nhiều bài theo thời điểm xuất hiện và kích thước"></svg>
+</div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Mỗi chấm là một sự kiện có từ 2 bài. Trục ngang: lúc bài đầu tiên được đăng. Trục dọc: số bài
+  (thang <b>log</b>, mỗi vạch gấp đôi vạch dưới). Màu: số báo đưa tin, đậm hơn = nhiều báo hơn. Rê chuột để xem tên bài đại diện;
+  <b>bấm vào chấm</b> để mở sự kiện đó ở mục Duyệt sự kiện.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-map"></p></div>
+</div>
+</section>
+
+<section id="sobao">
+<h2>4. Bao nhiêu báo cùng đưa một sự kiện?</h2>
+<div class="card"><svg class="chart" id="c-src" role="img" aria-label="Số báo đưa tin mỗi sự kiện"></svg></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Chỉ xét sự kiện từ 2 bài. Mỗi cột: có bao nhiêu sự kiện được đúng 1, 2, … 6 báo đưa tin.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-src"></p></div>
+</div>
+</section>
+
+<section id="keodai">
+<h2>5. Một sự kiện kéo dài bao lâu?</h2>
+<div class="card"><svg class="chart" id="c-span" role="img" aria-label="Thời gian từ bài đầu đến bài cuối của sự kiện"></svg></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Khoảng thời gian từ bài đầu tiên đến bài cuối cùng của mỗi sự kiện (từ 2 bài), gom theo khoảng
+  4 giờ. Vạch đỏ là cửa sổ 48 giờ của thuật toán.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-span"></p></div>
+</div>
+</section>
+
+<section id="lan">
+<h2>6. Tin lan sang báo thứ hai nhanh đến đâu?</h2>
+<div class="card"><svg class="chart" id="c-lag" role="img" aria-label="Thời gian từ bài đầu tiên đến bài đầu tiên của báo thứ hai"></svg></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Chỉ xét sự kiện có từ 2 báo. Với mỗi sự kiện: báo đầu tiên đăng lúc nào, và phải chờ bao lâu
+  thì <b>một báo khác</b> đăng bài về cùng sự kiện. Gom theo khoảng 2 giờ.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-lag"></p></div>
+</div>
+</section>
+
+<section id="dongdua">
+<h2>7. Báo nào hay đưa cùng sự kiện với báo nào?</h2>
+<div class="card"><div class="scroll"><table class="heat" id="t-co"></table></div></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Đọc theo <b>hàng</b>: ô (hàng A, cột B) = trong các sự kiện nhiều bài mà báo A có đưa, bao nhiêu phần
+  trăm báo B cũng đưa. Ô càng đậm, hai báo càng hay đưa cùng sự kiện. Đường chéo là số sự kiện nhiều bài báo đó có tham gia.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-co"></p></div>
+</div>
+</section>
+
+<section id="dautien">
+<h2>8. Báo nào đưa tin trước?</h2>
+<div class="card"><svg class="chart" id="c-first" role="img" aria-label="Tỉ lệ đưa tin đầu tiên theo báo"></svg></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Chỉ xét sự kiện có từ 2 báo. Mỗi thanh: trong các sự kiện báo đó <b>có tham gia</b>, bao nhiêu phần
+  trăm báo đó là báo đăng bài đầu tiên. Chia theo số sự kiện tham gia để báo đăng nhiều không tự nhiên được lợi.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-first"></p></div>
+</div>
+</section>
+
+<section id="chuyenmuc">
+<h2>9. Chuyên mục nào hay thành sự kiện nhiều bài?</h2>
+<div class="card"><svg class="chart" id="c-cat" role="img" aria-label="Tỉ lệ bài thuộc sự kiện nhiều bài theo chuyên mục"></svg></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p>Chuyên mục đã chuẩn hoá (từ lớp Gold). Thanh = tỉ lệ bài của chuyên mục nằm trong sự kiện từ 2 bài.
+  Số bên phải: số sự kiện nhiều bài của chuyên mục và số bài trung bình mỗi sự kiện. Sự kiện được xếp vào chuyên mục chiếm đa số
+  trong các bài của nó.</p></div>
+  <div><b class="h">Nhận xét</b><p id="n-cat"></p></div>
+</div>
+</section>
+
+<section id="chatluong">
+<h2>10. Gom như vậy đúng đến đâu?</h2>
+<div class="scroll"><table id="t-gold"></table></div>
+<div class="explain">
+  <div><b class="h">Cách đọc</b><p><b>B-Cubed</b> so cách gom của hệ thống với đáp án tập vàng (1.496 bài 14–15/09/2026). Với mỗi bài:
+  <b>precision</b> = trong cụm của nó, bao nhiêu phần trăm bài đúng là cùng sự kiện (thấp = gộp nhầm); <b>recall</b> = bao nhiêu
+  phần trăm bài cùng sự kiện được gom chung (thấp = tách nhầm). F1 kết hợp cả hai; nếu không gom gì cả thì F1 đã đạt 0,838.</p></div>
+  <div><b class="h">Lưu ý</b><p>Đáp án do Claude gán, <b>chưa có người duyệt</b>. Lỗi hay gặp nhất: gộp các sự kiện cùng câu chuyện nhưng
+  khác sự việc (hai trận liên tiếp của một đội, hai vụ việc cùng loại ở hai nơi). Chi tiết: báo cáo chấm gom cụm
+  (<code>data/temp/cluster_eval/bao_cao_gom_cum.html</code>) và README ở R2 <code>events_NguyenDinhHieu/v1/</code>.</p></div>
+</div>
+</section>
+
+<section id="duyet">
+<h2>11. Duyệt sự kiện</h2>
+<div class="controls">
+  <input id="q" type="search" placeholder="Tìm trong tiêu đề (gõ không dấu cũng được)" style="flex:1 1 240px">
+  <label>Ít nhất <select id="minsize"><option>2</option><option>3</option><option>5</option><option>10</option><option>20</option></select> bài</label>
+  <label>Ít nhất <select id="minsrc"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select> báo</label>
+  <label>Từ <input id="from" type="date"></label>
+  <label>đến <input id="to" type="date"></label>
+  <label>Sắp xếp <select id="sort"><option value="size">nhiều bài nhất</option><option value="new">mới nhất</option><option value="old">cũ nhất</option><option value="src">nhiều báo nhất</option></select></label>
+</div>
+<p class="small" id="count"></p>
+<div id="list"></div>
+<div class="pager"><button id="prev">← Trước</button><span id="page"></span><button id="next">Sau →</button></div>
+<p class="small">Bài in đậm là <b>medoid</b>: bài giống các bài khác trong sự kiện nhất, tiêu đề của nó dùng làm baseline đặt tên.</p>
+</section>
+</main>
+<div class="tip" id="tip"></div>
+<script>
+const D = /*__DATA__*/null;
+const NS = "http://www.w3.org/2000/svg";
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const nf = x => Math.round(x).toLocaleString("vi-VN");
+const pct = (x, d = 0) => (100 * x).toFixed(d).replace(".", ",") + "%";
+const dec = (x, d = 1) => x.toFixed(d).replace(".", ",");
+const SRC_LABEL = { tuoitre: "Tuổi Trẻ", thanhnien: "Thanh Niên", vietnamnet: "VietNamNet", vnexpress: "VnExpress", nhandan: "Nhân Dân", baochinhphu: "Báo Chính phủ" };
+const S = D.sources, SL = s => SRC_LABEL[s] || s;
+const SC = k => css("--s" + (k + 1));
+const M = D.multi;                                   // [id, first_seen, size, n_src, span_h, medoid_title, category, arts]
+const quant = (arr, q) => arr.length ? arr[Math.min(arr.length - 1, Math.floor(q * arr.length))] : 0;
+function el(tag, attrs = {}, text) { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; }
+function h(tag, attrs = {}, ...kids) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k === "style") e.style.cssText = v; else e.setAttribute(k, v); } for (const c of kids) e.append(c instanceof Node ? c : document.createTextNode(c)); return e; }
+function setNote(id, html) { document.getElementById(id).innerHTML = html; }   // chỉ chèn số/chuỗi tự viết, tiêu đề bài dùng textContent
+const tip = document.getElementById("tip");
+function showTip(ev, rows) {
+  tip.replaceChildren();
+  for (const [strong, rest, color] of rows) {
+    const d = h("div", { class: "row" });
+    if (color) d.append(h("span", { class: "dot", style: `background:${color}` }));
+    if (strong) d.append(h("b", {}, strong));
+    if (rest) d.append(" " + rest);
+    tip.append(d);
+  }
+  tip.style.display = "block";
+  tip.style.left = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px";
+  tip.style.top = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8) + "px";
+}
+const hideTip = () => tip.style.display = "none";
+function hover(node, rows) {
+  node.setAttribute("tabindex", 0);
+  node.addEventListener("pointermove", e => showTip(e, rows()));
+  node.addEventListener("pointerleave", hideTip);
+  node.addEventListener("focus", () => { const b = node.getBoundingClientRect(); showTip({ clientX: b.right, clientY: b.top }, rows()); });
+  node.addEventListener("blur", hideTip);
+}
+const W = svg => Math.max(300, svg.parentNode.clientWidth - 34);
+function niceMax(v) { const p = 10 ** Math.floor(Math.log10(v || 1)); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
+
+// --- cột dọc dùng chung
+function columns(svg, { labels, values, color, fmt = nf, tipRows, H = 260, xTitle, yFmt = nf }) {
+  svg.replaceChildren();
+  const w = W(svg), left = 48, right = 8, top = 22, bot = xTitle ? 46 : 30;
+  svg.setAttribute("viewBox", `0 0 ${w} ${H}`);
+  const max = niceMax(Math.max(...values)), y = v => top + (1 - v / max) * (H - top - bot);
+  for (let k = 0; k <= 4; k++) {
+    const v = max * k / 4;
+    svg.append(el("line", { x1: left, x2: w - right, y1: y(v), y2: y(v), stroke: css(k ? "--grid" : "--axis"), "stroke-width": 1 }));
+    svg.append(el("text", { x: left - 6, y: y(v) + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--muted") }, yFmt(v)));
+  }
+  const band = (w - left - right) / values.length, bw = Math.min(40, band * 0.7);
+  values.forEach((v, i) => {
+    const x = left + i * band + (band - bw) / 2, yy = y(v), hh = Math.max(0, y(0) - yy);
+    const r = Math.min(4, bw / 2, hh);
+    svg.append(el("path", { d: `M${x},${y(0)} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + bw - r} Q${x + bw},${yy} ${x + bw},${yy + r} V${y(0)} Z`, fill: typeof color === "function" ? color(i) : color }));
+    svg.append(el("text", { x: x + bw / 2, y: yy - 5, "text-anchor": "middle", "font-size": 11.5, fill: css("--ink-2") }, fmt(v)));
+    svg.append(el("text", { x: x + bw / 2, y: H - bot + 16, "text-anchor": "middle", "font-size": 12, fill: css("--ink-2") }, labels[i]));
+    const hit = el("rect", { x: left + i * band, y: top, width: band, height: H - top - bot, fill: "transparent" });
+    hover(hit, () => tipRows(i)); svg.append(hit);
+  });
+  if (xTitle) svg.append(el("text", { x: left + (w - left - right) / 2, y: H - 6, "text-anchor": "middle", "font-size": 12, fill: css("--muted") }, xTitle));
+}
+
+// --- histogram (giờ)
+function histogram(svg, vals, { bin, max, marker, xTitle, unit = "sự kiện" }) {
+  const n = Math.ceil(max / bin), counts = new Array(n).fill(0);
+  let over = 0;
+  for (const v of vals) { if (v >= max) over++; else counts[Math.floor(v / bin)]++; }
+  const labels = counts.map((_, i) => String(i * bin));
+  columns(svg, { labels, values: counts, color: css("--s1"), fmt: v => v ? nf(v) : "", xTitle,
+    tipRows: i => [[nf(counts[i]), `${unit} · ${i * bin}–${(i + 1) * bin} giờ`, css("--s1")], [null, pct(counts[i] / vals.length, 1) + " tổng"]] });
+  if (marker != null) {
+    const w = W(svg), left = 48, right = 8, band = (w - left - right) / n, x = left + marker / bin * band;
+    svg.append(el("line", { x1: x, x2: x, y1: 18, y2: 260 - 46, stroke: css("--mark"), "stroke-width": 2 }));
+    svg.append(el("text", { x: x - 4, y: 14, "text-anchor": "end", "font-size": 11.5, fill: css("--ink-2") }, `cửa sổ ${marker} giờ`));
+  }
+  return over;
+}
+
+// --- 0. tiêu đề, ô số
+const mf = D.manifest, cfg = mf.config;
+document.getElementById("sub").textContent = `${nf(D.n_articles)} bài của ${S.length} báo · bài đầu ${mf.first_published.slice(0, 10)}, bài cuối ${mf.last_published.slice(0, 10)} · mô hình ${cfg.model_version} · ${cfg.algo} ngưỡng ${String(cfg.threshold).replace(".", ",")} · cửa sổ ${cfg.window_hours} giờ · algo_version ${cfg.algo_version} · tạo ${mf.created_at.slice(0, 10)}`;
+document.getElementById("th").textContent = String(cfg.threshold).replace(".", ",");
+document.getElementById("win").textContent = cfg.window_hours;
+const nMulti = M.length, artMulti = D.src_multi_articles.reduce((a, b) => a + b, 0);
+const multiSrc = M.filter(m => m[3] >= 2).length, biggest = M.reduce((a, m) => m[2] > a[2] ? m : a, M[0]);
+{
+  const t = document.getElementById("tiles");
+  for (const [k, v, d] of [["Bài báo", nf(D.n_articles), `${S.length} báo`], ["Sự kiện", nf(D.n_events), `${pct((D.n_events - nMulti) / D.n_events)} chỉ có 1 bài`],
+    ["Sự kiện từ 2 bài", nf(nMulti), `chứa ${nf(artMulti)} bài (${pct(artMulti / D.n_articles)} số bài)`],
+    ["Có từ 2 báo đưa", pct(multiSrc / nMulti), `${nf(multiSrc)} sự kiện nhiều bài`],
+    ["Sự kiện lớn nhất", nf(biggest[2]) + " bài", `${biggest[3]} báo · ${biggest[1].slice(0, 10)}`]])
+    t.append(h("div", { class: "tile" }, h("div", { class: "k" }, k), h("div", { class: "v" }, v), h("div", { class: "d" }, d)));
+}
+
+// --- 1. kích thước
+let sizeMode = "events";
+function drawSize() {
+  const B = D.buckets, vals = B.map(b => b[sizeMode]), tot = vals.reduce((a, b) => a + b, 0);
+  columns(document.getElementById("c-size"), { labels: B.map(b => b.label), values: vals, color: css("--s1"), xTitle: "số bài trong sự kiện",
+    tipRows: i => [[nf(vals[i]), sizeMode === "events" ? `sự kiện có ${B[i].label} bài` : `bài nằm trong sự kiện ${B[i].label} bài`, css("--s1")], [null, pct(vals[i] / tot, 1) + " tổng"]] });
+}
+{
+  const B = D.buckets, one = B[0], big = B.filter((b, i) => i >= 5).reduce((a, b) => a + b.events, 0);
+  setNote("n-size", `<b>${pct(one.events / D.n_events)}</b> sự kiện chỉ có 1 bài. Nhưng tính theo <b>bài</b> thì khác hẳn: ${pct(one.articles / D.n_articles)} số bài đứng lẻ, còn
+  <b>${pct(artMulti / D.n_articles)}</b> số bài nằm trong sự kiện từ 2 bài (bấm "Đếm bài" để thấy). Đuôi rất dài: ${nf(big)} sự kiện từ 10 bài trở lên,
+  lớn nhất ${biggest[2]} bài. Các sự kiện rất lớn đều là chuyến thăm cấp cao hoặc trận đấu lớn (xem mục 3), đúng định nghĩa "một chuyến
+  thăm / một trận = một sự kiện". Kích thước sự kiện là tín hiệu chính cho bảng xu hướng.`);
+}
+
+// --- 2. theo ngày
+function drawDay() {
+  const svg = document.getElementById("c-day"); svg.replaceChildren();
+  legendEl("lg-day", S.map((s, k) => [SL(s), SC(k)]), "sw");
+  const w = W(svg), H = 280, left = 44, right = 8, top = 12, bot = 30;
+  svg.setAttribute("viewBox", `0 0 ${w} ${H}`);
+  const tot = D.per_day.map(r => r.reduce((a, b) => a + b, 0)), max = niceMax(Math.max(...tot));
+  const y = v => top + (1 - v / max) * (H - top - bot), band = (w - left - right) / D.days.length, bw = Math.max(1, band - 2);
+  for (let k = 0; k <= 4; k++) { const v = max * k / 4; svg.append(el("line", { x1: left, x2: w - right, y1: y(v), y2: y(v), stroke: css(k ? "--grid" : "--axis") })); svg.append(el("text", { x: left - 6, y: y(v) + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--muted") }, nf(v))); }
+  D.days.forEach((d, i) => {
+    let acc = 0; const x = left + i * band + 1;
+    D.per_day[i].forEach((c, k) => { if (!c) return; const y1 = y(acc + c), y0 = y(acc); svg.append(el("rect", { x, y: y1, width: bw, height: Math.max(0, y0 - y1 - (band > 6 ? 1 : 0)), fill: SC(k) })); acc += c; });
+    if (d.endsWith("-01") || d.endsWith("-15")) svg.append(el("text", { x: x + bw / 2, y: H - 10, "text-anchor": "middle", "font-size": 11.5, fill: css("--muted") }, d.slice(8) + "/" + d.slice(5, 7)));
+    const hit = el("rect", { x: left + i * band, y: top, width: band, height: H - top - bot, fill: "transparent" });
+    hover(hit, () => [[nf(tot[i]), `bài · ${d.slice(8)}/${d.slice(5, 7)}`]].concat(S.map((s, k) => [nf(D.per_day[i][k]), SL(s), SC(k)]).filter(r => r[0] !== "0")));
+    svg.append(hit);
+  });
+}
+function drawShare() {
+  const svg = document.getElementById("c-share"); svg.replaceChildren();
+  const w = W(svg), H = 180, left = 44, right = 8, top = 12, bot = 26;
+  svg.setAttribute("viewBox", `0 0 ${w} ${H}`);
+  const tot = D.per_day.map(r => r.reduce((a, b) => a + b, 0)), share = D.multi_art_day.map((m, i) => tot[i] ? m / tot[i] : 0);
+  const y = v => top + (1 - v) * (H - top - bot), band = (w - left - right) / D.days.length, x = i => left + (i + 0.5) * band;
+  for (const v of [0, 0.25, 0.5, 0.75, 1]) { svg.append(el("line", { x1: left, x2: w - right, y1: y(v), y2: y(v), stroke: css(v ? "--grid" : "--axis") })); svg.append(el("text", { x: left - 6, y: y(v) + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--muted") }, pct(v))); }
+  svg.append(el("path", { d: share.map((s, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(s).toFixed(1)).join(""), fill: "none", stroke: css("--s1"), "stroke-width": 2, "stroke-linejoin": "round" }));
+  D.days.forEach((d, i) => { if (d.endsWith("-01") || d.endsWith("-15")) svg.append(el("text", { x: x(i), y: H - 8, "text-anchor": "middle", "font-size": 11.5, fill: css("--muted") }, d.slice(8) + "/" + d.slice(5, 7))); });
+  const cross = el("line", { y1: top, y2: H - bot, stroke: css("--axis"), visibility: "hidden" }); svg.append(cross);
+  const hit = el("rect", { x: left, y: top, width: w - left - right, height: H - top - bot, fill: "transparent" });
+  hit.addEventListener("pointermove", e => { const b = svg.getBoundingClientRect(), px = (e.clientX - b.left) * w / b.width, i = Math.max(0, Math.min(D.days.length - 1, Math.floor((px - left) / band))); cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible"); showTip(e, [[pct(share[i], 1), `bài thuộc sự kiện nhiều bài · ${D.days[i].slice(8)}/${D.days[i].slice(5, 7)}`, css("--s1")], [null, `${nf(D.multi_art_day[i])}/${nf(tot[i])} bài`]]); });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  svg.append(hit);
+}
+{
+  const tot = D.per_day.map(r => r.reduce((a, b) => a + b, 0));
+  const dense = D.days.map((d, i) => [d, tot[i]]).filter(([d]) => d >= "2026-08-01" && d <= "2026-09-16");
+  const avg = dense.reduce((a, b) => a + b[1], 0) / dense.length;
+  const lastSrc = D.days.map((d, i) => [d, D.per_day[i].filter(c => c > 0).length]);
+  const drop = lastSrc.find(([d, n]) => d >= "2026-09-01" && n < S.length);
+  const share = D.multi_art_day.map((m, i) => tot[i] ? m / tot[i] : 0);
+  const sAug = D.days.map((d, i) => [d, share[i]]).filter(([d]) => d >= "2026-08-01" && d <= "2026-09-16").map(x => x[1]);
+  const lastShare = share[share.length - 1];
+  setNote("n-day", `Dữ liệu dày từ đầu tháng 8/2026: trung bình <b>${nf(avg)}</b> bài/ngày (01/08–16/09). Từ <b>${drop ? drop[0].slice(8) + "/" + drop[0].slice(5, 7) : "—"}</b>
+  kho không còn đủ ${S.length} báo (VnExpress và VietNamNet ngừng sau 16/09), ngày cuối chỉ còn ${lastSrc[lastSrc.length - 1][1]} báo. Trong giai đoạn đủ báo,
+  khoảng <b>${pct(sAug.reduce((a, b) => a + b, 0) / sAug.length)}</b> số bài mỗi ngày được gom với bài khác; ngày cuối chỉ còn ${pct(lastShare)}, vì ít báo hơn và
+  thiếu bài của ngày hôm sau để gom tiếp. → Khi so sánh xu hướng giữa các ngày, phải chuẩn hoá theo số báo đang hoạt động.`);
+}
+
+// --- 3. bản đồ
+function legendEl(id, items, kind) { const lg = document.getElementById(id); lg.replaceChildren(); for (const [l, c] of items) lg.append(h("span", {}, h("span", { class: kind, style: `background:${c}` }), l)); }
+const OC = k => css("--o" + Math.min(6, k));
+function drawMap() {
+  const svg = document.getElementById("c-map"); svg.replaceChildren();
+  legendEl("lg-map", [1, 2, 3, 4, 5, 6].map(k => [`${k} báo`, OC(k)]), "dot");
+  const pts = M.filter(m => m[1] >= "2026-07-01");
+  const w = W(svg), H = 360, left = 40, right = 12, top = 14, bot = 28;
+  svg.setAttribute("viewBox", `0 0 ${w} ${H}`);
+  const t = s => Date.parse(s + ":00+07:00"), t0 = t("2026-07-01T00:00"), t1 = t(D.days[D.days.length - 1] + "T23:59");
+  const x = s => left + (t(s) - t0) / (t1 - t0) * (w - left - right);
+  const maxS = Math.max(...pts.map(m => m[2])), ly = Math.log2(Math.max(4, maxS));
+  const y = s => top + (1 - (Math.log2(s) - 0.75) / (ly - 0.75)) * (H - top - bot);   // chừa khoảng dưới vạch 2 cho chấm rung
+  for (let s = 2; s <= maxS * 1.01; s *= 2) { svg.append(el("line", { x1: left, x2: w - right, y1: y(s), y2: y(s), stroke: css("--grid") })); svg.append(el("text", { x: left - 6, y: y(s) + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--muted") }, s)); }
+  for (const d of ["2026-07-01", "2026-07-15", "2026-08-01", "2026-08-15", "2026-09-01", "2026-09-15"]) svg.append(el("text", { x: x(d + "T00:00"), y: H - 8, "text-anchor": "middle", "font-size": 11.5, fill: css("--muted") }, d.slice(8) + "/" + d.slice(5, 7)));
+  const jit = id => (parseInt(id.slice(-4), 16) / 65535 - 0.5) * 0.35;      // rung nhẹ để chấm cùng kích thước không chồng khít
+  const sorted = [...pts].sort((a, b) => a[3] - b[3]);
+  for (const m of sorted) {
+    const cx = x(m[1]), cy = y(m[2] * 2 ** jit(m[0]));
+    const c = el("circle", { cx, cy, r: m[2] >= 10 ? 5 : 3.5, fill: OC(m[3]), stroke: css("--surface"), "stroke-width": 1.5, style: "cursor:pointer" });
+    svg.append(c);
+  }
+  const top3 = [...pts].sort((a, b) => b[2] - a[2]).slice(0, 3);
+  for (const m of top3) {
+    const cx = x(m[1]), cy = y(m[2]);                                   // nhãn ngắn; tên đầy đủ ở danh sách bên dưới
+    svg.append(el("text", { x: cx - 8, y: cy + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--ink-2") }, `${m[2]} bài`));
+  }
+  // lớp hover: chấm gần nhất
+  const hit = el("rect", { x: left, y: top, width: w - left - right, height: H - top - bot, fill: "transparent", style: "cursor:pointer" });
+  const P = sorted.map(m => [x(m[1]), y(m[2] * 2 ** jit(m[0])), m]);
+  const near = e => { const b = svg.getBoundingClientRect(), px = (e.clientX - b.left) * w / b.width, py = (e.clientY - b.top) * H / b.height; let best = null, bd = 400; for (const p of P) { const d = (p[0] - px) ** 2 + (p[1] - py) ** 2; if (d < bd) { bd = d; best = p[2]; } } return best; };
+  hit.addEventListener("pointermove", e => { const m = near(e); if (!m) return hideTip(); showTip(e, [[`${m[2]} bài`, `${m[3]} báo · ${m[1].replace("T", " ")}`, OC(m[3])], [null, m[5]], [null, `${m[6] || ""} · kéo dài ${dec(m[4])} giờ · bấm để xem`]]); });
+  hit.addEventListener("pointerleave", hideTip);
+  hit.addEventListener("click", e => { const m = near(e); if (m) openEvent(m[0]); });
+  svg.append(hit);
+}
+{
+  const top = [...M].sort((a, b) => b[2] - a[2]).slice(0, 5);
+  const big = M.filter(m => m[2] >= 10), bigAll6 = big.filter(m => m[3] === S.length).length;
+  const note = document.getElementById("n-map");
+  note.innerHTML = `Các chấm cao nhất là những sự kiện được đưa tin dày nhất. ${nf(big.length)} sự kiện từ 10 bài trở lên, trong đó ${bigAll6} sự kiện đủ cả ${S.length} báo.
+  Năm sự kiện lớn nhất: `;
+  const ol = h("ol", { style: "margin:4px 0 6px;padding-left:20px" });
+  for (const m of top) ol.append(h("li", {}, `${m[2]} bài, ${m[3]} báo, ${m[1].slice(8, 10)}/${m[1].slice(5, 7)}: `, h("i", {}, m[5])));
+  note.append(ol, document.createTextNode("Sự kiện nhiều bài nhưng chỉ 1 báo (chấm nhạt) thường là loạt bài một báo tự cập nhật, không phải tin lan rộng: khi xếp hạng xu hướng nên ưu tiên số báo hơn số bài."));
+}
+
+// --- 4. số báo
+{
+  const v = D.n_sources_hist;
+  setNote("n-src", `Trong ${nf(nMulti)} sự kiện nhiều bài, <b>${pct(multiSrc / nMulti)}</b> có từ 2 báo trở lên; phổ biến nhất là 2 báo (${nf(v[1])}).
+  Chỉ <b>${nf(v[S.length - 1])}</b> sự kiện được cả ${S.length} báo đưa: đây là các tin lớn nhất (chuyến thăm cấp cao, trận chung kết…).
+  ${nf(v[0])} sự kiện chỉ có 1 báo: một báo đăng nhiều bài về cùng sự việc (cập nhật, bài phân tích). Vì số báo chỉ có ${S.length} mức và bão hoà
+  nhanh, công thức xu hướng cần thêm <b>vận tốc</b> (mục 6), không chỉ đếm báo.`);
+}
+
+// --- 5. kéo dài
+{
+  const sp = D.spans;
+  const over = sp.filter(s => s > cfg.window_hours).length, under6 = sp.filter(s => s < 6).length;
+  setNote("n-span", `Trung vị <b>${dec(quant(sp, 0.5))} giờ</b>, 90% sự kiện gói gọn trong <b>${dec(quant(sp, 0.9))} giờ</b>; ${pct(under6 / sp.length)} kết thúc trong 6 giờ
+  (tin nhanh, mọi báo đăng gần như cùng lúc). Chỉ <b>${over}</b> sự kiện dài hơn ${cfg.window_hours} giờ (dài nhất ${dec(sp[sp.length - 1])} giờ): average-linkage cho phép
+  vì các bài nối tiếp nhau đều trong ${cfg.window_hours} giờ với phần lớn cụm. Như vậy cửa sổ ${cfg.window_hours} giờ <b>không cắt cụt</b> sự kiện nào đáng kể; sự kiện kéo
+  dài nhiều ngày (một giải đấu, một cơn bão) sẽ bị chia thành nhiều sự kiện con, đúng định nghĩa đã chốt.`);
+}
+
+// --- 6. lan sang báo thứ hai
+{
+  const lg = D.lags;
+  const in1 = lg.filter(x => x <= 1).length, in6 = lg.filter(x => x <= 6).length;
+  setNote("n-lag", `Một nửa số sự kiện có báo thứ hai đưa tin trong vòng <b>${dec(quant(lg, 0.5))} giờ</b>; ${pct(in1 / lg.length)} trong 1 giờ, ${pct(in6 / lg.length)} trong 6 giờ;
+  nhưng 1/4 phải chờ hơn ${dec(quant(lg, 0.75))} giờ. Hệ quả cho sản phẩm: nếu chỉ đẩy thông báo khi sự kiện có từ 2 báo, độ trễ điển hình
+  là khoảng ${dec(quant(lg, 0.5), 0)} giờ. Chờ càng lâu thì càng chắc chắn (ít báo động giả), nhưng thông báo càng muộn.`);
+}
+
+// --- 7. đồng đưa tin
+function drawCo() {
+  const t = document.getElementById("t-co"); t.replaceChildren();
+  t.append(h("tr", {}, h("th", {}, "Có báo ↓ · cũng có →"), ...S.map((s, k) => h("th", { class: "n" }, h("span", { class: "sw", style: `background:${SC(k)};margin-right:5px` }), SL(s)))));
+  const lo = css("--seq-lo"), hi = css("--seq-hi");
+  const mix = f => { const a = lo.match(/\w\w/g).map(x => parseInt(x, 16)), b = hi.match(/\w\w/g).map(x => parseInt(x, 16)); return "rgb(" + a.map((v, i) => Math.round(v + (b[i] - v) * f)).join(",") + ")"; };
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light" || document.documentElement.dataset.theme === "dark";
+  D.co.forEach((row, a) => {
+    const tr = h("tr", {}, h("th", {}, SL(S[a])));
+    row.forEach((c, b) => {
+      if (a === b) { tr.append(h("td", { class: "c", style: "color:var(--ink-2)" }, nf(c))); return; }
+      const f = c / row[a], td = h("td", { class: "c", style: `background:${mix(Math.min(1, f / 0.6))};color:${f > 0.33 ? (dark ? "#0b0b0b" : "#ffffff") : "var(--ink)"}` }, pct(f));
+      td.title = `${nf(c)}/${nf(row[a])} sự kiện có ${SL(S[a])} cũng có ${SL(S[b])}`;
+      tr.append(td);
+    });
+    t.append(tr);
+  });
+}
+{
+  let best = [0, 0, 0], worst = [1, 0, 0];
+  D.co.forEach((row, a) => row.forEach((c, b) => { if (a !== b) { const f = c / row[a]; if (f > best[0]) best = [f, a, b]; if (f < worst[0]) worst = [f, a, b]; } }));
+  setNote("n-co", `Cặp đưa cùng sự kiện nhiều nhất: ${pct(best[0])} sự kiện nhiều bài có ${SL(S[best[1]])} cũng có ${SL(S[best[2]])}.
+  Ít nhất: chỉ ${pct(worst[0])} sự kiện của ${SL(S[worst[1]])} có ${SL(S[worst[2]])}. Báo Chính phủ ít trùng với các báo khác nhất, có lẽ vì
+  báo này chủ yếu đưa tin hoạt động của Chính phủ mà các báo khác không đăng lại hết. Bảng này không đối xứng: báo đăng nhiều bài (đường chéo lớn) tự nhiên có mặt ở nhiều
+  sự kiện của báo khác.`);
+}
+
+// --- 8. ai đưa trước
+function drawFirst() {
+  const svg = document.getElementById("c-first"); svg.replaceChildren();
+  const rate = D.first.map((f, k) => D.part[k] ? f / D.part[k] : 0), order = S.map((_, k) => k).sort((a, b) => rate[b] - rate[a]);
+  const w = W(svg), rowH = 32, left = 104, right = w < 600 ? 110 : 130, H = order.length * rowH + 10;
+  svg.setAttribute("viewBox", `0 0 ${w} ${H}`);
+  const max = Math.max(...rate) * 1.1, x = v => left + v / max * (w - left - right);
+  order.forEach((k, i) => {
+    const y = 6 + i * rowH, bh = 16, x1 = x(rate[k]);
+    svg.append(el("text", { x: left - 8, y: y + 13, "text-anchor": "end", "font-size": 13, fill: css("--ink") }, SL(S[k])));
+    svg.append(el("path", { d: `M${left},${y} H${x1 - 4} Q${x1},${y} ${x1},${y + 4} V${y + bh - 4} Q${x1},${y + bh} ${x1 - 4},${y + bh} H${left} Z`, fill: SC(k) }));
+    svg.append(el("text", { x: x1 + 6, y: y + 13, "font-size": 12, fill: css("--ink-2") }, `${pct(rate[k])} · ${nf(D.first[k])}/${nf(D.part[k])}`));
+    const hit = el("rect", { x: 0, y: y - 6, width: w, height: rowH, fill: "transparent" });
+    hover(hit, () => [[pct(rate[k], 1), `đưa tin đầu tiên · ${SL(S[k])}`, SC(k)], [null, `${nf(D.first[k])} trên ${nf(D.part[k])} sự kiện có tham gia`]]); svg.append(hit);
+  });
+}
+{
+  const rate = D.first.map((f, k) => D.part[k] ? f / D.part[k] : 0), hi = rate.indexOf(Math.max(...rate)), lo = rate.indexOf(Math.min(...rate));
+  setNote("n-first", `${SL(S[hi])} là báo đăng đầu tiên trong <b>${pct(rate[hi])}</b> sự kiện mà báo này có tham gia, cao nhất; ${SL(S[lo])} thấp nhất (${pct(rate[lo])}).
+  Nếu các báo ngang nhau, mỗi báo sẽ đứng đầu khoảng 1/(số báo của sự kiện). <b>Thận trọng:</b> giờ đăng do từng báo ghi, có báo làm tròn
+  hoặc đặt 00:00 cho bài đăng sẵn từ đêm trước, nên chênh lệch vài phần trăm chưa đủ kết luận báo nào "nhanh" hơn.`);
+}
+
+// --- 9. chuyên mục
+function drawCat() {
+  const svg = document.getElementById("c-cat"); svg.replaceChildren();
+  const C = D.categories, w = W(svg), narrow = w < 600, rowH = 30, left = narrow ? 118 : 150, right = narrow ? 52 : 210, H = C.length * rowH + 8;
+  svg.setAttribute("viewBox", `0 0 ${w} ${H}`);
+  const x = v => left + v * (w - left - right);
+  C.forEach((c, i) => {
+    const y = 6 + i * rowH, bh = 16, f = c.multi_articles / c.articles, x1 = x(f);
+    svg.append(el("text", { x: left - 8, y: y + 13, "text-anchor": "end", "font-size": narrow ? 12 : 13, fill: css("--ink") }, narrow ? c.name.replace("Khoa học - Công nghệ", "KH - CN") : c.name));
+    svg.append(el("rect", { x: left, y, width: x(1) - left, height: bh, fill: css("--grid"), rx: 3 }));
+    svg.append(el("path", { d: `M${left},${y} H${x1 - 4} Q${x1},${y} ${x1},${y + 4} V${y + bh - 4} Q${x1},${y + bh} ${x1 - 4},${y + bh} H${left} Z`, fill: css("--s1") }));
+    svg.append(el("text", { x: x(1) + 8, y: y + 13, "font-size": 12, fill: css("--ink-2") }, narrow ? pct(f) : `${pct(f)} · ${nf(c.multi_events)} sự kiện · TB ${dec(c.avg_size)} bài`));
+    const hit = el("rect", { x: 0, y: y - 6, width: w, height: rowH, fill: "transparent" });
+    hover(hit, () => [[pct(f, 1), `bài ${c.name} nằm trong sự kiện nhiều bài`, css("--s1")], [null, `${nf(c.multi_articles)}/${nf(c.articles)} bài · ${nf(c.multi_events)} sự kiện · ${dec(c.avg_size)} bài/sự kiện`]]); svg.append(hit);
+  });
+}
+{
+  const C = D.categories, a = C[0], z = C[C.length - 1];
+  setNote("n-cat", `<b>${a.name}</b> dễ thành sự kiện nhiều bài nhất (${pct(a.multi_articles / a.articles)} số bài), tiếp theo ${C[1].name} và ${C[2].name}:
+  đây là tin có sự việc cụ thể (trận đấu, chuyến thăm, phát biểu) mà nhiều báo cùng đưa. <b>${z.name}</b> thấp nhất (${pct(z.multi_articles / z.articles)}):
+  chủ yếu bài tư vấn, giới thiệu, mỗi báo tự viết đề tài riêng. Số bài mỗi chuyên mục gần bằng nhau vì lúc thu thập giới hạn số bài theo chuyên mục.
+  → Bảng xu hướng nên có cả bảng tổng và bảng theo chuyên mục, vì mức nền của mỗi chuyên mục rất khác nhau.`);
+}
+
+// --- 10. chất lượng
+{
+  const t = document.getElementById("t-gold");
+  if (!D.gold.length) t.append(h("tr", {}, h("td", {}, "Không có tập vàng ở máy (data/gold_clusters/v1/) nên không tính được.")));
+  else {
+    t.append(h("tr", {}, ...["Ngày (tập vàng)", "Số bài", "Precision", "Recall", "B-Cubed F1"].map((x, i) => h("th", { class: i ? "n" : "" }, x))));
+    for (const g of D.gold) t.append(h("tr", {}, h("td", {}, g.day + (g.day.endsWith("14") ? " (ngày chọn ngưỡng)" : " (ngày đo)")), h("td", { class: "n" }, nf(g.n)), h("td", { class: "n" }, dec(g.precision, 3)), h("td", { class: "n" }, dec(g.recall, 3)), h("td", { class: "n" }, dec(g.f1, 3))));
+    t.append(h("tr", {}, h("td", { style: "color:var(--ink-2)" }, "Mốc: TF-IDF (gom riêng tập vàng, 15/09)"), h("td"), h("td"), h("td"), h("td", { class: "n" }, "0,927")));
+    t.append(h("tr", {}, h("td", { style: "color:var(--ink-2)" }, "Mốc: không gom gì (15/09)"), h("td"), h("td", { class: "n" }, "1,000"), h("td", { class: "n" }, "0,721"), h("td", { class: "n" }, "0,838")));
+  }
+}
+
+// --- 11. duyệt sự kiện
+const fold = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+const IDX = M.map(m => fold(m[7].map(a => a[2]).join(" | ")));
+const pos = Object.fromEntries(M.map((m, i) => [m[0], i]));
+let page = 0, results = [], openId = null;
+const f = id => document.getElementById(id);
+f("from").value = ""; f("to").value = "";
+function filter() {
+  const q = fold(f("q").value.trim()), ms = +f("minsize").value, msr = +f("minsrc").value, a = f("from").value, b = f("to").value || "9999";
+  results = M.map((m, i) => i).filter(i => { const m = M[i]; return m[2] >= ms && m[3] >= msr && m[1].slice(0, 10) >= a && m[1].slice(0, 10) <= b && (!q || IDX[i].includes(q)); });
+  const s = f("sort").value;
+  results.sort((x, y) => s === "size" ? M[y][2] - M[x][2] || (M[x][1] < M[y][1] ? 1 : -1) : s === "src" ? M[y][3] - M[x][3] || M[y][2] - M[x][2] : s === "new" ? (M[x][1] < M[y][1] ? 1 : -1) : (M[x][1] > M[y][1] ? 1 : -1));
+  page = 0; render();
+}
+function render() {
+  const per = 40, n = results.length, pages = Math.max(1, Math.ceil(n / per));
+  f("count").textContent = `${nf(n)} sự kiện khớp`;
+  f("page").textContent = `trang ${page + 1}/${pages}`;
+  f("prev").disabled = page === 0; f("next").disabled = page >= pages - 1;
+  const list = f("list"); list.replaceChildren();
+  for (const i of results.slice(page * per, page * per + per)) {
+    const m = M[i], d = h("details", { class: "ev", id: "ev-" + m[0] });
+    if (m[0] === openId) d.open = true;
+    d.append(h("summary", {}, h("span", { class: "t" }, m[1].slice(8, 10) + "/" + m[1].slice(5, 7) + " " + m[1].slice(11, 16)), h("span", {}, m[5]),
+      h("span", { class: "meta" }, `${m[2]} bài · ${m[3]} báo`)));
+    const box = h("div");
+    box.append(h("div", { class: "small", style: "padding:4px 4px 6px 12px" }, `${m[0]} · ${m[6] || "?"} · kéo dài ${dec(m[4])} giờ`));
+    for (const [t, s, title, med] of m[7]) box.append(h("div", { class: "art" + (med ? " m" : "") }, h("span", { class: "t" }, t.slice(3, 5) + "/" + t.slice(0, 2) + " " + t.slice(6)),
+      h("span", { class: "s" }, h("span", { class: "sw", style: `background:${SC(s)}` }), SL(S[s])), h("span", { class: "ti" }, title)));
+    d.append(box); list.append(d);
+  }
+}
+function openEvent(id) {
+  f("q").value = ""; f("minsize").value = "2"; f("minsrc").value = "1"; f("from").value = ""; f("to").value = "";
+  openId = id; filter();
+  const k = results.indexOf(pos[id]); page = Math.floor(k / 40); render();
+  document.getElementById("ev-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+for (const id of ["q", "minsize", "minsrc", "from", "to", "sort"]) f(id).addEventListener("input", () => { openId = null; filter(); });
+f("prev").addEventListener("click", () => { page--; render(); });
+f("next").addEventListener("click", () => { page++; render(); });
+filter();
+
+// --- vẽ + vẽ lại khi đổi cỡ / chế độ màu
+document.getElementById("sw-size").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; sizeMode = b.dataset.v; for (const o of b.parentNode.children) o.setAttribute("aria-pressed", o === b ? "true" : "false"); drawSize(); });
+function drawAll() {
+  drawSize(); drawDay(); drawShare(); drawMap(); drawCo(); drawFirst(); drawCat();
+  const v = D.n_sources_hist;
+  columns(document.getElementById("c-src"), { labels: v.map((_, i) => String(i + 1)), values: v, color: i => OC(i + 1), xTitle: "số báo đưa tin", tipRows: i => [[nf(v[i]), `sự kiện có ${i + 1} báo`, OC(i + 1)], [null, pct(v[i] / nMulti, 1) + " sự kiện nhiều bài"]] });
+  histogram(document.getElementById("c-span"), D.spans, { bin: 4, max: 64, marker: cfg.window_hours, xTitle: "giờ từ bài đầu đến bài cuối" });
+  histogram(document.getElementById("c-lag"), D.lags, { bin: 2, max: 48, xTitle: "giờ đến khi báo thứ hai đăng" });
+}
+drawAll();
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawAll, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+</script>
+</body>
+</html>

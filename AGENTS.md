@@ -15,7 +15,7 @@
 | Tầng | Thành phần | Lưu ở đâu |
 |---|---|---|
 | 1. Thu thập | Crawler: sitemap (backfill), RSS (tin mới), hộp "Xem nhiều" | → R2 `silver/` (hiện tại) · `bronze/` (hướng tới) |
-| 2. Kho dữ liệu | **Hiện có: Silver dạng JSONL.** Hướng tới: Bronze → Silver → Gold → snapshots | Cloudflare R2, bucket `vietnam-news-datalake` — xem `docs/lake-layout.md` |
+| 2. Kho dữ liệu | **Hiện có: Silver (văn bản) + Gold (NER) dạng JSONL**, cùng nhãn yếu v1 (`weak_label_NguyenDinhHieu/`). Hướng tới: Bronze → Silver → Gold → snapshots | Cloudflare R2, bucket `vietnam-news-datalake` — xem `docs/tong-hop.md` mục 5.2 |
 | 3. Xử lý / ML | NER → nhãn yếu → embedding → gom cụm → đặt tên → xu hướng | Đọc/ghi R2; huấn luyện trên Kaggle/Colab |
 | 4. Phục vụ | FastAPI + Postgres (sự kiện, tên, điểm, thông báo đã gửi) | Postgres |
 | 5. Giao diện | Web dashboard, mobile app (thông báo đẩy) | — |
@@ -39,6 +39,17 @@ Tầng dưới **không được import** tầng trên. Chiều phụ thuộc tr
 
 Thư mục nào chưa tồn tại là **chưa đến giai đoạn đó** — không tự tạo trước khi được yêu cầu.
 
+## Trạng thái hiện tại (cập nhật 04/10/2026)
+
+| Phần | Trạng thái | Đọc gì trước |
+|---|---|---|
+| Thu thập + kho Silver | chạy được, 6 báo, ~28,7 nghìn bài | `docs/tong-hop.md` mục 5.2–5.3 |
+| Gold (NER) | có trên R2, do thành viên khác làm; offset tính trên văn bản ghép `Tiêu đề: …\n\nSapo: …\n\nNội dung:\n…` | `data/lake/gold/README.md` (tải về), `docs/tong-hop.md` mục 5.4–5.5 |
+| **Nhãn yếu** (`src/eventrank/weak_labels/`) | **v3 xong**: precision cặp dương 0,93, recall 0,28 (đo bằng Claude gán mù, có trọng số theo tầng) | **`docs/tong-hop.md` mục 7** |
+| Định nghĩa "sự kiện" | **đã chốt Gói 1 / hướng E**: đơn vị = sự kiện tin tức, nhóm cha = câu chuyện | `docs/tong-hop.md` mục 4 |
+| Embedding, gom cụm, đặt tên, xu hướng | **chưa làm** (thư mục chưa tồn tại) | `docs/tong-hop.md` mục 7.13, 8, 9 |
+| Web/API kiểm soát dữ liệu | chạy được | `docs/tong-hop.md` mục 11 |
+
 ## Lệnh thường dùng
 
 ```bash
@@ -47,6 +58,12 @@ make install         # cài thư viện Python (uv) và JavaScript (npm)
 make dev             # chạy backend :8000 + frontend :5173 trong một terminal
 make test            # test Python + lint + kiểm tra kiểu frontend
 make types           # sinh lại kiểu TypeScript sau khi sửa apps/api/schemas.py
+make embed           # embedding ngữ nghĩa cho nhãn yếu (tải mô hình ~135 MB lần đầu)
+make weak-labels     # sinh nhãn yếu → data/weak_labels/v3/ (cần data/lake/{gold,silver} và make embed trước)
+make agreement       # đo đồng thuận nhãn người ↔ nhãn LLM (Cohen's κ)
+make db-migrate      # áp migration Postgres (infra/db/migrations/) vào DATABASE_URL
+make ingest-status   # tình trạng từng báo trong Postgres (crawler: docs/handoff/ingest.md)
+make test-db         # test cần Postgres (TEST_DATABASE_URL), thiếu biến thì skip
 ```
 
 | Địa chỉ | Là gì |
@@ -71,8 +88,8 @@ make types           # sinh lại kiểu TypeScript sau khi sửa apps/api/schem
 
 ## 2. Kho dữ liệu (chi tiết: skill `data-lake`)
 
-- **Đọc `docs/lake-layout.md` và `docs/data-contracts.md` trước khi đọc hay ghi kho.** Đó là mô tả đúng của dữ liệu thật; đừng đoán cấu trúc.
-- Hiện kho **chỉ có Silver**: `silver/<source>/*.jsonl`, **mỗi báo một file**. Ghi lại file đó là **thay thế toàn bộ dữ liệu của báo** → không ghi đè khi người dùng chưa xác nhận.
+- **Đọc `docs/tong-hop.md` mục 5.2 (bố cục kho) và 5.3 (hợp đồng dữ liệu) trước khi đọc hay ghi kho.** Đó là mô tả đúng của dữ liệu thật; đừng đoán cấu trúc.
+- Kho hiện có `silver/<source>/*.jsonl` (**mỗi báo một file**; ghi lại là **thay thế toàn bộ dữ liệu của báo** → không ghi đè khi người dùng chưa xác nhận), `gold/gold_data.jsonl` (NER cả bài, không chứa văn bản — join Silver theo `article_id`) và `weak_label_NguyenDinhHieu/` (nhãn yếu v1, chỉ đọc). Bản mới ghi vào prefix mới (`…/v2/`), **không ghi đè**.
 - R2 **không có versioning** — xoá hay ghi đè là mất vĩnh viễn, và dữ liệu RSS không lấy lại được. **Không chạy bất kỳ lệnh xoá nào** khi người dùng chưa yêu cầu rõ và xác nhận lại.
 - Khi có lớp Bronze: **Bronze là bất biến** — không sửa, không xoá, không ghi đè.
 - Mỗi người chỉ ghi vào **thư mục `silver/<source>/` của báo mình phụ trách**.
@@ -98,6 +115,14 @@ make types           # sinh lại kiểu TypeScript sau khi sửa apps/api/schem
 - Không báo cáo con số nào **thiếu baseline và thiếu khoảng tin cậy**.
 - Không dùng silhouette để so sánh hai mô hình embedding. Dùng B-Cubed.
 
+## 4b. Nhãn yếu (chi tiết: `docs/tong-hop.md` mục 7)
+
+- **Không bao giờ chỉnh ngưỡng trên chính mẫu dùng để đo.** Tập chỉnh = `data/weak_labels/v1/audit_labeled_llm_ids.csv`; tập đo = `data/weak_labels/v2/audit_labeled_llm.csv`. Đổi luật → đo lại bằng `python -m eventrank.weak_labels.evaluate`.
+- Precision/recall phải tính **có trọng số theo tầng** (`evaluate.py`), không dùng tỉ lệ thô trên mẫu phân tầng.
+- Mọi luật mới phải có test viết trước (`tests/weak_labels/`) và **bằng chứng đo được** ghi trong docstring.
+- Nhãn đối chiếu hiện là của Claude, **chưa phải người** — không báo cáo như nhãn vàng.
+- Chạy `uv run` **không kèm `--group embed`** sẽ gỡ PyTorch/onnxruntime khỏi `.venv`; các lệnh `make` đã kèm sẵn.
+
 ## 5. Git
 
 - **Không tự commit, không tự push** nếu người dùng chưa yêu cầu rõ.
@@ -110,7 +135,7 @@ make types           # sinh lại kiểu TypeScript sau khi sửa apps/api/schem
 - Git và Pull Request là cơ chế đồng bộ duy nhất. **Không** tạo file registry/lock/nhật ký dùng chung trong repo — mỗi người ở một máy, một nhánh, các file đó chỉ gây xung đột merge.
 - Nhật ký thay đổi nằm trong **mô tả Pull Request** (mẫu ở `.github/pull_request_template.md`).
 - Bàn giao một module cho người khác → viết `docs/handoff/<module>.md`: trạng thái, việc còn dở, lệnh kiểm tra, cạm bẫy.
-- Đổi schema dữ liệu hoặc cấu trúc key trên bucket → sửa `docs/lake-layout.md` / `docs/data-contracts.md` **trong cùng PR**.
+- Đổi schema dữ liệu hoặc cấu trúc key trên bucket → sửa `docs/tong-hop.md` mục 5.2 / 5.3 **trong cùng PR**.
 
 ## 7. Báo cáo kết quả
 

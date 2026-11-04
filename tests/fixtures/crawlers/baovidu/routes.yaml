@@ -1,0 +1,8 @@
+# Fixture cho crawler VÍ DỤ (src/eventrank/ingest/crawlers/example_rss.py) — báo giả, nội dung tự viết.
+# URL → file trong thư mục này. URL không có ở đây → 404 (bai-4 cố ý thiếu: thử nhánh "bỏ bài 404").
+routes:
+  "https://bao-vi-du.example/robots.txt": robots.txt
+  "https://bao-vi-du.example/rss/tin-moi.rss": rss.xml
+  "https://bao-vi-du.example/thoi-su/bai-1.html": bai-1-day-du.html
+  "https://bao-vi-du.example/the-thao/bai-2.html": bai-2-ngan-khong-tac-gia.html
+  "https://bao-vi-du.example/kinh-te/bai-3.html": bai-3-khong-json-ld.html

@@ -8,7 +8,7 @@ description: >-
 
 # Data lake — quy ước bắt buộc
 
-**Nguồn sự thật:** `docs/lake-layout.md` (cấu trúc) và `docs/data-contracts.md` (schema từng trường).
+**Nguồn sự thật:** `docs/tong-hop.md` mục 5.2 (cấu trúc) và 5.3 (schema từng trường).
 Skill này chỉ tóm tắt. Hai file đó mâu thuẫn với skill → tin hai file đó, và sửa skill.
 
 ## Hiện trạng
@@ -17,7 +17,7 @@ Skill này chỉ tóm tắt. Hai file đó mâu thuẫn với skill → tin hai 
 vietnam-news-datalake/silver/<source>/<tên>.jsonl     # JSONL, UTF-8, mỗi dòng một bài
 ```
 
-- 4 nguồn: `baochinhphu`, `tuoitre`, `vietnamnet`, `vnexpress` (có thể thêm — xem `docs/lake-layout.md`). **Chỉ có lớp Silver**, chưa có Bronze.
+- 6 nguồn: `baochinhphu`, `baonhandan`, `thanhnien`, `tuoitre`, `vietnamnet`, `vnexpress` (xem `docs/tong-hop.md` mục 5.2). Có **Silver** + **Gold** (`gold/gold_data.jsonl`: NER, không chứa văn bản) + nhãn yếu v1 (`weak_label_NguyenDinhHieu/`). Chưa có Bronze.
 - Người đọc lấy toàn bộ bằng mẫu `silver/*/*.jsonl` (biến `LAKE_SILVER_GLOB`).
 - **Mỗi báo một file.** Ghi lại file đó là **thay thế toàn bộ** dữ liệu của báo.
 
@@ -48,7 +48,7 @@ con.sql("""
 ## Ghi
 
 - Mặc định ghi vào máy (`LAKE_BACKEND=local`). **Chỉ ghi lên R2 khi người dùng yêu cầu rõ.**
-- Mỗi bản ghi phải đúng `docs/data-contracts.md`; đặc biệt `article_id = sha256(url)`, `source` viết thường, `published_at` có múi giờ.
+- Mỗi bản ghi phải đúng `docs/tong-hop.md` mục 5.3; đặc biệt `article_id = sha256(url)`, `source` viết thường, `published_at` có múi giờ.
 - Mỗi người chỉ ghi vào `silver/<source>/` của **báo mình phụ trách**.
 - Ghi file mới ra tên tạm rồi mới thay thế, để lần ghi lỗi giữa chừng không làm hỏng file đang có.
 
