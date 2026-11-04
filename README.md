@@ -18,9 +18,12 @@ make dev                      # backend :8000 + web React :5173
 | http://127.0.0.1:8000 | Trang kiểm soát dữ liệu nội bộ (`apps/api/static/`) — chỉ đọc |
 | http://127.0.0.1:8000/docs | Tài liệu API tự sinh |
 
-**Web demo sự kiện** (bảng xu hướng "phát lại" theo giờ 01/08–19/09/2026, danh sách và chi tiết sự kiện): cần một lần chạy
-pipeline trong `data/runs/` (`make pipeline`), rồi `make build && make prod` → http://127.0.0.1:8000/trending. Chọn lần chạy
-bằng `EVENTS_RUN_DIR`; tên sự kiện 14–15/09 mặc định bị ẩn (`EVENTS_HIDE_NAMES_WINDOW`, xem docs/tong-hop.md mục 11.3).
+**Web EventRank** (trang chủ = bảng xu hướng "phát lại" theo giờ 01/08–19/09/2026, sự kiện, chuyên mục, dữ liệu & mô hình,
+tài khoản, quản trị): cần một lần chạy pipeline trong `data/runs/` (`make pipeline`), rồi `make build && make prod` →
+http://127.0.0.1:8000/. Chọn lần chạy bằng `EVENTS_RUN_DIR`; tên sự kiện 14–15/09 mặc định bị ẩn
+(`EVENTS_HIDE_NAMES_WINDOW`). Bản đồ "Trực quan gom cụm": `uv run --group embed python -m eventrank.evaluation.event_map
+--date 2026-09-10`. Tài khoản/quản trị đang **giả lập trên trình duyệt** (`VITE_AUTH_MOCK`, mặc định bật). Route, endpoint:
+docs/tong-hop.md mục 11.3.
 
 **Postgres + tầng Thu thập** (giai đoạn 1 của bản chạy liên tục): bảng bài báo/lần cào/đồng hồ, nạp Silver
 (`make ingest-import`), phát lại Silver thay crawler (`make ingest-replay`), theo dõi (`make ingest-status`). Người viết

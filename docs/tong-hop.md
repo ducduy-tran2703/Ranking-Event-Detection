@@ -289,6 +289,9 @@ datasets_NguyenDinhHieu/v2/              ★ HAI FILE GỌN, dùng cái này tr�
                                          cùng dữ liệu cặp tách sẵn: train.csv (25.006) + test.csv (837 = test 644 +
                                          test_hard 193) + README.md giải thích cột và mức
 datasets_NguyenDinhHieu/v1/              bản cũ (30.552 cặp, nhãn theo quy tắc trước 29/10) — sinh bằng evaluation/gold_export.py
+db_NguyenDinhHieu/v1/                    bản dump Postgres `eventrank` (04/11/2026, pg_dump 18 -Fc, 147 MB): bài + sự kiện run
+                                         2026-11-03_v2 (tên đã ẩn 14–15/09) + điểm xu hướng + vector bkai v1; SHA256SUMS,
+                                         schema/001–002.sql, README (cài Postgres, tải, pg_restore ≥ 18, xem dữ liệu)
 gold_clusters_NguyenDinhHieu/v1/         tập vàng gom cụm 14–15/09 (1.496 bài): gold_clusters_v2.csv (đáp án hiện tại),
                                          proposals*.json, emb_bkai_ft.npz (vector bkai v1), tóm tắt toàn văn, nhật ký kiểm tra,
                                          3 trang HTML, README — chi tiết mục 10.2
@@ -326,6 +329,32 @@ Chỉ dùng Postgres ≥ 14, **không pgvector** (vector giai đoạn 2 lưu `by
 Ghi idempotent (`INSERT … ON CONFLICT (article_id)`, chỉ UPDATE khi `content_hash` đổi). Đo 04/11/2026 (Postgres 18 tạm):
 `import-jsonl` toàn bộ Silver ở máy = 28.725 bài ghi / 21 loại (`published_at` rỗng, đều Thanh Niên) trong 8,3 s, bảng
 `articles` 96 MB; chạy lại = 0 bài mới. Cờ: `missing_author` 2.195, `no_body` 183, `short_body` 146, `missing_sapo` 8.
+
+**Tầng Sự kiện trong Postgres (`infra/db/migrations/002_events.sql`, từ 04/11/2026).** Hiện được NẠP từ một lần chạy
+pipeline offline (`make db-import-run` = `python -m eventrank.serving.db_import [data/runs/<run_id>]`); worker gom cụm
+liên tục (giai đoạn 2) sẽ ghi vào cùng các bảng. **API web đọc DB khi `EVENTS_BACKEND=db`** (`serving/db_store.py`,
+`DbEventStore`; mặc định `files` = CSV của run qua `serving/store.py`): dữ liệu lấy từ Postgres lúc khởi động (~2 s), mọi
+logic truy vấn dùng chung `EventStore._index` → đối chiếu run v2 (04/11/2026): bảng xu hướng 1.200 mốc, 10 bộ lọc danh
+sách, thống kê và trang chi tiết của cả 19.938 sự kiện khớp bản CSV (số thực lệch ≤ 1e-4 do cột `real`). URL bài lấy từ
+`articles`; bản đồ 2D vẫn là file `ban_do/` của thư mục run nếu có. DB đổi → khởi động lại API.
+
+| Bảng | Khoá | Nội dung |
+|---|---|---|
+| `events` | `event_id` (`E<ngày>-<8 hex>`) | `status` open/closed/merged/hidden (+ `merged_into`), `first_seen`, `last_seen`, `size`, `n_sources`, `sources` jsonb, `medoid_article_id`, `medoid_title`, `display_name` (ĐÃ áp luật ẩn tên), `name_source` model/medoid/title/editor, `name_hidden`, `category_std`, `is_stable`, `notified_at`, `peak_score/peak_at`, `total_score`, `top10_hours`, `algo/model/trend_version` |
+| `event_articles` | `article_id` (mỗi bài đúng một sự kiện) | `event_id`, `assigned_at`, `method` fast/recluster/import, `similarity` (cosine TB với các bài khác trong cụm), `is_medoid` (≤ 1 mỗi sự kiện) |
+| `event_assignment_log` | `log_id` | mỗi lần bài đổi sự kiện: `from_event` (NULL = gán đầu), `to_event`, `reason`, `worker_run_id` |
+| `event_names` | `name_id`; ≤ 1 dòng `is_current` mỗi sự kiện | `name`, `source`, `naming_version`, `size_at_naming`, `checks` jsonb (lý do rơi về medoid / `an_ten`) |
+| `trend_scores` | (`trend_version`, `t`, `event_id`) | MỌI ứng viên mỗi mốc giờ: `score`, `rank`, `n_articles`, `n_articles_3h`, `n_sources`, `n_sources_eff`, `velocity` |
+| `trend_baselines` | (`trend_version`, `hour_of_day`) | mức nền theo giờ trong ngày (TB = 1) |
+| `article_embeddings` | (`article_id`, `model_version`) | `vec` bytea float32 LE đã chuẩn hoá L2, `dim`, `content_hash` (khác bài hiện tại → tính lại) |
+| `worker_runs` | `run_id` | mỗi vòng worker / lần nạp (`step` import/embed/assign/recluster/name/trend/notify), `versions`, `stats`, `status` |
+| `category_map` | (`source`, `category_raw`) | chuyên mục chung (`norm_category`) |
+| `most_read_snapshots` | `snapshot_id`; UNIQUE (`source`, `captured_at`, `rank`) | hộp "Xem nhiều" mỗi giờ (chưa có crawler ghi) |
+
+Ẩn tên tập test đặt tên: sự kiện bị ẩn (cửa sổ 14–15/09 + tên gần trùng, cùng luật `EventStore`) chỉ có tên medoid
+trong DB; tên mô hình bị loại (`ten_mo_hinh`) không được ghi. Nạp với `EVENTS_HIDE_NAMES_WINDOW=off` bị từ chối. Điểm xu hướng
+tính lại bằng `trending.score_at` và đối chiếu top-K từng mốc với `xu_huong.csv` (lệch → dừng). Nạp run `2026-11-03_v2`
+(04/11/2026): 19.938 sự kiện (1.027 ẩn tên), 28.725 bài + vector, 18.396 dòng điểm trên 1.200 mốc, 13–15 s (nạp lại cùng thời gian). Similarity trong cụm (≥ 2 bài): TB 0,895, thấp nhất 0,797.
 
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
@@ -1086,6 +1115,7 @@ LAKE_LOCAL_ROOT=tests/fixtures make dev` (5 bài mẫu). Chỉ chạy lại `mak
 | `make ingest-import` | Nạp Silver JSONL ở máy (`SILVER_GLOB`) vào Postgres, idempotent |
 | `make ingest-replay` | Phát lại Silver theo đồng hồ giả lập vào DB riêng `REPLAY_DATABASE_URL` (`REPLAY_START`, `REPLAY_SPEED`, `ARGS`) |
 | `make ingest-status` | Mỗi báo: lần cào cuối, bài mới 1h/24h, lỗi gần nhất; đồng hồ |
+| `make db-import-run` | Nạp một lần chạy pipeline (`data/runs/<run_id>/`, mặc định run mới nhất) vào tầng sự kiện của Postgres (`ARGS="<run_dir> --replace"`) |
 | `make test-db` | Chỉ test cần Postgres (`TEST_DATABASE_URL`, role có `CREATEDB`); thiếu biến → skip |
 
 **Postgres (từ 04/11/2026, cho hệ thống chạy liên tục — chưa bắt buộc cho web demo hiện tại).** Máy có Postgres cài sẵn
@@ -1124,12 +1154,31 @@ không cần khoá, không gọi mạng (`uv run pytest -q`, `uv run ruff check 
 | `GET /api/trending?t=` | Top-20 xu hướng tại giờ `t` (ISO; không múi giờ = giờ VN; làm tròn xuống) + `t_truoc`/`t_sau`; bỏ `t` → mốc cuối có ≥ 10 sự kiện |
 | `GET /api/events?q=&source=&date_from=&date_to=&min_size=&sort=hot\|newest\|size&page=&page_size=` | Danh sách sự kiện (mặc định ≥ 2 bài, `hot` = tổng điểm theo giờ); `q` khớp tên đang hiển thị/tiêu đề medoid, không phân biệt dấu |
 | `GET /api/events/{event_id}` | Chi tiết: bài (URL từ Silver), số bài theo báo, chuỗi số bài + điểm xu hướng theo giờ (tính lại bằng `trending.score.score_at`) |
+| `GET /api/events/stats?date=` | Số đếm, không có tên: phân bố kích thước sự kiện, số báo (sự kiện ≥ 2 bài), chuyên mục chính; `date` → `ngay` (số bài, số sự kiện, số sự kiện ≥ 2 bài TRONG ngày, số báo) |
+| `GET /api/events/map/dates` | Các ngày đã có bản đồ 2D (bỏ ngày thuộc cửa sổ ẩn tên) + ngày mặc định (10/09/2026) |
+| `GET /api/events/map?date=` | Bản đồ t-SNE các bài một ngày (`data/runs/<run_id>/ban_do/<date>.json`, sinh bằng `python -m eventrank.evaluation.event_map --date …`: perplexity 25, cosine, init pca, random_state 0, vector đệm `data/events/cache/emb_<model_version>.npz`) + tên ĐANG HIỂN THỊ của 8 sự kiện nhiều bài nhất trong ngày. File không chứa tên. Ngày giao cửa sổ ẩn tên → **403** (cả script cũng từ chối); chưa có file → 404 |
 
-`issue`: `missing_author`, `empty_content`, `short_content`, `bad_date`, `future_date`, `duplicate_url`, `duplicate_id`.
+`/api/events` có thêm `category` (chuyên mục chính — chuyên mục gặp nhiều nhất trong các bài, đã gộp cách viết giữa các báo:
+"Y Tế"/"Sức Khỏe" → "Sức khỏe", "Quốc Tế" → "Thế giới"), `first_from`/`first_to` (ISO, không múi giờ = giờ VN; lọc theo bài
+đầu) và `sort=first_seen`; `EventSummary`/`TrendItem` có `chuyen_muc_chinh`, `TrendItem` có `first_seen`. `IssueCounts` có
+thêm `missing_sapo` (sapo null/rỗng; cũng dùng được làm `issue=`).
+
+`issue`: `missing_author`, `missing_sapo`, `empty_content`, `short_content`, `bad_date`, `future_date`, `duplicate_url`, `duplicate_id`.
 `sort`: `newest`, `oldest`, `longest`, `shortest`. Ngày `YYYY-MM-DD` theo giờ Việt Nam. Tiếng Việt trong URL phải mã hoá (dùng
 `curl -G --data-urlencode`). Server nạp dữ liệu một lần lúc khởi động và giữ trong RAM.
 
-**Sự kiện (web demo `/trending`, `/events`):** đọc MỘT lần chạy pipeline ở máy (`eventrank/serving/store.py`), không đọc R2:
+**Web React (`apps/web/`, mọi trang tải lười theo route):** công khai — `/` Xu hướng (phát lại theo giờ, `?t=YYYY-MM-DDTHH:MM`;
+`/trending?t=` cũ chuyển về đây), `/events` (`?q=&source=&category=&date_from=&date_to=&min_size=&sort=&page=`; `?tim=1` đặt
+con trỏ vào ô tìm), `/events/:id`, `/chuyen-muc`, `/du-lieu/chat-luong`, `/du-lieu/mo-hinh` (nội dung tĩnh
+`src/content/models.ts`, mỗi số ghi nguồn), `/du-lieu/gom-cum?ngay=`; tài khoản — `/login?next=`, `/register`,
+`/forgot-password`, `/reset-password?token=`, `/verify-email?token=`, `/me`; quản trị (vai trò admin) — `/admin/thu-thap`,
+`/admin/bao-sai`, `/admin/thu`, `/admin/nguoi-dung`, `/admin/khoa-api`, `/admin/kho/…` (7 trang kiểm soát dữ liệu cũ; `/time`,
+`/categories`, `/quality`, `/articles`, `/sources` cũ chuyển hướng vào đây). **Tài khoản chưa có backend** (bảng 003–006,
+`/api/auth/*`, `/api/me/*`, `/api/admin/*` theo thiết kế database): `src/api/{auth,me,admin}.ts` có adapter máy chủ thật theo hợp
+đồng dự kiến và adapter **giả lập** lưu localStorage, bật mặc định bằng `VITE_AUTH_MOCK` (đặt `0` khi có backend). Giả lập: tài
+khoản mẫu `admin@example.com` / `bientap@example.com` / `ban@example.com`, mật khẩu `matkhau-demo`; trang hiện dải "Bản xem trước".
+
+**Sự kiện (API cho web):** đọc MỘT lần chạy pipeline ở máy (`eventrank/serving/store.py`), không đọc R2:
 `EVENTS_RUN_DIR`, không đặt thì lần chạy **đầy đủ** mới nhất trong `data/runs/` (manifest không có `--start/--end`,
 `finished_at` muộn nhất; không theo thời điểm sửa file); log server ghi run đã chọn. Không có run → 5 endpoint trên trả
 **503** ("chạy `make pipeline`", không chứa đường dẫn tuyệt đối), các trang bài báo vẫn chạy. `event_id` sai dạng
