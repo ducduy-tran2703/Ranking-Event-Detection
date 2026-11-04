@@ -1,0 +1,31 @@
+# Postgres cho hệ thống chạy liên tục — CHỈ dùng khi máy không có Postgres cài sẵn.
+#   make db-up      (= docker compose --env-file .env -f infra/docker-compose.yml up -d)
+#   make db-down
+# Cổng 127.0.0.1:5433 (KHÔNG 5432) để không đụng Postgres cài bằng apt; chỉ nghe trên máy này —
+# không bao giờ mở cổng Postgres ra Internet (docs/tong-hop.md mục 6.6).
+# Mật khẩu lấy từ .env (POSTGRES_PASSWORD), không viết cứng ở đây. Khi đó trong .env:
+#   DATABASE_URL=postgresql://eventrank:<POSTGRES_PASSWORD>@127.0.0.1:5433/eventrank
+# postgres:16 thuần, không pgvector: vector (giai đoạn 2) lưu bytea.
+name: eventrank
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eventrank}
+      POSTGRES_DB: ${POSTGRES_DB:-eventrank}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Đặt POSTGRES_PASSWORD trong .env}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
