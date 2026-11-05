@@ -715,10 +715,18 @@ vietnam-news-datalake/
 │   ├── v3/      nhãn yếu v3 (pairs.jsonl 239 MB, train_pairs/triplets, articles, check_*_llm.csv, README) — tải lên 21/10/2026
 │   └── v4/      nhãn 4 mức: final/ (14/10), final_v2/ (15/10), ★ final_v3/ (30/10, gán lại theo quy tắc 29/10 — bản đang
 │                dùng; kèm nhãn gán lại từng vòng + README), hard/hardtest, human_label_100
-├── models/
-│   ├── embedding_v1_NguyenDinhHieu/             ★ bkai fine-tune v1 (CoSENT, v4 final_v2, seed 44) — mô hình của pipeline
-│   ├── embedding_v2_{bkai,e5,tabert}_NguyenDinhHieu/   v2 (CoSENT, v4 final_v3): bkai s42, e5 s43, tabert s44 (AGPL-3.0)
-│   └── naming_vit5_v1_NguyenDinhHieu/           ★ ViT5 đặt tên v1 (s42 epoch 4, 904 MB fp32) + notebook + README
+├── models/                                      sắp xếp lại 05/11/2026; mục lục + bảng số đo: models/README.md
+│   ├── embedding/
+│   │   ├── bkai_v1_s44_NguyenDinhHieu/          ★ bkai fine-tune v1 (CoSENT, v4 final_v2, seed 44) — mô hình của pipeline
+│   │   ├── bkai_v2_s42_NguyenDinhHieu/          v2 (CoSENT, v4 final_v3)
+│   │   ├── e5_v2_s43_NguyenDinhHieu/            v2, multilingual-e5-base
+│   │   └── tabert_v2_s44_NguyenDinhHieu/        v2, TABERT (AGPL-3.0)
+│   ├── naming/
+│   │   ├── vit5_v1_s42_NguyenDinhHieu/          ★ ViT5 đặt tên v1 (s42 epoch 4, 904 MB fp32) + notebook + README
+│   │   ├── bartpho_large_s44_NguyenDinhHieu/    BARTpho large đặt tên (1,58 GB), chưa tích hợp
+│   │   └── bartpho_base_s42_NguyenDinhHieu/     BARTpho base đặt tên (0,53 GB), chưa tích hợp
+│   └── (cũ, giữ để link cũ không hỏng; nội dung giống hệt bản mới)
+│       embedding_v1_NguyenDinhHieu/ · embedding_v2_{bkai,e5,tabert}_NguyenDinhHieu/ · naming_vit5_v1_NguyenDinhHieu/
 ├── events_NguyenDinhHieu/
 │   ├── v1/                                      gom cụm v1 (02/11): su_kien.csv, bai_su_kien.csv, manifest, cache/emb_bkai_ft_v1_s44.npz
 │   └── v2/                                      ★ run 2026-11-03_v2 đầy đủ (= data/runs/2026-11-03_v2 + cum/ + mo-ta-pipeline.html).
@@ -939,13 +947,13 @@ Mỗi thư mục có `README.md` hoặc `results_*.json` đi kèm trọng số. 
 | Thư mục | Là gì | Trên R2 | Dùng ở |
 |---|---|---|---|
 | `bkai_zs/` | `bkai-foundation-models/vietnamese-bi-encoder` bản gốc (có `HF_REVISION`) | không (tải lại từ Hugging Face) | mốc zero-shot |
-| `bkai_ft_v1_s44/` | bkai fine-tune v1, CoSENT trên v4 `final_v2`, seed 44 | `models/embedding_v1_NguyenDinhHieu/` | **pipeline** (`configs/clustering.yaml`) |
-| `bkai-v4-cosent-s4{2,3,4}_2026-10-30/` | bkai v2 (v4 `final_v3`), 3 seed | s42 = `embedding_v2_bkai_…` | dự phòng (`threshold` 0,85) |
-| `e5-v4-cosent-s4{2,3,4}_2026-10-30/` | `intfloat/multilingual-e5-base` v2, 3 seed | s43 = `embedding_v2_e5_…` | so sánh |
-| `tabert_zs/`, `tabert-v4-cosent-s4{2,3,4}_2026-11-02/` | `Tuibingu03/TABERT_SimCSE` gốc và v2 (giấy phép **AGPL-3.0**) | s44 = `embedding_v2_tabert_…` | so sánh |
-| `vit5-naming-s42_2026-11-03/` | ViT5 đặt tên v1 (`VietAI/vit5-base-vietnews-summarization`, s42 epoch 4) | `models/naming_vit5_v1_NguyenDinhHieu/` | **pipeline** (`configs/pipeline.yaml`) |
-| `bartpho-base-naming-s42_2026-11-04/` | `vinai/bartpho-syllable-base` đặt tên, s42 | **chưa** | chưa tích hợp |
-| `bartpho-naming-s44_2026-11-04/` | `vinai/bartpho-syllable` (large) đặt tên, s44 | **chưa** | chưa tích hợp |
+| `bkai_ft_v1_s44/` | bkai fine-tune v1, CoSENT trên v4 `final_v2`, seed 44 | `models/embedding/bkai_v1_s44_NguyenDinhHieu/` | **pipeline** (`configs/clustering.yaml`) |
+| `bkai-v4-cosent-s4{2,3,4}_2026-10-30/` | bkai v2 (v4 `final_v3`), 3 seed | s42 = `models/embedding/bkai_v2_s42_…` | dự phòng (`threshold` 0,85) |
+| `e5-v4-cosent-s4{2,3,4}_2026-10-30/` | `intfloat/multilingual-e5-base` v2, 3 seed | s43 = `models/embedding/e5_v2_s43_…` | so sánh |
+| `tabert_zs/`, `tabert-v4-cosent-s4{2,3,4}_2026-11-02/` | `Tuibingu03/TABERT_SimCSE` gốc và v2 (giấy phép **AGPL-3.0**) | s44 = `models/embedding/tabert_v2_s44_…` | so sánh |
+| `vit5-naming-s42_2026-11-03/` | ViT5 đặt tên v1 (`VietAI/vit5-base-vietnews-summarization`, s42 epoch 4) | `models/naming/vit5_v1_s42_NguyenDinhHieu/` | **pipeline** (`configs/pipeline.yaml`) |
+| `bartpho-base-naming-s42_2026-11-04/` | `vinai/bartpho-syllable-base` đặt tên, s42 | `models/naming/bartpho_base_s42_NguyenDinhHieu/` | chưa tích hợp |
+| `bartpho-naming-s44_2026-11-04/` | `vinai/bartpho-syllable` (large) đặt tên, s44 | `models/naming/bartpho_large_s44_NguyenDinhHieu/` | chưa tích hợp |
 
 Số đo của từng mô hình: embedding mục 8.5, đặt tên mục 9.2.
 
@@ -2337,8 +2345,8 @@ ngày); tài khoản đã xoá 30 ngày rồi xoá hoặc ẩn danh hoá. Dung l
 
 ### 17.2 Chạy pipeline sự kiện
 
-Cần ở máy: `data/lake/silver/*/*.jsonl` (Silver), `data/models/bkai_ft_v1_s44/` (R2 `models/embedding_v1_NguyenDinhHieu/model/`),
-`data/models/vit5-naming-s42_2026-11-03/` (R2 `models/naming_vit5_v1_NguyenDinhHieu/`). Pipeline **không tự tải từ R2**.
+Cần ở máy: `data/lake/silver/*/*.jsonl` (Silver), `data/models/bkai_ft_v1_s44/` (R2 `models/embedding/bkai_v1_s44_NguyenDinhHieu/model/`),
+`data/models/vit5-naming-s42_2026-11-03/` (R2 `models/naming/vit5_v1_s42_NguyenDinhHieu/`). Pipeline **không tự tải từ R2**.
 
 ```bash
 make pipeline                                             # run_id mặc định <hôm nay>_<algo_version>, ví dụ 2026-11-05_v1
@@ -2742,7 +2750,7 @@ mỗi bài); cần đo lại trên tập câu hỏi. Bỏ bài có `quality_flag
 #### 17.5.5 Vector: dùng sẵn hay tự tính
 
 **Dùng sẵn `article_embeddings`**, mã hoá câu hỏi bằng **đúng mô hình và đúng tiền xử lý** (mô hình trên R2
-`models/embedding_v1_NguyenDinhHieu/`, ở máy `data/models/bkai_ft_v1_s44/`):
+`models/embedding/bkai_v1_s44_NguyenDinhHieu/`, ở máy `data/models/bkai_ft_v1_s44/`):
 
 ```python
 import unicodedata, numpy as np
@@ -2916,6 +2924,7 @@ Nguồn: `git log origin/dev`, PR trên GitHub, thẻ dữ liệu/mô hình tron
 | 03/11 | Gộp tài liệu vào `docs/tong-hop.md`; công cụ tập vàng; encode + đệm; gom cụm; ViT5 đặt tên (Kaggle); điểm xu hướng t2; bộ điều phối pipeline; run `v1` → kiểm tra độc lập → run `v2`; R2 `events_…/v2/`, `embedding_v2_*`, `naming_vit5_v1_…` | `320abc2` … `7b7f034` |
 | 04/11 | `EventStore` + ẩn tên; API sự kiện; web demo; Postgres `001_ingest` + khung crawler + README crawler; BARTpho base/large (Kaggle); tầng sự kiện `002_events` + `db_import` + `DbEventStore`; dump R2 `db_…/v1/`; web EventRank thiết kế lại; bàn giao RAG; tạo nhánh `dev`, merge `feat/web-redesign` vào `dev` | `cd0cb7d` … `a32e646`, PR #4 (`265b3ee`) |
 | 04/11 | Tài liệu tổng hợp v2: gộp hướng dẫn gán 4 mức, crawler, bàn giao ingest và RAG vào file này | nhánh `docs/tong-hop-v2` |
+| 05/11 | R2: sắp xếp mô hình thành `models/embedding/` + `models/naming/` (chép, giữ thư mục cũ), thêm BARTpho large/base + `models/README.md`; README DB `db_…/v1/` thêm bước 003–006 | nhánh `docs/tong-hop-v2` |
 
 ---
 

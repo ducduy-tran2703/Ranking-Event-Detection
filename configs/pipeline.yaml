@@ -11,7 +11,7 @@ clustering:
 
 naming:
   naming_version: vit5_v1_s42
-  model: data/models/vit5-naming-s42_2026-11-03   # = naming_vit5_v1_NguyenDinhHieu (xem README.md trong thư mục)
+  model: data/models/vit5-naming-s42_2026-11-03   # = R2 models/naming/vit5_v1_s42_NguyenDinhHieu/ (xem README.md trong thư mục)
   device: auto                               # cuda nếu có, không thì cpu
   batch_size: 8                              # đo 03/11 trên CPU 8 luồng — xem docstring naming/predict.py
   num_beams: 4                               # tham số sinh giống notebook huấn luyện
