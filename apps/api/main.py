@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from apps.api import schemas
+from apps.api.rag import router as rag_router
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
 from eventrank.serving.db_store import DbEventStore, event_store_from_env
@@ -131,6 +132,7 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
         yield
 
     app = FastAPI(title="Ranking-Event-Detection — Kiểm soát dữ liệu", lifespan=lifespan)
+    app.include_router(rag_router)
     app.state.store = store
     app.state.events = events
     app.state.events_error = None

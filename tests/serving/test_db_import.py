@@ -221,6 +221,27 @@ def test_replace_khong_xoa_lan_sang_bang_ngoai_tro_vao_events(pg_conn, run, tmp_
     _import(pg_conn, d)
     pg_conn.execute("CREATE TABLE bookmark_thu (event_id text REFERENCES events (event_id))")
     pg_conn.execute("INSERT INTO bookmark_thu VALUES (%s)", (eid[PUBLIC],))
-    with pytest.raises(psycopg.errors.FeatureNotSupported):
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
         _import(pg_conn, d)
     assert _count(pg_conn, "events") == 4 and _count(pg_conn, "bookmark_thu") == 1
+
+
+def test_nap_lai_khong_xoa_bookmark_nguoi_dung(pg_conn, run):
+    """Migration 004 có FK thật: bảng rỗng cho nạp lại, bookmark có dữ liệu thì rollback."""
+    import psycopg
+
+    d, eid, _ = run
+    _import(pg_conn, d)
+    uid = pg_conn.execute(
+        "INSERT INTO users (email, display_name, terms_accepted_at) "
+        "VALUES ('reader@example.test', 'Reader', now()) RETURNING user_id"
+    ).fetchone()[0]
+    pg_conn.execute("INSERT INTO event_bookmarks (user_id,event_id) VALUES (%s,%s)",
+                    (uid, eid[PUBLIC]))
+    before = {tb: _count(pg_conn, tb) for tb in
+              ("events", "event_articles", "event_names", "trend_scores")}
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        _import(pg_conn, d)
+    assert {tb: _count(pg_conn, tb) for tb in before} == before
+    assert pg_conn.execute("SELECT user_id,event_id FROM event_bookmarks").fetchall() == [
+        (uid, eid[PUBLIC])]

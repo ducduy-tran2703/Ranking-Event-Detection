@@ -170,8 +170,11 @@ def import_run(conn: psycopg.Connection, run_dir: str | Path, *, replace: bool =
     try:
         with conn.transaction():
             if cur_run is not None:
-                # TRUNCATE một lệnh, KHÔNG CASCADE: bảng nào ngoài EVENT_TABLES trỏ vào events → lỗi, không xoá lan.
-                conn.execute(f"TRUNCATE {', '.join(EVENT_TABLES)}")     # tên bảng cố định
+                # DELETE theo thứ tự con → cha: FK từ bảng bookmark/thông báo RỖNG không chặn
+                # nạp lại (TRUNCATE vẫn chặn). Có dòng tham chiếu → lỗi FK, rollback toàn bộ;
+                # không CASCADE, không xoá dữ liệu người dùng. Tên bảng là hằng số nội bộ.
+                for table in EVENT_TABLES:
+                    conn.execute(f"DELETE FROM {table}")
                 conn.execute("DELETE FROM trend_baselines WHERE trend_version = %s", (versions["trend_version"],))
             stats.update(_write_events(conn, es, versions, vec, data_end, run_id, run_dir))
             stats["trend_scores"] = _copy(

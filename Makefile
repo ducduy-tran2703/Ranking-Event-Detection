@@ -134,5 +134,55 @@ test-db: ## Chỉ chạy test cần Postgres (TEST_DATABASE_URL; role có CREATE
 tunnel: ## Mở trang ra Internet qua Cloudflare Tunnel tạm thời (cần cài cloudflared)
 	cloudflared tunnel --url http://127.0.0.1:$(API_PORT)
 
+qdrant-up: ## Bật Qdrant local :6333/:6334 (volume riêng, không khởi động Postgres)
+	docker compose -f infra/docker-compose.rag.yml up -d
+
+qdrant-stop: ## Dừng Qdrant, giữ container và dữ liệu
+	docker compose -f infra/docker-compose.rag.yml stop
+
+qdrant-status: ## Xem trạng thái Qdrant local
+	docker compose -f infra/docker-compose.rag.yml ps
+
+rag-prepare: ## Nhập NER + chia chunk vào DB (ARGS="--ner-version … --silver-glob … --ner …")
+	uv run --no-sync python -m eventrank.rag.prepare $(ARGS)
+
+rag-chunks: ## Chia chunk từ article_ner đã có; cấu hình configs/rag.yaml
+	uv run --no-sync python -m eventrank.rag.prepare --steps chunks $(ARGS)
+
+rag-bm25: ## Dựng hoặc dùng lại snapshot BM25 local từ Postgres
+	uv run --no-sync python -m eventrank.rag.bm25 build $(ARGS)
+
+rag-search: ## Tìm BM25 (ARGS='"câu hỏi" --limit 5 --source vnexpress')
+	uv run --no-sync python -m eventrank.rag.bm25 search $(ARGS)
+
+rag-dense: ## Index Qwen vào Qdrant (ARGS='--pilot 32' để thử trước)
+	uv run --no-sync python -m eventrank.rag.dense build $(ARGS)
+
+rag-dense-search: ## Dense search + hydrate từ Postgres
+	uv run --no-sync python -X utf8 -m eventrank.rag.dense search $(ARGS)
+
+rag-hybrid-search: ## BM25 + dense RRF; ARGS='"câu hỏi" --limit 10 --trace data/rag/reports/NEW.json'
+	uv run --no-sync python -X utf8 -m eventrank.rag.hybrid search $(ARGS)
+
+rag-tokenizer: ## Tải tokenizer Gemma (không tải model weights)
+	uv run --no-sync python -X utf8 -m eventrank.rag.token_budget prepare
+
+rag-ask: ## Hỏi đáp snapshot có citation; ARGS='"câu hỏi" --trace data/rag/reports/NEW.json'
+	uv run --no-sync python -X utf8 -m eventrank.rag.pipeline ask $(ARGS)
+
+rag-api: ## API RAG local :8001, không nạp Silver/R2
+	uv run --no-sync python -m uvicorn apps.api.rag:app --host 127.0.0.1 --port 8001
+
+rag-modal-deploy: ## Deploy hai API model có proxy auth; xuất .env.client cho nhóm
+	uv run --no-sync python -m eventrank.rag.modal_setup deploy
+
+rag-modal-cache: ## Tải trọng số model vào Modal Volume bằng CPU
+	uv run --no-sync python -m eventrank.rag.modal_setup cache
+
+rag-model-smoke: ## Gọi thử embedding và LLM thật (khởi động GPU khi cần)
+	uv run --no-sync python -X utf8 -m eventrank.rag.modal_setup smoke
+
 .PHONY: help install check-env api web dev types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline \
-	db-up db-down db-migrate db-status db-import-run ingest-import ingest-replay ingest-status test-db
+	db-up db-down db-migrate db-status db-import-run ingest-import ingest-replay ingest-status test-db \
+	qdrant-up qdrant-stop qdrant-status rag-prepare rag-chunks rag-bm25 rag-search rag-dense rag-dense-search rag-hybrid-search \
+	rag-modal-deploy rag-modal-cache rag-model-smoke rag-tokenizer rag-ask rag-api
