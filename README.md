@@ -29,6 +29,17 @@ docs/tong-hop.md mục 11.3.
 (`make ingest-import`), phát lại Silver thay crawler (`make ingest-replay`), theo dõi (`make ingest-status`). Người viết
 crawler đọc [docs/handoff/ingest.md](docs/handoff/ingest.md).
 
+**RAG local:** Qdrant + Tantivy BM25, Modal phục vụ model. Bước chuẩn bị NER/chunk vào Postgres:
+`make rag-prepare ARGS="--ner-version … --silver-glob … --ner …"`. Cài đặt, data contract và lệnh chạy:
+[docs/handoff/rag.md](docs/handoff/rag.md). **Plan và hướng dẫn tiếp tục ở chat mới:**
+[docs/plan-rag.md](docs/plan-rag.md). BM25 đã có: `make rag-bm25`,
+`make rag-search ARGS='"câu hỏi" --limit 5'`. Dense Qdrant và hybrid RRF đã có;
+`make rag-ask ARGS='"câu hỏi"'` chạy hỏi đáp có citation trên snapshot hiện tại.
+`make rag-api` mở API riêng tại `http://127.0.0.1:8001/docs`.
+Model services: `make rag-modal-deploy`, `make rag-modal-cache`, `make rag-model-smoke`.
+Deploy xuất `.env.client` chỉ chứa cấu hình inference để chia sẻ riêng cho nhóm;
+không chia sẻ toàn bộ `.env` chứa khóa quản trị/R2/Postgres.
+
 Gõ `make` để xem mọi lệnh. Triển khai cho cả nhóm truy cập qua domain: [docs/tong-hop.md](docs/tong-hop.md) mục 11.4.
 
 ## Test

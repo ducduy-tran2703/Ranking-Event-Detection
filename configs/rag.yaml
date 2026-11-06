@@ -1,0 +1,42 @@
+# Bản đầu dựng corpus; CHƯA tune trên bộ đánh giá RAG.
+# Units = từ/âm tiết ngăn bằng whitespace, không phải model token.
+chunking:
+  max_units: 320
+  overlap_units: 48
+# Phiên bản dùng chung trong rag_index_status; dense resume cùng corpus/model.
+index_version: rag_v1
+bm25:
+  root: data/rag/bm25
+dense:
+  url: http://127.0.0.1:6333
+  collection: rag_v1_qwen_text_v1
+  batch_size: 32
+  concurrency: 4
+retrieval:
+  branch_limit: 30
+  rrf_k: 60
+generation:
+  candidate_limit: 60
+  max_context_chunks: 8
+  max_per_article: 2
+  max_per_source: 3
+models:
+  app_name: eventrank-rag-models
+  cache_volume: eventrank-rag-model-cache
+  embedding:
+    model: Qwen/Qwen3-Embedding-0.6B
+    revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+    dimension: 1024
+    max_length: 2048
+    batch_size: 8
+    gpu: L4
+    max_containers: 4
+    buffer_containers: 3
+    instruction: Given a Vietnamese news question, retrieve relevant news passages that answer the question.
+  llm:
+    model: google/gemma-4-12B-it-qat-w4a16-ct
+    revision: 1d2c2d7f2466070e69d6fb3fd5ce9a7d75f2f6ee
+    gpu: [L4, A10]
+    max_model_len: 8192
+    max_output_tokens: 1024
+    gpu_memory_utilization: 0.85

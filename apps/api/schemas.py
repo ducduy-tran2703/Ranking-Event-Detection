@@ -5,9 +5,57 @@ Frontend React sinh kiểu TypeScript tự động từ các lớp này (qua /op
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class RAGQuestion(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    question: str = Field(min_length=1, max_length=2048)
+    source: str | None = Field(default=None, min_length=1, max_length=64)
+    date_from: date | None = None
+    date_to: date | None = None
+    max_tokens: int = Field(default=1024, ge=1, le=1024)
+    allow_fallback: bool = False
+
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError('date_from phải <= date_to')
+        return self
+
+
+class RAGSnapshot(BaseModel):
+    from_date: str | None
+    to_date: str | None
+    articles: int
+    sources: list[str]
+
+
+class RAGSource(BaseModel):
+    citation_id: int
+    chunk_id: str
+    article_id: str
+    title: str
+    url: str
+    source: str
+    published_at: datetime
+    start_char: int
+    end_char: int
+    chunking_version: str
+    quotes: list[str]
+
+
+class RAGAnswer(BaseModel):
+    status: Literal['answered', 'insufficient_evidence', 'unsupported_query', 'invalid_generation']
+    answer: str
+    sources: list[RAGSource]
+    retrieval_mode: Literal['hybrid', 'bm25_only', 'dense_only'] | None
+    degraded: bool
+    snapshot: RAGSnapshot
+    trace: dict[str, Any]
 
 
 class Health(BaseModel):

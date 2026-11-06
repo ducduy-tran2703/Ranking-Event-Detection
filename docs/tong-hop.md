@@ -356,6 +356,57 @@ trong DB; tên mô hình bị loại (`ten_mo_hinh`) không được ghi. Nạp 
 tính lại bằng `trending.score_at` và đối chiếu top-K từng mốc với `xu_huong.csv` (lệch → dừng). Nạp run `2026-11-03_v2`
 (04/11/2026): 19.938 sự kiện (1.027 ẩn tên), 28.725 bài + vector, 18.396 dòng điểm trên 1.200 mốc, 13–15 s (nạp lại cùng thời gian). Similarity trong cụm (≥ 2 bài): TB 0,895, thấp nhất 0,797.
 
+**Tầng RAG local (migration `007_rag.sql`, 04/11/2026).** Đồng bộ nguyên bản migration 003–006
+(tài khoản, tính năng người dùng, thông báo, quản trị) từ `db_NguyenDinhHieu/v1/schema/`; không thay đổi dump R2.
+Ba bảng dưới đây giữ phiên bản hiện hành. Đã nhập NER và chia chunk từ snapshot Silver/NER (04/11/2026).
+Vector retrieval sẽ lưu ở Qdrant;
+BM25 lưu trên disk (Tantivy), không lưu thêm vector retrieval trong Postgres.
+
+| Bảng | Khoá / quan hệ | Cột |
+|---|---|---|
+| `article_ner` | `article_id` PK, FK → `articles` | `canonical_text`, `text_hash` SHA256 UTF-8 của canonical text, `ner_version`, `entities` jsonb array, `updated_at` |
+| `rag_chunks` | `chunk_id` UUID PK (dùng làm point ID Qdrant), `article_id` FK → `article_ner`; UNIQUE (`article_id`, `chunking_version`, `chunk_index`) | `chunk_index` từ 0, `text` nguyên văn, `start_char`, `end_char`, `chunking_version` |
+| `rag_index_status` | `chunk_id` PK, FK → `rag_chunks` | `index_version`, `bm25_status`, `qdrant_status` (pending/ready/failed), `error`, `updated_at` |
+
+URL, nguồn, ngày và mapping sự kiện lấy qua `articles`/`event_articles`, không lưu lặp trong các bảng RAG.
+Tên collection Qdrant, đường dẫn BM25 và cấu hình model gắn với `index_version` trong cấu hình bên ngoài.
+`updated_at` có mặc định khi INSERT; code ghi phải cập nhật tường minh khi UPDATE. FK không tự xoá dây chuyền.
+Chi tiết môi trường: [bàn giao RAG](handoff/rag.md). Lộ trình triển khai và điểm tiếp nhận chat mới:
+[kế hoạch RAG](plan-rag.md).
+
+Migration tính checksum theo byte: `.gitattributes` ghim `infra/db/migrations/*.sql` về LF để Windows/Linux
+không báo sai `modified` chỉ vì CRLF. Không sửa checksum trong `schema_migrations` để bỏ qua sai khác.
+
+**Preparation RAG bước 1–2:** `python -m eventrank.rag.prepare --ner-version …` (`make rag-prepare ARGS="…"`),
+cấu hình `configs/rag.yaml`. Dùng Silver nguyên gốc để dựng canonical text, kiểm content hash với DB theo hợp đồng
+ingest và kiểm mọi entity slice trước khi ghi theo lô. Bài ngoài DB được đếm và bỏ qua; thiếu NER cho bài trong DB
+thì dừng preflight. Bản đầu chunk theo whitespace units (mục tiêu 320, overlap 48), ưu tiên đoạn/câu và không cắt
+entity; UUIDv5 phụ thuộc bài, hash text, cấu hình và offset. Chưa tune theo đánh giá RAG.
+Lần chạy thật: 28.725 dòng `article_ner`, 939.203 entity, 96.230 chunk/trạng thái pending; 21 bài ngoài DB không nhập.
+Kiểm toàn kho: 0 sai hash/slice, 0 boundary cắt entity, 0 bài hở nội dung và 0 entity không nằm trọn trong chunk.
+4 chunk có 321 units, các chunk còn lại không quá 320. Report và dấu vân tay nguồn ở `data/rag/reports/`
+(artifact local, không commit). Vector retrieval chưa tạo.
+
+**BM25 baseline (05/11/2026):** `src/eventrank/rag/bm25.py`, Tantivy 0.27.0, analyzer
+`vi_syllable_codes_v1` (NFC + casefold, giữ dấu; âm tiết + mã `57-NQ/TW`/`TP.HCM` nguyên dạng và thành phần).
+Không stem/stopword/bỏ dấu; cùng analyzer cho corpus và query; bỏ tiền tố template NER chỉ trên bản index.
+96.230 chunk đã index ở `data/rag/bm25/` (~151 MB), bộ ID khớp toàn bộ DB; BM25 ready, Qdrant vẫn pending.
+`make rag-bm25` dựng snapshot mới nếu fingerprint/config đổi, giữ snapshot cũ và publish pointer nguyên tử
+sau commit/kiểm tra corpus; cùng input thì reuse, không update timestamp lặp. Search CLI:
+`make rag-search ARGS='"câu hỏi" --limit 5'`, lọc `--source`, `--date-from`, `--date-to` theo ngày đăng giờ VN.
+Chưa tune lexical analyzer hay có số đo chất lượng retrieval; chưa có hybrid/NER boost/cluster expansion
+hoặc worker cập nhật index tăng dần. Chi tiết giới hạn và vận hành: `docs/handoff/rag.md`.
+
+**Model services RAG (05/11/2026):** Qwen/Qwen3-Embedding-0.6B và
+google/gemma-4-12B-it-qat-w4a16-ct đã deploy trên Modal, cấu hình ghim trong `configs/rag.yaml`.
+Smoke query/document embedding đều 1024 chiều, Gemma trả lời câu thử có citation `[1]`;
+không coi đây là đánh giá retrieval/grounding. Proxy auth bật ở cả hai endpoint; `.env.client` riêng
+cho inference, không chứa token quản trị/R2/DB. Đã kiểm idle về 0 container.
+Mốc 06/11/2026: dense Qdrant đủ 96.230 point, cả BM25/Qdrant ready; hybrid RRF,
+context selection và pipeline hỏi đáp CLI/API đã có, đã smoke thật với citation/quote kiểm được.
+Chưa có đánh giá chất lượng retrieval/grounding hay worker delta. Trạng thái và tiêu chí
+trong [kế hoạch RAG](plan-rag.md), lệnh kiểm thử trong [bàn giao](handoff/rag.md).
+
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
 | Trường | Kiểu | Bắt buộc | Quy tắc | Thực tế 19/09 |
@@ -376,6 +427,16 @@ bắt buộc; `published_at` bắt buộc **có múi giờ** (thiếu/không mú
 `author` rỗng → `null`. Sapo/thân bài rỗng, bài ngắn, thiếu tác giả, ngày tương lai → **gắn cờ** `quality_flags`
 (`missing_sapo`, `no_body`, `short_body` 1–79 từ, `missing_author`, `future_date` > hiện tại 1 giờ), không loại.
 ⚠ Văn bản trong DB đã NFC: offset NER Gold (tính trên Silver gốc) lệch với 264 trường NFD của kho hiện tại.
+
+**Hợp đồng văn bản RAG:** `article_ner.canonical_text` là đúng văn bản mà offset NER tham chiếu;
+entity có `{text,label,start_char,end_char}`, khoảng nửa mở `[start_char,end_char)` theo ký tự Python từ 0.
+Importer phải kiểm `canonical_text[start_char:end_char] == entity.text` và tương tự cho chunk, không áp offset
+lên `articles.content_text` trực tiếp. `text_hash` của NER không thay thế `articles.content_hash`.
+Nội dung/NER đổi → dựng lại chunk và reset trạng thái index trong transaction; worker đồng bộ và dọn point cũ
+ở cả hai chỉ mục. Đổi `index_version` → reset cả BM25 và Qdrant về pending; chỉ đặt ready sau khi ghi bền thành công.
+Importer NER và chunking đã triển khai ở `src/eventrank/rag/`; worker tự động đồng bộ index chưa có.
+Preparation chỉ tự dựng lại chunk cũ khi mọi nhánh index còn pending; đã ready/failed thì dừng để tránh mất
+tham chiếu tới point cũ. Importer hiện nhận full snapshot đủ NER cho toàn bộ DB, chưa nhận gói delta riêng.
 
 **Người đọc tự chuẩn hoá** (`src/eventrank/lake/reader.py`, chỉ là lưới an toàn): `source` → thường; `author` rỗng → `null`;
 `published_at` nhóm theo **giờ Việt Nam**; tính thêm `n_words`, `title_words`.

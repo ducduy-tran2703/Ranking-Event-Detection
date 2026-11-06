@@ -1,0 +1,14 @@
+{
+  "plain": {
+    "result": {
+      "collections": [
+        {
+          "name": "rag_v1_qwen_text_v1"
+        }
+      ]
+    },
+    "status": "ok",
+    "time": 0.0003169
+  },
+  "brotli_hex": "0b2b0000c0dadcb4df6c8110053fad1122f284a44afa5a20864c01d481c2b505010db81c023bf13955d039906c64108abd4dd7e6fd3819e15f4cd798d754a862a55510f20305f19141db7af0b24f0303"
+}
