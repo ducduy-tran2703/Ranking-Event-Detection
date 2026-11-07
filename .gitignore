@@ -231,3 +231,9 @@ data/
 # Frontend React (apps/web)
 node_modules/
 apps/web/dist/
+
+# Runtime crawler state and collected articles
+/data/
+
+*.jsonl
+*.txt
