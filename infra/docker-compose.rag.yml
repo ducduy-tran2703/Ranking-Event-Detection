@@ -1,0 +1,18 @@
+# Chỉ chạy Qdrant; Postgres được quản lý riêng bằng DATABASE_URL.
+# Windows: dùng named volume để Qdrant có filesystem Linux phù hợp.
+name: eventrank-rag-search
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+
+volumes:
+  qdrant_data:

@@ -50,6 +50,13 @@ Thư mục nào chưa tồn tại là **chưa đến giai đoạn đó** — kh�
 | Embedding, gom cụm, đặt tên, xu hướng | **chưa làm** (thư mục chưa tồn tại) | `docs/tong-hop.md` mục 7.13, 8, 9 |
 | Web/API kiểm soát dữ liệu | chạy được | `docs/tong-hop.md` mục 11 |
 
+**RAG (mốc riêng 06/11/2026):** đã có migration 007, NER/chunk Postgres, BM25, Qwen/Gemma
+services trên Modal và dense Qdrant đủ 96.230 point. Dense search/resume và hybrid RRF
+(trace, bộ lọc, fallback) đã kiểm thật; đã có chọn context/pipeline hỏi đáp CLI/API trên snapshot. Người tiếp nhận đọc
+[`docs/plan-rag.md`](docs/plan-rag.md) rồi [`docs/handoff/rag.md`](docs/handoff/rag.md);
+Lượt tiếp theo kiểm thử hỏi đáp theo bàn giao; không embedding lại corpus đã ready.
+Mốc này không cập nhật lại các mục ML khác ở bảng cũ.
+
 ## Lệnh thường dùng
 
 ```bash

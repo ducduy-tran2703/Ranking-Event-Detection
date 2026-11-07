@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/rag/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask */
+        post: operations["ask_api_rag_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1598,6 +1615,87 @@ export interface components {
             /** Duplicate Titles */
             duplicate_titles: components["schemas"]["DuplicateTitle"][];
         };
+        /** RAGAnswer */
+        RAGAnswer: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation";
+            /** Answer */
+            answer: string;
+            /** Sources */
+            sources: components["schemas"]["RAGSource"][];
+            /** Retrieval Mode */
+            retrieval_mode: ("hybrid" | "bm25_only" | "dense_only") | null;
+            /** Degraded */
+            degraded: boolean;
+            snapshot: components["schemas"]["RAGSnapshot"];
+            /** Trace */
+            trace: {
+                [key: string]: unknown;
+            };
+        };
+        /** RAGQuestion */
+        RAGQuestion: {
+            /** Question */
+            question: string;
+            /** Source */
+            source?: string | null;
+            /** Date From */
+            date_from?: string | null;
+            /** Date To */
+            date_to?: string | null;
+            /**
+             * Max Tokens
+             * @default 1024
+             */
+            max_tokens: number;
+            /**
+             * Allow Fallback
+             * @default false
+             */
+            allow_fallback: boolean;
+        };
+        /** RAGSnapshot */
+        RAGSnapshot: {
+            /** From Date */
+            from_date: string | null;
+            /** To Date */
+            to_date: string | null;
+            /** Articles */
+            articles: number;
+            /** Sources */
+            sources: string[];
+        };
+        /** RAGSource */
+        RAGSource: {
+            /** Citation Id */
+            citation_id: number;
+            /** Chunk Id */
+            chunk_id: string;
+            /** Article Id */
+            article_id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Source */
+            source: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Start Char */
+            start_char: number;
+            /** End Char */
+            end_char: number;
+            /** Chunking Version */
+            chunking_version: string;
+            /** Quotes */
+            quotes: string[];
+        };
         /** RawSourceValue */
         RawSourceValue: {
             /** Source Raw */
@@ -1918,6 +2016,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ask_api_rag_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RAGQuestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RAGAnswer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;

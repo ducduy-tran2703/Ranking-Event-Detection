@@ -1,0 +1,11 @@
+{
+  "snapshot": {"from_date": "2026-08-01", "to_date": "2026-09-19", "articles": 3, "sources": ["thanhnien", "tuoitre", "nhandan"]},
+  "articles": [
+    {"chunk_id": "00000000-0000-0000-0000-000000000011", "article_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "title": "Kết quả trận U23 Việt Nam - Philippines", "url": "https://example.test/ket-qua", "source": "thanhnien", "published_at": "2026-09-18T12:00:00+07:00", "text": "U23 Việt Nam thắng U23 Philippines 2-0. Thanh Nhàn mở tỷ số và Lê Phát ghi bàn thứ hai. Đây là kết quả trận đấu, không phải dự đoán."},
+    {"chunk_id": "00000000-0000-0000-0000-000000000012", "article_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "title": "Một bản tin khác cùng nội dung", "url": "https://example.test/ban-sao", "source": "tuoitre", "published_at": "2026-09-18T12:10:00+07:00", "text": "U23 Việt Nam thắng U23 Philippines 2-0. Thanh Nhàn mở tỷ số và Lê Phát ghi bàn thứ hai. Đây là kết quả trận đấu, không phải dự đoán."},
+    {"chunk_id": "00000000-0000-0000-0000-000000000013", "article_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "title": "Khôi phục cấp điện sau bão", "url": "https://example.test/dien", "source": "nhandan", "published_at": "2026-09-17T20:00:00+07:00", "text": "Đội điện lực kiểm tra an toàn trước khi khôi phục cấp điện. Khu vực còn ngập sâu chưa đủ điều kiện đóng điện."}
+  ],
+  "valid_generation": {"status": "answered", "claims": [{"text": "U23 Việt Nam thắng U23 Philippines với tỷ số 2-0.", "evidence": [{"id": 1, "quote": "U23 Việt Nam thắng U23 Philippines 2-0."}]}]},
+  "refusal": {"status": "insufficient_evidence", "claims": []},
+  "question": "U23 Việt Nam thắng Philippines với tỷ số bao nhiêu?"
+}

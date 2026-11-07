@@ -1,0 +1,38 @@
+[
+  {
+    "chunk_id": "00000000-0000-0000-0000-000000000001",
+    "article_id": "1111111111111111111111111111111111111111111111111111111111111111",
+    "text": "Tin mẫu 1",
+    "title": "Tin mẫu 1",
+    "start_char": 0,
+    "end_char": 9,
+    "chunking_version": "fixture",
+    "url": "https://example.test/1",
+    "source": "vnexpress",
+    "published_at": "2026-09-10T08:00:00+07:00"
+  },
+  {
+    "chunk_id": "00000000-0000-0000-0000-000000000002",
+    "article_id": "2222222222222222222222222222222222222222222222222222222222222222",
+    "text": "Tin mẫu 2",
+    "title": "Tin mẫu 2",
+    "start_char": 0,
+    "end_char": 9,
+    "chunking_version": "fixture",
+    "url": "https://example.test/2",
+    "source": "vnexpress",
+    "published_at": "2026-09-10T08:00:00+07:00"
+  },
+  {
+    "chunk_id": "00000000-0000-0000-0000-000000000003",
+    "article_id": "3333333333333333333333333333333333333333333333333333333333333333",
+    "text": "Tin mẫu 3",
+    "title": "Tin mẫu 3",
+    "start_char": 0,
+    "end_char": 9,
+    "chunking_version": "fixture",
+    "url": "https://example.test/3",
+    "source": "vnexpress",
+    "published_at": "2026-09-10T08:00:00+07:00"
+  }
+]

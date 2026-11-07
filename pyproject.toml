@@ -21,9 +21,17 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 ml = ["numpy>=2.0", "scipy>=1.13", "scikit-learn>=1.5", "pyyaml>=6.0"]
 # Embedding zero-shot làm tín hiệu ngữ nghĩa cho nhãn yếu: `uv sync --group embed` (PyTorch bản CPU, ~1 GB)
 embed = ["sentence-transformers>=3.0", "torch>=2.4", "onnxruntime>=1.18"]
+rag = [
+    "modal>=1.6.3",
+    "qdrant-client>=1.20.0",
+    "tantivy>=0.27.0",
+    "transformers==5.22.1",
+    "sentencepiece>=0.2",
+    "jinja2>=3.1",
+]
 
 [tool.uv]
-default-groups = ["dev", "ml"]
+default-groups = ["dev", "ml", "rag"]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

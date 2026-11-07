@@ -239,3 +239,22 @@ def test_nap_lai_duoc_khi_bang_nguoi_dung_khong_tro_vao_su_kien_nao(pg_conn, run
     with pytest.raises(db_import.RunImportError, match="event_follows.event_id"):
         _import(pg_conn, d)
     assert _count(pg_conn, "event_follows") == 1 and _count(pg_conn, "events") == 4
+
+
+def test_nap_lai_khong_xoa_bookmark_nguoi_dung(pg_conn, run):
+    """Migration 004 có FK thật: có bookmark trỏ vào sự kiện thì từ chối thay lớp, không mất dòng nào."""
+    d, eid, _ = run
+    _import(pg_conn, d)
+    uid = pg_conn.execute(
+        "INSERT INTO users (email, display_name, terms_accepted_at) "
+        "VALUES ('reader@example.test', 'Reader', now()) RETURNING user_id"
+    ).fetchone()[0]
+    pg_conn.execute("INSERT INTO event_bookmarks (user_id,event_id) VALUES (%s,%s)",
+                    (uid, eid[PUBLIC]))
+    before = {tb: _count(pg_conn, tb) for tb in
+              ("events", "event_articles", "event_names", "trend_scores")}
+    with pytest.raises(db_import.RunImportError, match="event_bookmarks.event_id"):
+        _import(pg_conn, d)
+    assert {tb: _count(pg_conn, tb) for tb in before} == before
+    assert pg_conn.execute("SELECT user_id,event_id FROM event_bookmarks").fetchall() == [
+        (uid, eid[PUBLIC])]

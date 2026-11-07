@@ -5,6 +5,47 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/rag/ask": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Ask",
+        "operationId": "ask_api_rag_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RAGQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGAnswer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -4204,6 +4245,247 @@
           "duplicate_titles"
         ],
         "title": "Quality"
+      },
+      "RAGAnswer": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "insufficient_evidence",
+              "unsupported_query",
+              "invalid_generation"
+            ],
+            "title": "Status"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RAGSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "retrieval_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "hybrid",
+                  "bm25_only",
+                  "dense_only"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Mode"
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/RAGSnapshot"
+          },
+          "trace": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Trace"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "answer",
+          "sources",
+          "retrieval_mode",
+          "degraded",
+          "snapshot",
+          "trace"
+        ],
+        "title": "RAGAnswer"
+      },
+      "RAGQuestion": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date From"
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date To"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Max Tokens",
+            "default": 1024
+          },
+          "allow_fallback": {
+            "type": "boolean",
+            "title": "Allow Fallback",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "RAGQuestion"
+      },
+      "RAGSnapshot": {
+        "properties": {
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_date",
+          "to_date",
+          "articles",
+          "sources"
+        ],
+        "title": "RAGSnapshot"
+      },
+      "RAGSource": {
+        "properties": {
+          "citation_id": {
+            "type": "integer",
+            "title": "Citation Id"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Published At"
+          },
+          "start_char": {
+            "type": "integer",
+            "title": "Start Char"
+          },
+          "end_char": {
+            "type": "integer",
+            "title": "End Char"
+          },
+          "chunking_version": {
+            "type": "string",
+            "title": "Chunking Version"
+          },
+          "quotes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quotes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "citation_id",
+          "chunk_id",
+          "article_id",
+          "title",
+          "url",
+          "source",
+          "published_at",
+          "start_char",
+          "end_char",
+          "chunking_version",
+          "quotes"
+        ],
+        "title": "RAGSource"
       },
       "RawSourceValue": {
         "properties": {
