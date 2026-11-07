@@ -230,19 +230,6 @@ data/
 node_modules/
 apps/web/dist/
 
-# AI agent: chia se cau hinh chung, giu rieng cau hinh ca nhan
-.claude/settings.local.json
-CLAUDE.local.md
-
-# Du lieu data lake (khong commit)
-data/
-*.parquet
-*.html.gz
-
-# Frontend React (apps/web)
-node_modules/
-apps/web/dist/
-
 # Runtime crawler state and collected articles
 /data/
 
