@@ -21,7 +21,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from apps.api import accounts, schemas
+from apps.api import accounts, rag_chat, schemas
 from apps.api.rag import router as rag_router
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
@@ -131,16 +131,20 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
                                           else f"Không nạp được kết quả pipeline sự kiện (xem log server). "
                                                f"{NO_RUN_MESSAGE}")
         yield
+        if app.state.rag_worker is not None:
+            app.state.rag_worker.stop()
         if app.state.db_pool is not None:
             app.state.db_pool.close()
 
     app = FastAPI(title="Ranking-Event-Detection — Kiểm soát dữ liệu", lifespan=lifespan)
-    app.include_router(rag_router)
+    # /api/rag/ask đồng bộ (gọi GPU ngay trong request) chỉ cho admin; người dùng web đi qua hàng đợi /api/rag/messages.
+    app.include_router(rag_router, dependencies=[accounts.require_role("admin")])
     app.state.store = store
     app.state.events = events
     app.state.events_error = None
     app.state.db_url = db_url
     app.state.db_pool = None
+    app.state.rag_worker = None             # worker hỏi đáp, tạo lười (apps/api/rag_chat.py)
 
     @app.exception_handler(ValueError)
     async def bad_request(_: Request, exc: ValueError) -> JSONResponse:
@@ -293,6 +297,7 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
         return s.reload()
 
     app.include_router(accounts.router)   # /api/auth, /api/me, /api/admin, báo sai — trước route SPA bắt-tất-cả
+    app.include_router(rag_chat.router)   # /api/rag/status|conversations|messages — khung chat hỏi đáp
 
     add_basic_auth(app)
 

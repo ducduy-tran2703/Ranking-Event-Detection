@@ -58,6 +58,80 @@ class RAGAnswer(BaseModel):
     trace: dict[str, Any]
 
 
+# ---------------------------------------------------------------------- khung chat hỏi đáp (migration 008)
+RAGChatStatusValue = Literal['queued', 'running', 'answered', 'insufficient_evidence', 'unsupported_query',
+                             'invalid_generation', 'failed', 'cancelled']
+
+
+class RAGChatAsk(BaseModel):
+    """Một câu hỏi gửi vào hàng đợi. `conversation_id` rỗng → tạo cuộc trò chuyện mới."""
+    model_config = ConfigDict(extra='forbid')
+    conversation_id: int | None = Field(default=None, ge=1)
+    question: str = Field(min_length=1, max_length=2048)
+    source: str | None = Field(default=None, min_length=1, max_length=64)
+    date_from: date | None = None
+    date_to: date | None = None
+
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError('date_from phải <= date_to')
+        return self
+
+
+class RAGChatFilters(BaseModel):
+    source: str | None = None
+    date_from: str | None = None
+    date_to: str | None = None
+
+
+class RAGChatSource(RAGSource):
+    event_id: str | None = None
+    event_name: str | None = None
+
+
+class RAGChatMessage(BaseModel):
+    message_id: int
+    conversation_id: int
+    question: str
+    filters: RAGChatFilters
+    status: RAGChatStatusValue
+    answer: str | None
+    sources: list[RAGChatSource]
+    retrieval_mode: Literal['hybrid', 'bm25_only', 'dense_only'] | None
+    degraded: bool | None
+    error: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    seconds: float | None
+    queue_position: int | None
+
+
+class RAGConversation(BaseModel):
+    conversation_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    n_messages: int
+    last_status: RAGChatStatusValue | None
+
+
+class RAGConversationDetail(BaseModel):
+    conversation: RAGConversation
+    messages: list[RAGChatMessage]
+
+
+class RAGChatStatus(BaseModel):
+    """Trạng thái hỏi đáp cho web: có dùng được không (kiểm nhanh, không gọi GPU) và hạn mức của người đang đăng nhập."""
+    available: bool
+    problems: list[str]
+    snapshot: RAGSnapshot | None
+    daily_limit: int | None
+    used_today: int | None
+    single_turn: bool = True
+
+
 class Health(BaseModel):
     status: str
     rows: int

@@ -67,10 +67,12 @@ def test_moi_endpoint_du_lieu_deu_co_kieu_tra_ve(client):
     missing = []
     for path, ops in paths.items():
         for method, op in ops.items():
-            if "200" not in op["responses"]:             # 204 No Content (đăng xuất, theo dõi…): không có thân để gõ kiểu
+            # 202 Accepted (xếp câu hỏi vào hàng đợi hỏi đáp) có thân như 200 → cũng phải có kiểu.
+            code = next((c for c in ("200", "202") if c in op["responses"]), None)
+            if code is None:                             # 204 No Content (đăng xuất, theo dõi…): không có thân để gõ kiểu
                 assert "204" in op["responses"], f"{method.upper()} {path}"
                 continue
-            schema = op["responses"]["200"]["content"]["application/json"]["schema"]
+            schema = op["responses"][code]["content"]["application/json"]["schema"]
             if schema == {} or schema.get("additionalProperties") is True:
                 missing.append(f"{method.upper()} {path}")
     assert missing == []

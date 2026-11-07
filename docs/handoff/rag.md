@@ -20,6 +20,21 @@ phạm vi được chốt là snapshot hiện tại. Đã đóng gói bundle sna
 5. **Model inference:** Nhận file `.env.client` từ người bàn giao, đặt ở gốc repo để kết nối model Qwen/Gemma.
    Chi tiết các bước khôi phục xem tại `data/rag/README_HANDOFF.md`.
 
+## Khung chat Hỏi đáp trên web (07/11)
+
+Trang `/hoi-dap` cho người đã đăng nhập; mô tả bảng 008 và luồng hàng đợi ở `docs/tong-hop.md` (đoạn "Khung chat
+Hỏi đáp trên web"). Chạy: `make db-migrate` (008) rồi `make dev` hoặc `make build && make prod`. API cần các biến
+inference (`RAG_EMBEDDING_URL`, `RAG_LLM_URL`, `MODAL_PROXY_TOKEN_*`) **trong `.env`** — code chỉ nạp `.env`, nên
+người nhận `.env.client` chép 4 biến đó sang `.env`.
+
+- Test: `tests/api/test_rag_chat_api.py` (pipeline giả, Postgres tạm; 23 test, gồm dừng hỏi — migration 009).
+- Kiểm thật 07/11 (cổng 8010, tài khoản thử đã xoá): `POST /api/rag/messages` trả 202 sau 0,02 s; câu thứ hai khi câu
+  đầu chưa xong → 409; trang /status `available=true`. Lượt thật bị `failed` sau 900 s ở pha retrieval: BM25 trả 30
+  hit nhưng dịch vụ embedding Qwen trên Modal không phản hồi trong hạn 900 s của ModelClient (app vẫn deploy — gọi
+  không token trả 401). Trước đó cùng ngày CLI `pipeline ask` chạy được (409 s). Chủ Modal cần xem
+  `modal app logs eventrank-rag-models` (GPU L4 khan, container lỗi khởi động hay hết credit).
+- Chưa có: trang quản trị xem lượt hỏi/trace, streaming, hỏi nối tiếp có ngữ cảnh, hàng đợi nhiều tiến trình API.
+
 ## Hỏi đáp CLI/API trên snapshot (06/11)
 
 Luồng `pipeline.py`: hybrid → hydrate Postgres → chọn context → Gemma → kiểm JSON/citation/quote.

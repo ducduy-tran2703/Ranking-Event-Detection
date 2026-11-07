@@ -426,6 +426,27 @@ context selection và pipeline hỏi đáp CLI/API đã có, đã smoke thật v
 Chưa có đánh giá chất lượng retrieval/grounding hay worker delta. Trạng thái và tiêu chí
 trong [kế hoạch RAG](plan-rag.md), lệnh kiểm thử trong [bàn giao](handoff/rag.md).
 
+**Khung chat Hỏi đáp trên web (migration `008_rag_chat.sql`, 07/11/2026).** Trang `/hoi-dap` (web React,
+`pages/ChatPage.tsx`) gọi `apps/api/rag_chat.py`; nghiệp vụ + hàng đợi ở `src/eventrank/rag/chat.py`.
+
+| Bảng | Khoá / quan hệ | Ghi chú |
+|---|---|---|
+| `rag_conversations` | `conversation_id` PK, `user_id` FK → `users` (CASCADE) | `title` = câu hỏi đầu (≤ 80 ký tự) |
+| `rag_messages` | `message_id` PK, `conversation_id` FK (CASCADE), `user_id` FK (CASCADE) | Một dòng = một lượt hỏi/đáp = một job: `status` queued → running → answered / insufficient_evidence / unsupported_query / invalid_generation / failed; `sources` jsonb (citation đã kiểm + `event_id`), `trace` (không trả cho người dùng), `error` (câu an toàn) |
+
+Vì lần gọi đầu Modal phải khởi động GPU (đo 07/11: 409 s một câu), API không trả lời trong request:
+`POST /api/rag/messages` trả 202 + lượt `queued`; một luồng nền trong tiến trình API chạy `RAGPipeline.ask`
+từng lượt (Gemma phục vụ 1 chuỗi một lúc); web hỏi lại `GET /api/rag/messages/{id}` mỗi 2,5 s.
+Bắt đăng nhập + CSRF; mỗi người một lượt đang chờ (409); `RAG_DAILY_LIMIT` lượt/24 giờ (mặc định 30, 429; admin
+không giới hạn). Mỗi câu trả lời độc lập (single-turn). `GET /api/rag/status` (công khai) kiểm nhanh không gọi GPU:
+kho Postgres, BM25, Qdrant đã publish, biến dịch vụ model, tokenizer. `POST /api/rag/ask` đồng bộ trên app chính nay
+chỉ cho admin; app riêng `apps.api.rag:app` (:8001) giữ nguyên. Lượt `running` khi API tắt giữa chừng → `failed`
+lúc worker khởi động lại.
+Dừng hỏi (migration `009_rag_chat_cancel.sql`, thêm trạng thái `cancelled`): `POST /api/rag/messages/{id}/cancel`
+(nút "Dừng" trên web). Lượt chờ/đang chạy → `cancelled`, người dùng hỏi tiếp được ngay; worker chạy mỗi lượt trong luồng
+con, thấy lượt bị dừng thì bỏ luồng đó và nhận lượt kế tiếp. Lời gọi Modal đang dở không huỷ được (vẫn tính GPU tới khi
+xong), kết quả về muộn bị bỏ (chỉ ghi khi lượt còn `running`); tối đa 2 luồng bị bỏ còn chạy cùng lúc.
+
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
 | Trường | Kiểu | Bắt buộc | Quy tắc | Thực tế 19/09 |
