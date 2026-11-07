@@ -1,9 +1,24 @@
 # Môi trường RAG local
 
 **Bắt đầu ở [kế hoạch RAG](../plan-rag.md)** để xem toàn bộ lộ trình và điểm tiếp nhận chat mới.
-Mốc hiện tại 06/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid RRF đã có.
+Mốc hiện tại 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid RRF đã có.
 Kho đủ 96.230 point, collection đã publish. Đã có context + hỏi đáp có nguồn qua CLI/API;
-phạm vi được chốt là snapshot hiện tại. Các mở rộng bước 6–8 và đánh giá chất lượng làm sau.
+phạm vi được chốt là snapshot hiện tại. Đã đóng gói bundle snapshot RAG để bàn giao sang máy khác.
+
+## Bàn giao Snapshot RAG sang máy khác (07/11/2026)
+
+Để chạy RAG trên máy mới **không cần embed lại 96.230 vector** trên GPU Modal:
+1. **Postgres dump:** `data/db_dump/eventrank_rag_20261107.dump` (~238,5 MB, SHA256: `f9d0cf878e1478ad5d535818f7c2ab683971604d62797973ebe7fd13fcc94ea1`)
+   chứa 28.725 bài báo, NER và 96.230 chunk của migration 007. Khôi phục bằng:
+   `pg_restore -U eventrank -d eventrank --clean --if-exists eventrank_rag_20261107.dump`.
+2. **Qdrant collection snapshot:** `rag_v1_qwen_text_v1-2638666312007-2026-11-07-08-07-19-0.snapshot`
+   (~830,5 MB, SHA256: `203864d2269d210b91fa40b45f3115eff509408e465f1d1794a143467af5be55`). Khôi phục qua API:
+   `POST /collections/rag_v1_qwen_text_v1/snapshots/upload?priority=snapshot` (hoặc curl/Invoke-RestMethod).
+3. **BM25 snapshot:** `data/rag/bm25_snapshot_20261107.zip` (~116,6 MB, SHA256: `bc2c17d43c9e62e9b3e70685419cfd579f0d501a4ea808cbf1acb4b80f2f5dae`).
+   Giải nén vào `data/rag/bm25/`.
+4. **Script upload R2:** `infra/upload_rag_snapshot.py` (prefix `rag_NguyenDinhHieu/v1/`).
+5. **Model inference:** Nhận file `.env.client` từ người bàn giao, đặt ở gốc repo để kết nối model Qwen/Gemma.
+   Chi tiết các bước khôi phục xem tại `data/rag/README_HANDOFF.md`.
 
 ## Hỏi đáp CLI/API trên snapshot (06/11)
 
