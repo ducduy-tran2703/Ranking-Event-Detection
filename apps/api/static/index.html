@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiểm soát dữ liệu tin tức</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Kiểm soát dữ liệu tin tức</h1>
+      <div class="sub"><span id="dataset">Đang tải…</span></div>
+    </div>
+    <div class="actions">
+      <span id="loaded" class="muted"></span>
+      <button id="reloadBtn" class="btn">Tải lại từ kho</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Tổng quan</button>
+    <button data-tab="time">Theo thời gian</button>
+    <button data-tab="categories">Chuyên mục</button>
+    <button data-tab="quality">Chất lượng</button>
+    <button data-tab="browse">Duyệt bài</button>
+    <button data-tab="files">File nguồn</button>
+  </nav>
+
+  <section class="filters" id="filters" hidden>
+    <label>Nguồn <select id="fSource"><option value="">Tất cả</option></select></label>
+    <label>Từ ngày <input type="date" id="fFrom"></label>
+    <label>Đến ngày <input type="date" id="fTo"></label>
+    <button class="btn ghost" id="fReset">Bỏ lọc</button>
+  </section>
+
+  <main>
+    <section class="tab active" id="tab-overview">
+      <div class="kpis" id="kpis"></div>
+      <div class="card">
+        <h2>Số bài theo ngày đăng</h2>
+        <div class="chart"><canvas id="chartOverview"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Theo nguồn</h2>
+        <div class="table-wrap"><table id="tblSources"></table></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-time">
+      <div class="card">
+        <div class="card-head">
+          <h2>Số bài theo thời gian</h2>
+          <div class="seg" id="granularity">
+            <button data-g="day" class="active">Ngày</button>
+            <button data-g="hour">Giờ</button>
+          </div>
+        </div>
+        <div class="chart"><canvas id="chartTimeline"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Phân bố theo giờ trong ngày (giờ Việt Nam)</h2>
+        <div class="chart"><canvas id="chartHour"></canvas></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-categories">
+      <div class="card">
+        <h2>Chuyên mục nhiều bài nhất</h2>
+        <p class="muted">Tên chuyên mục mỗi báo đặt khác nhau — cần bảng ánh xạ trước khi so sánh giữa các báo.</p>
+        <div class="chart tall"><canvas id="chartCategories"></canvas></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-quality">
+      <div class="card">
+        <h2>Lỗi dữ liệu theo nguồn</h2>
+        <p class="muted">Bấm vào một con số để xem đúng những bài đó.</p>
+        <div class="table-wrap"><table id="tblIssues"></table></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h2>Giá trị gốc của cột <code>source</code></h2>
+          <div class="table-wrap"><table id="tblRawSource"></table></div>
+        </div>
+        <div class="card">
+          <h2>Tiêu đề trùng nhau</h2>
+          <div class="table-wrap"><table id="tblDupTitles"></table></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Độ dài thân bài (số từ)</h2>
+        <div class="chart"><canvas id="chartWords"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Độ dài tiêu đề (số từ)</h2>
+        <div class="chart"><canvas id="chartTitleWords"></canvas></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-browse">
+      <div class="card">
+        <div class="browse-filters">
+          <label>Chuyên mục <select id="bCategory"><option value="">Tất cả</option></select></label>
+          <label class="grow">Từ khoá <input type="search" id="bQuery" placeholder="Tìm trong tiêu đề và sapo"></label>
+          <label>Lỗi <select id="bIssue">
+            <option value="">Không lọc</option>
+            <option value="missing_author">Thiếu tác giả</option>
+            <option value="empty_content">Thân bài rỗng</option>
+            <option value="short_content">Thân bài quá ngắn</option>
+            <option value="bad_date">Ngày đăng hỏng</option>
+            <option value="future_date">Ngày đăng ở tương lai</option>
+            <option value="duplicate_url">URL trùng</option>
+            <option value="duplicate_id">article_id trùng</option>
+          </select></label>
+          <label>Sắp xếp <select id="bSort">
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="longest">Dài nhất</option>
+            <option value="shortest">Ngắn nhất</option>
+          </select></label>
+        </div>
+        <div class="muted" id="browseCount"></div>
+        <div class="table-wrap"><table id="tblArticles" class="clickable"></table></div>
+        <div class="pager">
+          <button class="btn ghost" id="prevPage">‹ Trước</button>
+          <span id="pageInfo"></span>
+          <button class="btn ghost" id="nextPage">Sau ›</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-files">
+      <div class="card">
+        <h2>File nguồn trên kho</h2>
+        <p class="muted">File nào lâu không được cập nhật nghĩa là crawler của báo đó có thể đã ngừng chạy.</p>
+        <div class="table-wrap"><table id="tblFiles"></table></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="articleDialog">
+    <form method="dialog" class="dialog-head">
+      <div id="dlgMeta" class="muted"></div>
+      <button class="btn ghost" aria-label="Đóng">✕</button>
+    </form>
+    <h2 id="dlgTitle"></h2>
+    <p id="dlgSapo" class="sapo"></p>
+    <dl id="dlgFields" class="fields"></dl>
+    <div id="dlgContent" class="content"></div>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
