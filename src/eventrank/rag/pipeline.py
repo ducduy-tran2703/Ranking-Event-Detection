@@ -14,7 +14,7 @@ from eventrank.rag.bm25 import _VN, _write_json
 from eventrank.rag.context import ContextBudgetError, select_context
 from eventrank.rag.generation import NO_EVIDENCE, CitationError, output_schema, validate_answer
 from eventrank.rag.hybrid import HybridError, HybridRetriever, _request
-from eventrank.rag.models import ModelClient, load_model_config
+from eventrank.rag.models import ModelClient, keep_alive, load_model_config
 from eventrank.rag.token_budget import GemmaTokenCounter
 
 
@@ -38,7 +38,9 @@ def corpus_snapshot(conn, index_version):
 
 def unsupported_reason(question, filters):
     lowered = question.casefold()
-    if re.search(r'(bao nhiêu|tổng số|thống kê số)\s+(bài|tin tức|nguồn tin|nguồn báo|sự kiện)', lowered):
+    if re.search(r'(bao nhiêu|tổng số|thống kê số)\s+'
+                 r'(bài(?!\s+(hát|thi|học|tập|toán|văn|thơ|kiểm tra|phát biểu))|tin tức|nguồn tin|nguồn báo|sự kiện)',
+                 lowered):
         return ('global_statistics', ('Câu hỏi thống kê toàn kho cần truy vấn dữ liệu riêng; '
                                       'không thể suy số lượng từ các đoạn tin truy xuất.'))
     if not (filters['date_from'] or filters['date_to']) and re.search(
@@ -120,12 +122,15 @@ class RAGPipeline:
                 self.counter = GemmaTokenCounter(spec)
             except Exception:  # noqa: BLE001 -- hide paths/tokens in tokenizer library failures
                 raise RAGUnavailableError('tokenizer; run token_budget prepare first', trace) from None
+        max_chunks = settings.get('max_context_chunks', 8)
         try:
+            # Source diversity is meaningless once the request is restricted to one source.
             selected = select_context(question, retrieved['hits'], self.counter, snapshot=snapshot,
                                        window=spec['max_model_len'], max_output_tokens=reserve,
-                                       max_chunks=settings.get('max_context_chunks', 8),
+                                       max_chunks=max_chunks,
                                        per_article=settings.get('max_per_article', 2),
-                                       per_source=settings.get('max_per_source', 3))
+                                       per_source=max_chunks if filters['source']
+                                       else settings.get('max_per_source', 3))
         except ContextBudgetError:
             return finish('insufficient_evidence', NO_EVIDENCE, reason='context_budget')
         trace['context'] = {'prompt_tokens': selected.prompt_tokens, 'output_reserve': reserve,
@@ -136,8 +141,20 @@ class RAGPipeline:
         if not selected.evidence:
             return finish('insufficient_evidence', NO_EVIDENCE, reason='no_context_fits')
         try:
-            generated = self._client().chat(selected.messages, max_tokens=reserve,
-                                             response_schema=output_schema(), temperature=0.0)
+            client = self._client()
+
+            def generate():
+                return client.chat(selected.messages, max_tokens=reserve,
+                                   response_schema=output_schema(), temperature=0.0)
+
+            if mode == 'bm25_only':  # Qwen was never reached; do not wake a GPU for it.
+                generated = generate()
+            else:
+                keep = client.config['keepalive']
+                with keep_alive(client.ping_embedding, interval=keep['interval_seconds'],
+                                max_seconds=keep['max_seconds']) as pings:
+                    trace['keepalive'] = pings
+                    generated = generate()
         except Exception:  # noqa: BLE001 -- sanitize remote model failures
             raise RAGUnavailableError('generation', trace) from None
         trace['generator'] = {'model': spec['model'], 'revision': spec['revision'],
@@ -150,8 +167,9 @@ class RAGPipeline:
             trace['validation'] = {'passed': False, 'reason': str(exc)}
             return finish('invalid_generation', 'Chưa thể xuất câu trả lời vì nội dung hoặc citation '
                           'không vượt qua kiểm tra bằng chứng.', reason='generation_validation_failed')
-        trace['validation'] = {'passed': True, 'checks': ['citation_ids', 'exact_quotes', 'metadata_urls'],
-                               'quote_normalization': 'NFC and whitespace',
+        trace['validation'] = {'passed': True, 'checks': ['citation_ids', 'verbatim_quotes', 'metadata_urls'],
+                               'quote_normalization': 'NFC, case, whitespace, punctuation outside numbers',
+                               'dropped': validated['dropped'],
                                'semantic_entailment': 'not independently scored'}
         return finish(validated['status'], validated['answer'], validated['sources'])
 

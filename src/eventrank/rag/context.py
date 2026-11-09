@@ -17,6 +17,8 @@ Nếu trả lời được, chỉ xuất JSON hợp lệ theo dạng:
 {"status":"answered","claims":[{"text":"Một phát biểu trả lời câu hỏi.","evidence":[{"id":1,"quote":"Đoạn trích nguyên văn hỗ trợ phát biểu."}]}]}
 Mỗi phát biểu phải có ít nhất một bằng chứng; id phải có trong JSON đầu vào và quote phải là
 một đoạn liên tục có thật trong text của bằng chứng đó, giữ nguyên chữ và số. Không bịa quote.
+Mỗi quote chỉ chép nguyên văn một câu hoặc một cụm ngắn, tối đa 200 ký tự. Không dùng dấu ba chấm
+để lược bớt và không ghép các đoạn xa nhau; cần nhiều đoạn thì tách thành nhiều quote.
 Chỉ viết các phát biểu cần thiết để trả lời câu hỏi; không liệt kê nội dung không liên quan.
 Không ghi URL hay đánh dấu [1] trong text; hệ thống sẽ thêm citation và URL từ metadata.
 Không viết thêm chữ ngoài JSON. Không xuất suy luận nội bộ.'''

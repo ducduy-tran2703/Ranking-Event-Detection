@@ -1,14 +1,15 @@
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+import json
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
-import json
 
 from bs4 import BeautifulSoup
 
 from crawler import harvester_dantri as dt
 from process_data.clean_record import clean_record
+
 from .discovery import discover
-from .http import SourceClient, SourceBlocked, CrawlStopped
+from .http import CrawlStopped, SourceBlocked, SourceClient
 from .state import SourceState, now_iso
 from .storage import read_json, write_json, write_text
 
@@ -34,7 +35,9 @@ class Pipeline:
             response = client.get(entry["url"])
             soup = BeautifulSoup(response.text, "html.parser")
             ingestor = import_module(f"crawler.ingest_{source}")
-            if source == "dantri":
+            if source in ("tuoitre", "thanhnien", "vietnamnet", "vnexpress"):
+                content = ingestor.extract_raw_html(soup)
+            elif source == "dantri":
                 content = ingestor._extract_content_container(soup)
             else:
                 content = soup.select_one(ingestor.ARTICLE_CONTENT_SELECTOR)
@@ -86,7 +89,7 @@ class Pipeline:
             from zoneinfo import ZoneInfo
             since = since.astimezone(ZoneInfo("Asia/Ho_Chi_Minh"))
             known = {entry["url"] for entry in state.articles.values()}
-            stats["discovery_mode"] = ("bootstrap_recent_pages" if not known and source in ("baochinhphu", "nhandan")
+            stats["discovery_mode"] = ("bootstrap_recent_pages" if not known and source in ("baochinhphu", "nhandan", "tuoitre", "thanhnien", "vietnamnet", "vnexpress")
                                        else "incremental")
             discovery_complete = False
             try:

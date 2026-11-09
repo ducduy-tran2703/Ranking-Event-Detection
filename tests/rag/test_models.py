@@ -34,6 +34,8 @@ def test_llm_args_pin_revision_context_va_single_sequence():
     assert "--served-model-name" in args and cfg["llm"]["model"] in args
     assert args[args.index("--max-num-seqs") + 1] == "1"
     assert args[args.index("--max-model-len") + 1] == "8192"
+    # Eager mode keeps ~19 token/s; compile cost at cold start is accepted for the demo.
+    assert "--enforce-eager" not in args
 
 
 def _spec():

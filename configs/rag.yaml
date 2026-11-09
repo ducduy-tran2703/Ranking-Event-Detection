@@ -11,7 +11,7 @@ dense:
   url: http://127.0.0.1:6333
   collection: rag_v1_qwen_text_v1
   batch_size: 32
-  concurrency: 4
+  concurrency: 1
 retrieval:
   branch_limit: 30
   rrf_k: 60
@@ -23,6 +23,12 @@ generation:
 models:
   app_name: eventrank-rag-models
   cache_volume: eventrank-rag-model-cache
+  # Cả hai service tắt sau chừng này giây rảnh; đổi xong phải deploy lại Modal.
+  scaledown_window: 120
+  # Ping Qwen trong lúc gọi Gemma để hai service tắt cùng mốc sau token cuối.
+  keepalive:
+    interval_seconds: 30
+    max_seconds: 900
   embedding:
     model: Qwen/Qwen3-Embedding-0.6B
     revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
@@ -30,8 +36,8 @@ models:
     max_length: 2048
     batch_size: 8
     gpu: L4
-    max_containers: 4
-    buffer_containers: 3
+    max_containers: 1
+    buffer_containers: 0
     instruction: Given a Vietnamese news question, retrieve relevant news passages that answer the question.
   llm:
     model: google/gemma-4-12B-it-qat-w4a16-ct

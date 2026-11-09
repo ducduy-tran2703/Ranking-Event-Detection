@@ -4,17 +4,21 @@ Listing sources scan at least two consecutive pages containing only known URLs
 before stopping. A page cap is reported as incomplete, never as success.
 Sitemap sources scan from the previous successful scan minus an overlap.
 """
-from datetime import datetime
 import re
+from datetime import datetime
 from urllib.parse import urljoin, urlsplit, urlunsplit
 from xml.etree import ElementTree as ET
 
 from bs4 import BeautifulSoup
 
 from crawler import harvester_baochinhphu as cp
-from crawler import harvester_nhandan as nd
 from crawler import harvester_dantri as dt
+from crawler import harvester_nhandan as nd
 from crawler import harvester_qdnd as qd
+from crawler import harvester_thanhnien as tn
+from crawler import harvester_tuoitre as tt
+from crawler import harvester_vietnamnet as vn
+from crawler import harvester_vnexpress as vne
 from crawler.ingest_baochinhphu import CATEGORIES as CP_CATEGORIES
 from crawler.ingest_nhandan import CATEGORIES as ND_CATEGORIES
 
@@ -31,10 +35,72 @@ def canonical_url(url):
 
 def discover(source, client, known, since, settings):
     """Yield (url, category). The caller persists every yielded URL immediately."""
-    if source in ("baochinhphu", "nhandan"):
+    if source in ("tuoitre", "thanhnien"):
+        yield from _timeline_listings(source, client, known, settings)
+    elif source in ("vietnamnet", "vnexpress"):
+        yield from _category_listings(source, client, known, settings)
+    elif source in ("baochinhphu", "nhandan"):
         yield from _listings(source, client, known, settings)
-    else:
+    elif source in ("dantri", "qdnd"):
         yield from _sitemaps(source, client, since)
+    else:
+        raise ValueError(f"Unsupported source: {source}")
+
+
+def _category_listings(source, client, known, settings):
+    module = vn if source == "vietnamnet" else vne
+    limit = settings.max_listing_pages if known else settings.bootstrap_listing_pages
+    errors = []
+    for category_url, category in module.TARGET_CATEGORIES.items():
+        quiet = 0
+        for page in range(limit):
+            client.check()
+            url = module.listing_url(category_url, page)
+            html = client.get(url).text
+            urls = module.extract_article_urls(BeautifulSoup(html, "html.parser"), url)
+            # These are full category pages, not timeline fragments: an empty
+            # or unrecognized response is a failure, never an end-of-feed marker.
+            if not urls:
+                raise DiscoveryIncomplete(f"No recognized {source} links: {url}")
+            quiet = quiet + 1 if all(u in known for u in urls) else 0
+            for article_url in urls:
+                yield article_url, category
+            if quiet >= 2:
+                break
+        else:
+            if known:
+                errors.append(f"Reached {limit} pages: {category_url}")
+    if errors:
+        raise DiscoveryIncomplete("; ".join(errors))
+
+
+def _timeline_listings(source, client, known, settings):
+    module = tt if source == "tuoitre" else tn
+    limit = settings.max_listing_pages if known else settings.bootstrap_listing_pages
+    errors = []
+    for category, zone in module.TARGET_CATEGORIES.items():
+        quiet = 0
+        for page in range(1, limit + 1):
+            client.check()
+            url = module.TIMELINE_TEMPLATE.format(zone_id=zone, page=page)
+            html = client.get(url).text
+            # An empty fragment after page 1 is an exhausted timeline. Nonempty
+            # HTML without article URLs could be a challenge or a changed layout.
+            if page > 1 and not html.strip():
+                break
+            urls = module.extract_article_urls(BeautifulSoup(html, "html.parser"))
+            if not urls:
+                raise DiscoveryIncomplete(f"No recognized {source} links: {url}")
+            quiet = quiet + 1 if all(u in known for u in urls) else 0
+            for article_url in urls:
+                yield article_url, category
+            if quiet >= 2:
+                break
+        else:
+            if known:
+                errors.append(f"Reached {limit} pages: {source} zone {zone}")
+    if errors:
+        raise DiscoveryIncomplete("; ".join(errors))
 
 
 def _listings(source, client, known, settings):

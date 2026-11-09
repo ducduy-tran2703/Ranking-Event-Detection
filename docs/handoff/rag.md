@@ -38,7 +38,7 @@ người nhận `.env.client` chép 4 biến đó sang `.env`.
 ## Hỏi đáp CLI/API trên snapshot (06/11)
 
 Luồng `pipeline.py`: hybrid → hydrate Postgres → chọn context → Gemma → kiểm JSON/citation/quote.
-Mặc định tối đa 8 chunk, 2/bài, 3/nguồn; bỏ text trùng và chunk chồng offset, giữ nguyên chunk.
+Mặc định tối đa 8 chunk, 2/bài, 3/nguồn (không áp giới hạn nguồn khi đã lọc một báo); bỏ text trùng và chunk chồng offset, giữ nguyên chunk.
 Đếm cả system/query/metadata/chat template bằng tokenizer đúng revision Gemma, dành tối đa
 1024 token output trong cửa sổ 8192. Counter dùng OpenAI text blocks như renderer vLLM;
 đã đối chiếu prompt/token IDs thật (dạng string thuần lệch 1 token ở system).
@@ -64,7 +64,7 @@ Snapshot truy vấn thật có 28.725 bài/6 nguồn, published_at từ 2008-05-
 (min/max dữ liệu DB, không phải cam kết bao phủ liên tục các ngày trong khoảng).
 Source chứa URL/ngày/ID/offset lấy từ DB và quote được kiểm trong chunk, không nhận URL model tự bịa.
 Gemma dùng constrained JSON schema; invalid ID/quote/schema hoặc output bị cắt sẽ trả
-`invalid_generation` và không xuất nội dung model như câu trả lời hợp lệ. Quote so khớp NFC/whitespace;
+`invalid_generation` và không xuất nội dung model như câu trả lời hợp lệ. Quote tối đa 300 ký tự, so khớp sau khi chuẩn hoá NFC/whitespace/hoa thường và bỏ dấu câu (trừ dấu giữa hai chữ số). Quote có `...` phải có từng đoạn từ 15 ký tự, nguyên văn và đúng thứ tự. Quote sai thì chỉ bỏ quote đó, ý không còn quote đúng thì bỏ ý, ghi vào `trace.validation.dropped`; không còn ý nào mới trả `invalid_generation`. ID bằng chứng không tồn tại vẫn từ chối cả câu;
 đây là kiểm provenance, chưa chứng minh từng phát biểu được bằng chứng suy ra đúng về ngữ nghĩa.
 Không đặt ngưỡng RRF tùy ý; thiếu bằng chứng để model từ chối, bộ lọc ngoài snapshot trả sớm không gọi GPU.
 Câu hỏi ngày tương đối thiếu filter ngày và thống kê toàn kho được trả `unsupported_query`.
@@ -483,14 +483,19 @@ client kiểm tra version và vector trước khi nhận. Đổi embedding phả
 ```
 
 Make tương ứng: `rag-modal-deploy`, `rag-modal-cache`, `rag-model-smoke`.
-Mỗi model có endpoint riêng, proxy auth bắt buộc. Từ 06/11 Qwen dùng tối đa 4 container L4,
-mỗi container nhận 1 request; Gemma vẫn tối đa 1 container, ưu tiên L4 và dự phòng A10,
-min_containers=0 và scaledown_window=60 giây. Lần gọi đầu sau khi nghỉ cần chờ cold start;
+Mỗi model có endpoint riêng, proxy auth bắt buộc. Qua đợt index 06/11 Qwen từng dùng tối đa 4 container L4;
+YAML hiện đặt Qwen 1 container, buffer 0, mỗi container nhận 1 request; Gemma tối đa 1 container, ưu tiên L4
+và dự phòng A10; min_containers=0 và `models.scaledown_window=120` giây. **Giá trị GPU/idle trong YAML chỉ có
+hiệu lực sau `rag-modal-deploy`**; không cần embed lại vì các trường này không nằm trong `embedding_version`.
+Pipeline hỏi đáp gọi tuần tự Qwen rồi Gemma. Trong lúc chờ Gemma, `models.keep_alive` ping `GET /health` của Qwen
+30 giây một lần (giới hạn cứng 900 giây) và ping lần cuối khi Gemma trả xong, để cả hai tắt khoảng 2 phút sau
+token cuối. Không ping khi chạy `bm25_only`. Ping lỗi chỉ ghi vào `trace.keepalive`, không làm hỏng câu trả lời.
+Lần gọi đầu sau khi nghỉ cần chờ cold start;
 Volume chỉ cache trọng số, không chứa Postgres, Qdrant, BM25 hay toàn bộ corpus.
 Khoảng chờ scale-down vẫn có thể tính phí tài nguyên, Volume có phí lưu trữ riêng.
 Client xử lý redirect 303 khi cold start lâu, chỉ theo URL cùng origin để không gửi token sang host khác.
-Gemma dùng CUDA development image có nvcc cho FlashInfer, `--enforce-eager` để giảm công việc compile
-khi cold start. Đổi lựa chọn này cần đo lại độ trễ/throughput trên bộ workload cố định.
+Gemma dùng CUDA development image có nvcc cho FlashInfer. Từ 09/11 đã bỏ `--enforce-eager` (khi bật cờ này
+đo được ~19 token/giây, init engine 78 giây), chấp nhận cold start lâu hơn để đổi lấy tốc độ sinh chữ.
 Cache tải bằng HTTP (`HF_HUB_DISABLE_XET=1`) sau khi Xet bị kẹt trên lần thử thực tế;
 file tải dở được tải lại bằng thư viện trước khi dùng, không nối tiếp dữ liệu Xet theo HTTP.
 

@@ -72,7 +72,7 @@ def cache_weights():
               volumes={"/models": cache}, cpu=2, memory=8192, min_containers=0,
               max_containers=CONFIG["embedding"].get("max_containers", 1),
               buffer_containers=CONFIG["embedding"].get("buffer_containers", 0),
-              scaledown_window=60, timeout=600, startup_timeout=600)
+              scaledown_window=CONFIG["scaledown_window"], timeout=600, startup_timeout=600)
 @modal.concurrent(max_inputs=1)
 @modal.asgi_app(requires_proxy_auth=True)
 def embedding_service():
@@ -102,7 +102,8 @@ def embedding_service():
 
 @app.function(image=llm_image, gpu=CONFIG["llm"]["gpu"], env=ENV,
               volumes={"/models": cache}, cpu=4, memory=32768, min_containers=0,
-              max_containers=1, scaledown_window=60, timeout=600, startup_timeout=900)
+              max_containers=1, scaledown_window=CONFIG["scaledown_window"], timeout=600,
+              startup_timeout=900)
 @modal.web_server(8000, startup_timeout=840, requires_proxy_auth=True)
 def llm_service():
     process = subprocess.Popen(llm_command(CONFIG["llm"]))

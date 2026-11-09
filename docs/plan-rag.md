@@ -238,8 +238,8 @@ Các quyết định này không làm lại lựa chọn Qwen/Gemma hoặc schem
   TEST_DATABASE_URL runtime); Ruff đạt. Chạy không có TEST_DATABASE_URL vẫn skip DB test.
   Có DB test riêng dùng database tạm theo `tests/conftest.py`;
   không đưa URL/khóa ra log. Các lỗi Windows cũ ngoài phạm vi RAG xem bàn giao.
-- Modal đã deploy và kiểm thật; min_containers=0, Qwen tối đa 4 L4, Gemma tối đa 1 container;
-  đã kiểm idle về 0. Max 4 không chứng minh mọi thời điểm có đủ 4 container chạy.
+- Modal đã deploy và kiểm thật; min_containers=0, đã kiểm idle về 0. YAML hiện đặt Qwen và Gemma
+  tối đa 1 container, tắt sau 120 giây rảnh; bản trên Modal chỉ đổi sau khi deploy lại (xem bàn giao).
   Không deploy/cache/smoke GPU lại chỉ để đọc tài liệu. Dense indexing thật sẽ dùng Qwen và phát sinh GPU;
   không tạo embedding toàn corpus mỗi lần hỏi.
 - Dense index/search, hybrid RRF và verifier đã có. Context/generation/worker delta/evaluation ở trên là **việc dự kiến**.

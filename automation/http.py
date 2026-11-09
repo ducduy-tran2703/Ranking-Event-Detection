@@ -1,7 +1,9 @@
 """Thread-local sessions with a source-wide rate limiter and block detection."""
+import os
 import threading
 import time
 from urllib.parse import urlparse
+from urllib.robotparser import RobotFileParser
 
 import requests
 
@@ -21,7 +23,12 @@ HOSTS = {
     "nhandan": {"nhandan.vn", "www.nhandan.vn", "api.nhandan.vn"},
     "dantri": {"dantri.com.vn", "www.dantri.com.vn"},
     "qdnd": {"qdnd.vn", "www.qdnd.vn"},
+    "tuoitre": {"tuoitre.vn", "www.tuoitre.vn"},
+    "thanhnien": {"thanhnien.vn", "www.thanhnien.vn"},
+    "vietnamnet": {"vietnamnet.vn", "www.vietnamnet.vn"},
+    "vnexpress": {"vnexpress.net", "www.vnexpress.net"},
 }
+POLITE_SOURCES = ("tuoitre", "thanhnien", "vietnamnet", "vnexpress")
 
 
 class SourceClient:
@@ -34,6 +41,15 @@ class SourceClient:
         self.local = threading.local()
         self.next_request = 0.0
         self.sessions = []
+        self.robots_lock = threading.Lock()
+        self.robots = {}
+        self.delay = settings.delays[source]
+        self.user_agent = USER_AGENT
+        if source in POLITE_SOURCES:
+            self.user_agent = os.environ.get("CRAWLER_USER_AGENT", "").strip()
+            if not self.user_agent or self.user_agent.startswith("Mozilla/"):
+                raise ValueError(f"{source} requires an honest CRAWLER_USER_AGENT")
+            self.delay = max(2.0, self.delay)
 
     def check(self):
         if self.stop.is_set():
@@ -51,13 +67,53 @@ class SourceClient:
     def _session(self):
         if not hasattr(self.local, "session"):
             session = requests.Session()
-            session.headers["User-Agent"] = USER_AGENT
+            session.headers["User-Agent"] = self.user_agent
             self.local.session = session
             with self.lock:
                 self.sessions.append(session)
         return self.local.session
 
     def get(self, url):
+        self.check()
+        if self.source in POLITE_SOURCES:
+            self._check_robots(url)
+        return self._get_raw(url)
+
+    def _check_robots(self, url):
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.netloc not in HOSTS[self.source]:
+            raise ValueError(f"Unexpected URL for {self.source}: {url}")
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        with self.robots_lock:
+            parser = self.robots.get(origin)
+            if parser is None:
+                robots_url = origin + "/robots.txt"
+                parser = RobotFileParser(robots_url)
+                try:
+                    response = self._get_raw(robots_url)
+                except requests.HTTPError as exc:
+                    if exc.response is not None and exc.response.status_code == 401:
+                        self.blocked.set()
+                        raise SourceBlocked(f"{self.source} robots.txt requires authentication") from exc
+                    if exc.response is None or exc.response.status_code not in (404, 410):
+                        raise
+                    parser.parse([])
+                else:
+                    if "<html" in response.text.lower():
+                        self.blocked.set()
+                        raise SourceBlocked(f"{self.source} robots.txt returned HTML")
+                    parser.parse(response.text.splitlines())
+                    delay = parser.crawl_delay(self.user_agent)
+                    if delay:
+                        with self.lock:
+                            self.delay = max(self.delay, float(delay))
+                            self.next_request = max(self.next_request, time.monotonic() + self.delay)
+                self.robots[origin] = parser
+            if not parser.can_fetch(self.user_agent, url):
+                self.blocked.set()
+                raise SourceBlocked(f"robots.txt disallows {url}")
+
+    def _get_raw(self, url):
         for attempt in range(4):
             try:
                 current = url
@@ -68,7 +124,7 @@ class SourceClient:
                     # Hold the lock while waiting: each actual start is spaced.
                     with self.lock:
                         self._wait(max(0, self.next_request - time.monotonic()))
-                        self.next_request = time.monotonic() + self.settings.delays[self.source]
+                        self.next_request = time.monotonic() + self.delay
                     self.check()
                     response = self._session().get(
                         current, timeout=self.settings.timeout, allow_redirects=False)
@@ -76,6 +132,9 @@ class SourceClient:
                         self.blocked.set()
                         raise SourceBlocked(f"{self.source}: HTTP {response.status_code} at {current}")
                     if response.is_redirect:
+                        if self.source in POLITE_SOURCES:
+                            self.blocked.set()
+                            raise SourceBlocked(f"{self.source} redirected at {current}; inspect before continuing")
                         from urllib.parse import urljoin
                         current = urljoin(current, response.headers["Location"])
                         response.close()

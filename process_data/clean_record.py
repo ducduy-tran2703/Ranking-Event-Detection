@@ -64,7 +64,7 @@ def clean_record(rec):
     out = dict(rec)
     for k in ("title", "sapo", "content_text"):
         out[k] = norm(rec[k])
-    out["author"] = norm(rec.get("author") or "")
+    out["author"] = norm(rec.get("author") or "") or None
     out["content_text"] = strip_boilerplate(out["content_text"], rec["source"])
 
     if len(out["title"]) < MIN_TITLE_CHARS:

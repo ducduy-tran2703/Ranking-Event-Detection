@@ -25,7 +25,11 @@ def qa_pipeline():
         calls.append('generate')
         return {'content': json.dumps(QA['valid_generation']), 'finish_reason': 'stop', 'usage': {}}
 
-    model = SimpleNamespace(config=config['models'], chat=chat)
+    def ping_embedding():
+        calls.append('ping')
+        return True
+
+    model = SimpleNamespace(config=config['models'], chat=chat, ping_embedding=ping_embedding)
     instance = pipeline.RAGPipeline(None, config, retriever=Retriever(), model=model,
                                      counter=Counter(), snapshot=QA['snapshot'])
     return instance, calls
@@ -38,8 +42,25 @@ def test_end_to_end_answer_has_checked_citations_and_budget(qa_pipeline):
     result = p.ask(QA['question'])
     assert result['status'] == 'answered' and result['sources'][0]['citation_id'] == 1
     assert result['answer'].endswith('[1]')
-    assert calls == ['retrieve', 'generate']
+    assert [call for call in calls if call != 'ping'] == ['retrieve', 'generate']
     assert result['trace']['context']['prompt_tokens'] + result['trace']['context']['output_reserve'] <= 20000
+
+
+def test_giu_qwen_song_den_khi_gemma_tra_xong(qa_pipeline):
+    p, calls = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    result = p.ask(QA['question'])
+    assert calls == ['retrieve', 'generate', 'ping']
+    assert result['trace']['keepalive'] == {'pings': 1, 'failures': 0}
+
+
+def test_bm25_only_khong_danh_thuc_qwen(qa_pipeline):
+    p, calls = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.retriever.search = lambda *a, **kw: {'mode': 'bm25_only', 'degraded': True, 'hits': records(),
+                                           'trace': {'versions': {}}}
+    result = p.ask(QA['question'])
+    assert 'ping' not in calls and 'keepalive' not in result['trace']
 
 
 def test_no_hits_never_calls_tokenizer_or_generator(qa_pipeline):
@@ -56,6 +77,34 @@ def test_unsupported_scope_does_not_retrieve_or_generate(qa_pipeline, question):
     p, calls = qa_pipeline
     result = p.ask(question)
     assert result['status'] == 'unsupported_query' and calls == []
+
+
+@pytest.mark.parametrize('question', ['Album này có bao nhiêu bài hát?', 'Đề toán có bao nhiêu bài thi?'])
+def test_cau_hoi_bai_hat_khong_bi_chan_nham_la_thong_ke(qa_pipeline, question):
+    p, calls = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    assert p.ask(question)['status'] != 'unsupported_query' and 'retrieve' in calls
+
+
+def test_cau_hoi_dem_bai_ve_mot_chu_de_van_bi_chan(qa_pipeline):
+    p, calls = qa_pipeline
+    assert p.ask('Có bao nhiêu bài về giá vàng?')['status'] == 'unsupported_query' and calls == []
+
+
+@pytest.mark.parametrize('filters, expected', [({'source': 'thanhnien'}, 8), ({}, 3)])
+def test_gioi_han_nguon_chi_ap_dung_khi_khong_loc_mot_bao(qa_pipeline, monkeypatch, filters, expected):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    seen = {}
+    real = pipeline.select_context
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline, 'select_context', spy)
+    p.ask(QA['question'], **filters)
+    assert seen['per_source'] == expected
 
 
 def test_unknown_citation_is_not_exposed_as_answer(qa_pipeline):
@@ -80,6 +129,17 @@ def test_generation_timeout_is_sanitized_and_not_returned_as_answer(qa_pipeline)
     with pytest.raises(pipeline.RAGUnavailableError) as error:
         p.ask(QA['question'])
     assert 'private-token-example' not in str(error.value)
+
+
+def test_trace_ghi_lai_quote_da_bo(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    body = json.loads(json.dumps(QA['valid_generation']))
+    body['claims'].append({'text': 'Ý bịa ra.', 'evidence': [{'id': 1, 'quote': 'Việt Nam thắng 4-0.'}]})
+    p.model.chat = lambda *a, **kw: {'content': json.dumps(body, ensure_ascii=False), 'finish_reason': 'stop', 'usage': {}}
+    result = p.ask(QA['question'])
+    assert result['status'] == 'answered' and 'Ý bịa' not in result['answer']
+    assert [d['quote'] for d in result['trace']['validation']['dropped']] == ['Việt Nam thắng 4-0.']
 
 
 def test_truncated_model_response_is_not_accepted(qa_pipeline):
