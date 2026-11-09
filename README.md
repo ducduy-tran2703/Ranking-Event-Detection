@@ -50,11 +50,18 @@ make test-db                  # test cần Postgres (đặt TEST_DATABASE_URL; k
 ```
 
 
-Thu thập bài báo từ Báo Chính phủ, Nhân Dân, Dân Trí và Quân đội nhân dân.
+Thu thập bài báo từ Báo Chính phủ, Nhân Dân, Dân Trí, Quân đội nhân dân, Tuổi Trẻ, Thanh Niên, VietnamNet và VnExpress.
 Luồng tự động: tìm URL → Bronze → Silver → làm sạch. Chưa tích hợp database
 hoặc gom cụm.
 
 ## Chạy trên Windows
+
+Crawler chạy riêng tại `api.main:app`; `make dev` vẫn chạy backend web
+`apps.api.main:app` và không khởi động crawler. Hướng dẫn Tuổi Trẻ, cách thêm
+nguồn vào lịch đã lưu: [docs/handoff/crawl-tuoitre.md](docs/handoff/crawl-tuoitre.md).
+Thanh Niên: [docs/handoff/crawl-thanhnien.md](docs/handoff/crawl-thanhnien.md).
+VietnamNet: [docs/handoff/crawl-vietnamnet.md](docs/handoff/crawl-vietnamnet.md).
+VnExpress: [docs/handoff/crawl-vnexpress.md](docs/handoff/crawl-vnexpress.md).
 
 Yêu cầu Python 3.11 trở lên. Mở PowerShell ở thư mục gốc dự án:
 

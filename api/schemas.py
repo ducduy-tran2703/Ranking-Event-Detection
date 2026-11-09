@@ -1,12 +1,15 @@
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
-Source = Literal["baochinhphu", "nhandan", "dantri", "qdnd"]
+from automation.config import SOURCES
+
+Source = Literal["baochinhphu", "nhandan", "dantri", "qdnd", "tuoitre", "thanhnien", "vietnamnet", "vnexpress"]
 
 
 class CrawlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    sources: list[Source] = Field(default_factory=lambda: ["baochinhphu", "nhandan", "dantri", "qdnd"], min_length=1)
+    sources: list[Source] = Field(default_factory=lambda: list(SOURCES), min_length=1)
     retry_failed: bool = False
 
 

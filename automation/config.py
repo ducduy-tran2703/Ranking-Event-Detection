@@ -1,9 +1,9 @@
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
-import os
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = ("baochinhphu", "nhandan", "dantri", "qdnd")
+SOURCES = ("baochinhphu", "nhandan", "dantri", "qdnd", "tuoitre", "thanhnien", "vietnamnet", "vnexpress")
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,8 @@ class Settings:
     scheduler_enabled: bool = True
     # Minimum spacing between request STARTS, including discovery and retries.
     delays: dict = field(default_factory=lambda: {
-        "baochinhphu": 2.0, "nhandan": 2.0, "dantri": 4.0, "qdnd": 2.0})
+        "baochinhphu": 2.0, "nhandan": 2.0, "dantri": 4.0, "qdnd": 2.0,
+        "tuoitre": 2.0, "thanhnien": 2.0, "vietnamnet": 2.0, "vnexpress": 2.0})
 
     def __post_init__(self):
         if self.workers_per_source < 1 or self.max_listing_pages < 2:

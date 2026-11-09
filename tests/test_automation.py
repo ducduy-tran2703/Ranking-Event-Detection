@@ -12,7 +12,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from api.main import create_app
-from automation.config import Settings
+from automation.config import Settings, SOURCES
 from automation.discovery import discover, DiscoveryIncomplete
 from automation.http import SourceClient, SourceBlocked
 from automation.job_manager import JobManager, JobConflict
@@ -214,7 +214,7 @@ class AutomationTests(unittest.TestCase):
             resumed.close()
 
     def test_http_block_stops_source_without_retry(self):
-        settings = Settings(data_dir=self.root, delays={s: 0 for s in ("qdnd", "dantri", "nhandan", "baochinhphu")})
+        settings = Settings(data_dir=self.root, delays={s: 0 for s in SOURCES})
         client = SourceClient("qdnd", settings, threading.Event())
         session = Mock()
         session.get.return_value = Mock(status_code=429)
@@ -254,7 +254,7 @@ class AutomationTests(unittest.TestCase):
         self.assertEqual(client.get.call_count, 4)
 
     def test_http_source_rate_limit_is_shared_between_threads(self):
-        settings = Settings(data_dir=self.root, delays={"qdnd": .04, "dantri": 0, "nhandan": 0, "baochinhphu": 0})
+        settings = Settings(data_dir=self.root, delays={**dict.fromkeys(SOURCES, 0), "qdnd": .04})
         client = SourceClient("qdnd", settings, threading.Event())
         starts = []
         session = Mock()
