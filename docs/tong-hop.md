@@ -320,8 +320,10 @@ Thêm Bronze (sửa parser chạy lại được), chia Silver theo ngày đăng
 đè), tên file có uuid, snapshot đóng băng. Giữ JSONL được tới vài trăm MB rồi mới cân nhắc Parquet.
 
 **Lớp Postgres cho hệ thống chạy liên tục (HIỆN TRẠNG từ 04/11/2026, giai đoạn 1).** Postgres là nơi lưu chính của bản
-"web chạy như thật" (cào liên tục → embedding → gom cụm tăng dần → đặt tên → xu hướng → API). Giai đoạn 1 mới có tầng Thu
+"web chạy như thật" (cào liên tục → embedding → gom cụm tăng dần → đặt tên → xu hướng → API). Giai đoạn 1 có tầng Thu
 thập; R2 Silver vẫn là kho chung của nhóm ML và không đổi. Hướng dẫn cho người viết crawler: `docs/handoff/ingest.md`.
+Giai đoạn 2 (từ 09/11/2026): `make crawler` cào 8 báo và nạp vào `articles`, `make worker` xử lý tiếp tới xu hướng; xem
+`docs/handoff/worker.md`.
 
 | Bảng (`infra/db/migrations/001_ingest.sql`) | Khoá | Nội dung |
 |---|---|---|
@@ -338,7 +340,7 @@ Ghi idempotent (`INSERT … ON CONFLICT (article_id)`, chỉ UPDATE khi `content
 
 **Tầng Sự kiện trong Postgres (`infra/db/migrations/002_events.sql`, từ 04/11/2026).** Hiện được NẠP từ một lần chạy
 pipeline offline (`make db-import-run` = `python -m eventrank.serving.db_import [data/runs/<run_id>]`); worker gom cụm
-liên tục (giai đoạn 2) sẽ ghi vào cùng các bảng. **API web đọc DB khi `EVENTS_BACKEND=db`** (`serving/db_store.py`,
+liên tục (`make worker`, giai đoạn 2) ghi vào cùng các bảng. **API web đọc DB khi `EVENTS_BACKEND=db`** (`serving/db_store.py`,
 `DbEventStore`; mặc định `files` = CSV của run qua `serving/store.py`): dữ liệu lấy từ Postgres lúc khởi động (~2 s), mọi
 logic truy vấn dùng chung `EventStore._index` → đối chiếu run v2 (04/11/2026): bảng xu hướng 1.200 mốc, 10 bộ lọc danh
 sách, thống kê và trang chi tiết của cả 19.938 sự kiện khớp bản CSV (số thực lệch ≤ 1e-4 do cột `real`). URL bài lấy từ

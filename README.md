@@ -10,6 +10,7 @@ Nhận diện sự kiện đa nguồn & xếp hạng xu hướng tin tức tiế
 make install                  # cài thư viện Python (uv) và JavaScript (npm)
 cp .env.example .env          # rồi điền khoá R2 (nên dùng khoá chỉ đọc)
 make dev                      # backend :8000 + web React :5173
+make up                       # bật TẤT CẢ (Qdrant, crawler, API, web, worker nếu đủ RAM) — docs/huong-dan-chay.md
 ```
 
 | Địa chỉ | Là gì |
@@ -55,6 +56,9 @@ Luồng tự động: tìm URL → Bronze → Silver → làm sạch. Chưa tíc
 hoặc gom cụm.
 
 ## Chạy trên Windows
+
+Hệ thống chạy liên tục gồm `make dev` (web), `make crawler` (cào 8 báo, nạp Postgres) và `make worker` (gom cụm, đặt tên,
+xu hướng): xem [docs/handoff/worker.md](docs/handoff/worker.md).
 
 Crawler chạy riêng tại `api.main:app`; `make dev` vẫn chạy backend web
 `apps.api.main:app` và không khởi động crawler. Hướng dẫn Tuổi Trẻ, cách thêm

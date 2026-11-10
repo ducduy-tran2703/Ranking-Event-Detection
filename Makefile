@@ -36,6 +36,20 @@ web: ## Chạy frontend React (Vite) ở cổng 5173
 dev: check-env ## Chạy CẢ backend và frontend trong một terminal (Ctrl+C dừng cả hai)
 	$(MAKE) -j2 api web
 
+up: ## Bật TẤT CẢ: Qdrant, crawler, API, web (Windows vào được), worker nếu đủ RAM; Ctrl+C tắt (docs/huong-dan-chay.md)
+	@bash infra/chay-tat-ca.sh up
+
+down: ## Tắt mọi dịch vụ `make up` đã bật (Postgres, Qdrant vẫn chạy; QDRANT_STOP=1 để dừng Qdrant)
+	@bash infra/chay-tat-ca.sh down
+
+status: ## Xem dịch vụ nào đang chạy, địa chỉ, log, RAM trống
+	@bash infra/chay-tat-ca.sh status
+
+crawl-now: ## Cào ngay một lượt cả 8 báo (crawler :8002 phải đang chạy, ví dụ qua make up)
+	@curl -sf -X POST http://127.0.0.1:8002/crawl/jobs -H 'Content-Type: application/json' -d '{}' \
+		| python3 -c 'import sys, json; j = json.load(sys.stdin); print("Đã giao job", j["id"][:8], "cho", len(j["sources"]), "báo. Tiến độ: http://localhost:8002/crawl/jobs")' \
+		|| echo "Không giao được: crawler chưa chạy (make up) hoặc đang có job chạy (xem http://localhost:8002/crawl/jobs)"
+
 types: ## Sinh lại kiểu TypeScript sau khi sửa apps/api/schemas.py
 	uv run --group embed python -c "import json; from apps.api.main import app; print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))" > apps/web/openapi.json
 	cd apps/web && npm run gen:types
@@ -125,6 +139,13 @@ ingest-replay: ## Phát lại Silver theo đồng hồ giả lập vào DB RIÊN
 	uv run --group embed python -m eventrank.common.db migrate --db-env $(REPLAY_DB_ENV)
 	$(INGEST) replay --db-env $(REPLAY_DB_ENV) --start $(REPLAY_START) --speed $(REPLAY_SPEED) --glob '$(SILVER_GLOB)' $(ARGS)
 
+worker: check-env ## Chạy worker liên tục: bài mới trong Postgres → embedding → gom lại giữ event_id → đặt tên → xu hướng (CPU; ARGS="--once" chạy 1 vòng)
+	uv run --group embed --with pyvi python -m eventrank.serving.worker $(if $(ARGS),$(ARGS),--loop)
+
+crawler: check-env ## Chạy dịch vụ cào 8 báo :8002, CÀO NGAY rồi 30 phút/lần, nạp bài vào Postgres (cần CRAWLER_USER_AGENT trong .env)
+	@grep -q '^CRAWLER_USER_AGENT=.' .env || { echo "Thiếu CRAWLER_USER_AGENT trong .env (xem .env.example)"; exit 1; }
+	CRAWLER_DB_SINK=1 uv run --env-file .env --group embed uvicorn api.main:app --host 127.0.0.1 --port 8002 --workers 1
+
 ingest-status: ## Tình trạng từng báo: lần cào cuối, bài mới 1h/24h, lỗi gần nhất; đồng hồ
 	$(INGEST) status
 
@@ -182,7 +203,7 @@ rag-modal-cache: ## Tải trọng số model vào Modal Volume bằng CPU
 rag-model-smoke: ## Gọi thử embedding và LLM thật (khởi động GPU khi cần)
 	uv run --no-sync python -X utf8 -m eventrank.rag.modal_setup smoke
 
-.PHONY: help install check-env api web dev types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline \
-	db-up db-down db-migrate db-status db-import-run ingest-import ingest-replay ingest-status test-db \
+.PHONY: help install check-env api web dev up down status crawl-now types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline \
+	db-up db-down db-migrate db-status db-import-run ingest-import ingest-replay ingest-status crawler worker test-db \
 	qdrant-up qdrant-stop qdrant-status rag-prepare rag-chunks rag-bm25 rag-search rag-dense rag-dense-search rag-hybrid-search \
 	rag-modal-deploy rag-modal-cache rag-model-smoke rag-tokenizer rag-ask rag-api
