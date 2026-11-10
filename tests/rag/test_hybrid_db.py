@@ -1,7 +1,7 @@
 import pytest
 import test_bm25_db
 from qdrant_client import QdrantClient
-from test_dense import Encoder
+from test_rag_dense import Encoder
 
 from eventrank.rag import bm25, dense, hybrid
 
