@@ -7,8 +7,6 @@ from urllib.robotparser import RobotFileParser
 
 import requests
 
-from crawler.harvester_qdnd import USER_AGENT
-
 
 class SourceBlocked(RuntimeError):
     pass
@@ -28,7 +26,8 @@ HOSTS = {
     "vietnamnet": {"vietnamnet.vn", "www.vietnamnet.vn"},
     "vnexpress": {"vnexpress.net", "www.vnexpress.net"},
 }
-POLITE_SOURCES = ("tuoitre", "thanhnien", "vietnamnet", "vnexpress")
+# Redirect on these sources means "inspect first" (VnExpress answered sitemaps with 302).
+STOP_ON_REDIRECT_SOURCES = ("tuoitre", "thanhnien", "vietnamnet", "vnexpress")
 
 
 class SourceClient:
@@ -44,11 +43,10 @@ class SourceClient:
         self.robots_lock = threading.Lock()
         self.robots = {}
         self.delay = settings.delays[source]
-        self.user_agent = USER_AGENT
-        if source in POLITE_SOURCES:
-            self.user_agent = os.environ.get("CRAWLER_USER_AGENT", "").strip()
-            if not self.user_agent or self.user_agent.startswith("Mozilla/"):
-                raise ValueError(f"{source} requires an honest CRAWLER_USER_AGENT")
+        self.user_agent = os.environ.get("CRAWLER_USER_AGENT", "").strip()
+        if not self.user_agent or self.user_agent.startswith("Mozilla/"):
+            raise ValueError(f"{source} requires an honest CRAWLER_USER_AGENT")
+        if source in STOP_ON_REDIRECT_SOURCES:
             self.delay = max(2.0, self.delay)
 
     def check(self):
@@ -75,8 +73,7 @@ class SourceClient:
 
     def get(self, url):
         self.check()
-        if self.source in POLITE_SOURCES:
-            self._check_robots(url)
+        self._check_robots(url)
         return self._get_raw(url)
 
     def _check_robots(self, url):
@@ -132,7 +129,7 @@ class SourceClient:
                         self.blocked.set()
                         raise SourceBlocked(f"{self.source}: HTTP {response.status_code} at {current}")
                     if response.is_redirect:
-                        if self.source in POLITE_SOURCES:
+                        if self.source in STOP_ON_REDIRECT_SOURCES:
                             self.blocked.set()
                             raise SourceBlocked(f"{self.source} redirected at {current}; inspect before continuing")
                         from urllib.parse import urljoin
