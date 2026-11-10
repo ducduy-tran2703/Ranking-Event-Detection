@@ -4,10 +4,13 @@ Cùng một run tí hon (tests/serving/test_db_import.make_run) → nạp vào D
 Cần TEST_DATABASE_URL (tự skip khi thiếu).
 """
 import math
+from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
+from apps.api.event_reload import EventReloader
 from apps.api.main import create_app
 from eventrank.common import db
 from eventrank.serving import db_import, db_store
@@ -97,3 +100,44 @@ def test_chon_backend_qua_bien_moi_truong(pg_url, pg_conn, monkeypatch):
     monkeypatch.delenv("DATABASE_URL")
     with pytest.raises(ES.RunNotFound, match="DATABASE_URL"):
         db_store.event_store_from_env()
+
+
+def _reloader(store_):
+    return EventReloader(SimpleNamespace(state=SimpleNamespace(events=store_)), 60)
+
+
+def test_nap_lai_khi_worker_co_du_lieu_moi(stores, pg_conn, pg_url, monkeypatch):
+    monkeypatch.setattr(db, "load_dotenv", lambda *a, **k: False)
+    monkeypatch.setenv("DATABASE_URL", pg_url)
+    _, ds, _ = stores
+    reloader = _reloader(ds)
+    assert reloader.check_once() is False and reloader.app.state.events is ds
+    pg_conn.execute("INSERT INTO worker_runs (step, status, finished_at) VALUES ('trend', 'ok', now())")
+    assert reloader.check_once() is True
+    assert reloader.app.state.events is not ds
+    assert reloader.check_once() is False
+
+
+def test_buoc_loi_khong_kich_hoat_nap_lai(stores, pg_conn, pg_url, monkeypatch):
+    monkeypatch.setattr(db, "load_dotenv", lambda *a, **k: False)
+    monkeypatch.setenv("DATABASE_URL", pg_url)
+    _, ds, _ = stores
+    pg_conn.execute("INSERT INTO worker_runs (step, status, finished_at) VALUES ('trend', 'failed', now())")
+    assert _reloader(ds).check_once() is False
+
+
+def test_khong_chay_nap_lai_khi_doc_tu_file(stores):
+    fs, _, _ = stores
+    assert EventReloader.start_if_db(SimpleNamespace(state=SimpleNamespace(events=fs))) is None
+
+
+def test_luoi_moc_keo_dai_theo_diem_cua_worker(stores, pg_conn):
+    _, ds, _ = stores
+    version, last, eid = pg_conn.execute(
+        "SELECT trend_version, t, event_id FROM trend_scores ORDER BY t DESC LIMIT 1").fetchone()
+    later = last + timedelta(days=30)
+    pg_conn.execute("INSERT INTO trend_scores (trend_version, t, event_id, score, rank, n_articles, n_articles_3h, "
+                    "n_sources, n_sources_eff, velocity) VALUES (%s, %s, %s, 1, 1, 2, 1, 1, 1, 1)", (version, later, eid))
+    fresh = db_store.DbEventStore(pg_conn, WINDOW)
+    assert fresh.n_steps > ds.n_steps
+    assert fresh.trend_times()["cuoi"][:10] == later.astimezone(ES.VN).isoformat()[:10]

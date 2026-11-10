@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from apps.api import accounts, rag_chat, schemas
+from apps.api.event_reload import EventReloader
 from apps.api.rag import router as rag_router
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
@@ -130,7 +131,10 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
                 app.state.events_error = (str(exc) if isinstance(exc, (RunNotFound, HideWindowError))
                                           else f"Không nạp được kết quả pipeline sự kiện (xem log server). "
                                                f"{NO_RUN_MESSAGE}")
+        reloader = EventReloader.start_if_db(app)
         yield
+        if reloader is not None:
+            reloader.stop()
         if app.state.rag_worker is not None:
             app.state.rag_worker.stop()
         if app.state.db_pool is not None:

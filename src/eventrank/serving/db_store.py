@@ -6,7 +6,7 @@ Chỉ DỮ LIỆU đến từ DB: sự kiện (`events`), bài (`event_articles`
 cấu hình của run (`worker_runs.versions.manifest`, lần nạp `import` thành công gần nhất). MỌI logic truy vấn (lọc, sắp,
 mốc mặc định, chuỗi điểm trang chi tiết, thống kê) dùng chung `EventStore._index` → web trả đúng như bản đọc CSV. Đọc
 một lần lúc khởi động vào RAM (~20 nghìn sự kiện, vài giây) trong MỘT transaction REPEATABLE READ (thấy một trạng thái
-nhất quán kể cả khi đang có lần nạp khác); DB đổi → khởi động lại API.
+nhất quán kể cả khi đang có lần nạp khác); DB đổi → API tự nạp lại nền (`apps/api/event_reload.py`).
 
 - **Tên:** `events.display_name` đã áp luật ẩn tên lúc nạp (DB không chứa tên mô hình bị ẩn). Cửa sổ ẩn tên của API vẫn
   áp THÊM: sự kiện giao cửa sổ → tên = tiêu đề bài medoid (đặt cửa sổ rộng hơn lúc nạp vẫn an toàn; `off` không làm hiện
@@ -32,6 +32,7 @@ from eventrank.serving import store as ES
 NO_DB_MESSAGE = ("Postgres chưa có sự kiện: áp migration (`make db-migrate`) rồi nạp một lần chạy pipeline "
                  "(`make db-import-run`), sau đó khởi động lại API.")
 BACKENDS = ("files", "db")
+CHANGE_STEPS = ("import", "recluster", "name", "trend")   # bước làm đổi dữ liệu web hiển thị
 
 
 def _vn(dt: datetime | None) -> str | None:
@@ -72,6 +73,8 @@ class DbEventStore(ES.EventStore):
             article_rows = self._load_articles(conn)
             trend_rows = self._load_trend(conn, versions.get("trend_version") or manifest.get("versions", {})
                                           .get("trend_version"))
+            self.data_version = self.current_version(conn)
+        self._extend_trend_grid(trend_rows)
         self._index(article_rows, trend_rows, default_min_sources, default_min_articles)
         self.load_seconds = round(time.perf_counter() - t0, 2)
 
@@ -82,6 +85,12 @@ class DbEventStore(ES.EventStore):
         window = ES.parse_hide_window(os.environ.get("EVENTS_HIDE_NAMES_WINDOW"))
         with db.connect() as conn:
             return cls(conn, window)
+
+    @staticmethod
+    def current_version(conn: psycopg.Connection) -> int | None:
+        """run_id lớn nhất của các bước làm đổi dữ liệu hiển thị; khác `data_version` đang nạp → cần nạp lại."""
+        return conn.execute("SELECT max(run_id) FROM worker_runs WHERE status = 'ok' AND step = ANY(%s)",
+                            (list(CHANGE_STEPS),)).fetchone()[0]
 
     def _load_events(self, conn: psycopg.Connection) -> None:
         self.events: dict[str, ES.Event] = {}
@@ -131,6 +140,17 @@ class DbEventStore(ES.EventStore):
                         "so_bai_3h": n3, "so_bao": n_src, "n_nguon_hd": round(n_eff, 4), "van_toc": round(vel, 4),
                         "tuoi_gio": round((t.timestamp() - e.first_ts) / 3600, 2) if e else 0.0})
         return out
+
+    def _extend_trend_grid(self, trend_rows: list[dict[str, Any]]) -> None:
+        """Worker thêm mốc giờ sau lần nạp run: kéo dài lưới mốc tới mốc mới nhất có trong DB."""
+        if not trend_rows:
+            return
+        last = max(r["t"] for r in trend_rows)
+        trend = self.manifest.setdefault("steps", {}).setdefault("trend", {})
+        current = trend.get("end") or ES.trending.day(self.manifest.get("config", {}).get("trending", {}).get(
+            "end", ES.trending.DEFAULTS["end"])).isoformat()
+        if datetime.fromisoformat(last) > datetime.fromisoformat(current):
+            trend["end"] = last
 
     # ------------------------------------------------------------------ khác bản đọc file
     def run_info(self) -> dict[str, Any]:
