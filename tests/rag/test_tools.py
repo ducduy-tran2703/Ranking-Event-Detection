@@ -75,7 +75,7 @@ def test_count_articles_sql_co_tham_so_va_cau_du_lieu_tat_dinh():
                                                 'date_to': '2026-09-30', 'entity': 'Hà Nội'}, allowed=ALL)
     assert err is None and out['count'] == 37
     sql, params = conn.calls[0]
-    assert 'Hà Nội' not in sql and params == ['vnexpress', '2026-09-01', '2026-09-30', 'Hà Nội']
+    assert 'Hà Nội' not in sql and params == ['rag_v1', 'vnexpress', '2026-09-01', '2026-09-30', 'Hà Nội']
     assert out['text'] == ('Kho dữ liệu có 37 bài báo của báo vnexpress, đăng từ 2026-09-01 đến 2026-09-30, '
                            'có nhắc tới "Hà Nội".')
     row = c.evidence[0]
@@ -180,7 +180,7 @@ def test_bo_ngay_model_ap_cho_ca_tool_dem_bai():
     conn = FakeConn(rows=[(5,)])
     c = ctx(conn, question='Có bao nhiêu bài về U23 Việt Nam?')
     out, _ = T.run_tool(c, 'count_articles', {'date_from': '2026-09-10', 'date_to': '2026-09-10'}, allowed=ALL)
-    assert conn.calls[0][1] == [] and 'đăng từ' not in out['text']
+    assert conn.calls[0][1] == ['rag_v1'] and 'đăng từ' not in out['text']
 
 
 @pytest.mark.parametrize('question', ['Tin ngày 10/9 về U23?', 'Hôm đó U23 đá thế nào?', 'Tháng 9 có tin gì về U23?',
@@ -209,3 +209,48 @@ def test_loc_ngay_tu_giao_dien_khong_tu_bo_va_khong_tim_lai():
     out, _ = T.run_tool(c, 'search_news', {'query': 'U23'}, allowed=ALL)
     assert out['results'] == [] and len(calls) == 1 and calls[0]['date_from'] == '2026-09-10'
     assert c.adjustments == []
+
+
+# ---------------------------------------------------------------- chỉ tính bài đã vào kho RAG, loại báo người dùng ẩn
+# Lỗi cũ (rag-tool-calling-issues): count_articles/top_events/corpus_info đọc cả bài chưa NER/chunk/index → số
+# "kho có N bài" lệch corpus_snapshot (bài có chunk mà bm25 hoặc qdrant ready); count/top không loại báo bị ẩn.
+_IN_RAG = "s.index_version = %s AND (s.bm25_status = 'ready' OR s.qdrant_status = 'ready')"
+
+
+def test_count_articles_chi_dem_bai_da_vao_kho_rag_va_loai_bao_an():
+    conn = FakeConn(rows=[(4,)])
+    c = ctx(conn, hidden_sources=['ThanhNien', 'dantri'], index_version='rag_v2')
+    out, err = T.run_tool(c, 'count_articles', {}, allowed=ALL)
+    sql, params = conn.calls[0]
+    assert err is None and out['count'] == 4
+    assert _IN_RAG in sql and 'rag_index_status' in sql
+    assert 'NOT (lower(a.source) = ANY(%s))' in sql
+    assert params == ['rag_v2', ['thanhnien', 'dantri']]
+
+
+def test_top_events_chi_lay_su_kien_co_bai_trong_kho_rag_khong_thuoc_bao_an():
+    conn = FakeConn(rows=[])
+    c = ctx(conn, hidden_sources=['vnexpress'])
+    T.run_tool(c, 'top_events', {'limit': 4}, allowed=ALL)
+    sql, params = conn.calls[0]
+    assert 'event_articles ea' in sql and _IN_RAG in sql and 'NOT (lower(a.source) = ANY(%s))' in sql
+    assert params == ['rag_v1', ['vnexpress'], 4]
+
+
+def test_corpus_info_tung_bao_cung_tieu_chi_snapshot():
+    from datetime import date
+    conn = FakeConn(rows=[('tuoitre', 2, date(2026, 8, 1), date(2026, 9, 19))])
+    T.run_tool(ctx(conn), 'corpus_info', {}, allowed=ALL)
+    sql, params = conn.calls[0]
+    assert _IN_RAG in sql and params == ['rag_v1']
+
+
+def test_top_events_doc_chi_muc_nen_giu_khoa_doc():
+    used = []
+
+    @contextmanager
+    def lock():
+        used.append(1)
+        yield
+    T.run_tool(ctx(FakeConn(rows=[]), read_lock=lock), 'top_events', {}, allowed=ALL)
+    assert used == [1]

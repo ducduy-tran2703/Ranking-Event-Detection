@@ -170,6 +170,9 @@ rag-prepare: ## Nhập NER + chia chunk vào DB (ARGS="--ner-version … --silve
 rag-chunks: ## Chia chunk từ article_ner đã có; cấu hình configs/rag.yaml
 	uv run --no-sync python -m eventrank.rag.prepare --steps chunks $(ARGS)
 
+rag-sync: ## Đồng bộ RAG một lượt: NER → chunk → Qdrant → BM25 (ARGS="--max-articles 200", "--dry-run"); có thể bật GPU Modal
+	uv run --no-sync python -m eventrank.rag.sync $(ARGS)
+
 rag-bm25: ## Dựng hoặc dùng lại snapshot BM25 local từ Postgres
 	uv run --no-sync python -m eventrank.rag.bm25 build $(ARGS)
 
@@ -205,5 +208,5 @@ rag-model-smoke: ## Gọi thử embedding và LLM thật (khởi động GPU khi
 
 .PHONY: help install check-env api web dev up down status crawl-now types test build prod tunnel weak-labels agreement agreement-v4 embed compare cluster events-viz name trend pipeline \
 	db-up db-down db-migrate db-status db-import-run ingest-import ingest-replay ingest-status crawler worker test-db \
-	qdrant-up qdrant-stop qdrant-status rag-prepare rag-chunks rag-bm25 rag-search rag-dense rag-dense-search rag-hybrid-search \
+	qdrant-up qdrant-stop qdrant-status rag-prepare rag-chunks rag-sync rag-bm25 rag-search rag-dense rag-dense-search rag-hybrid-search \
 	rag-modal-deploy rag-modal-cache rag-model-smoke rag-tokenizer rag-ask rag-api

@@ -175,6 +175,8 @@ def test_danh_dau_pending_truoc_khi_xoa_point_qdrant(monkeypatch):
 
     class _Conn:
         def execute(self, sql, params=None):
+            if sql.startswith("SELECT a.article_id, a.title"):     # pha ghi kiểm lại hash: bài không đổi
+                return SimpleNamespace(fetchall=lambda: [(aid, "Tin Hà Nội", "Ngắn", "Thân bài.", text_hash(text))])
             if sql.startswith("SELECT chunk_id FROM rag_chunks"):
                 return iter([(old,)])
             if "UPDATE rag_index_status" in sql:
@@ -190,12 +192,19 @@ def test_danh_dau_pending_truoc_khi_xoa_point_qdrant(monkeypatch):
         def collection_exists(self, name):
             return True
 
+        def get_collection(self, name):
+            return SimpleNamespace(config=SimpleNamespace(metadata={"published": True, "binding": {}}))
+
+        def update_collection(self, collection_name, metadata):
+            events.append(("unpublish", metadata["published"]))
+
         def delete(self, collection_name, points_selector, wait):
             events.append(("qdrant_delete", list(points_selector.points)))
 
     with pytest.raises(RuntimeError):
         sync.sync_rag(_Conn(), _cfg(), article_ids=[aid], qdrant=_Qdrant(), model_client=object())
-    assert events == [("mark_pending", [old]), ("qdrant_delete", [old]), "transaction"]
+    # Gỡ publish dense trước khi corpus đổi (Qwen lỗi sau đó thì hybrid không thấy binding lệch).
+    assert events == [("unpublish", False), ("mark_pending", [old]), ("qdrant_delete", [old]), "transaction"]
 
 
 def test_preparation_lock_cho_toi_khi_khoa_ranh(monkeypatch):
@@ -231,3 +240,100 @@ def test_safe_error_giu_thong_diep_noi_bo_an_thong_diep_ha_tang():
     assert sync.safe_error(ValueError("corpus thay đổi")) == "ValueError: corpus thay đổi"
     leaked = sync.safe_error(psycopg.OperationalError('password authentication failed for user "eventrank"'))
     assert leaked == "OperationalError"
+
+
+# ---------------------------------------------------------------- hai pha: NER không giữ khoá ghi
+class _LockSpy:
+    """Giả `_preparation_lock`: ghi lại lúc nào khoá đang giữ."""
+
+    def __init__(self):
+        self.held = False
+        self.entered = 0
+
+    def __call__(self, conn, **kw):
+        spy = self
+
+        class _Ctx:
+            def __enter__(self):
+                spy.held = True
+                spy.entered += 1
+
+            def __exit__(self, *a):
+                spy.held = False
+                return False
+        return _Ctx()
+
+
+def _two_phase_setup(monkeypatch, *, changed=False):
+    aid = "b" * 64
+    text = build_full_text({"title": "Tin Hà Nội", "sapo": "Ngắn", "content_text": "Thân bài."})
+    plan = {"requested": 1, "missing_article_ids": [], "already_ready_ids": [], "pending_index_ids": [],
+            "need_ner_articles": [{"article_id": aid, "canonical_text": text, "text_hash": text_hash(text)}],
+            "need_rechunk_articles": [], "stale_ids": [], "deferred": 0, "limited": False}
+    lock = _LockSpy()
+    events = []
+    monkeypatch.setattr(sync, "inspect_articles", lambda *a, **kw: plan)
+    monkeypatch.setattr(sync, "_pending_counts", lambda *a, **kw: (0, 0))
+    monkeypatch.setattr(sync, "_preparation_lock", lock)
+
+    class _Predictor:
+        def predict_texts(self, texts):
+            events.append(("ner", lock.held))
+            return [[] for _ in texts]
+
+    class _Model:
+        def ping_embedding(self):
+            events.append(("ping", lock.held))
+            return True
+
+    current_content = "Thân bài ĐÃ SỬA." if changed else "Thân bài."
+
+    class _Conn:
+        def execute(self, sql, params=None):
+            if sql.startswith("SELECT a.article_id, a.title"):
+                events.append(("recheck", lock.held))
+                return SimpleNamespace(fetchall=lambda: [(aid, "Tin Hà Nội", "Ngắn", current_content, None)])
+            if sql.startswith("SELECT chunk_id FROM rag_chunks"):
+                return iter([])
+            raise AssertionError(sql)
+
+        def transaction(self):
+            events.append(("write", lock.held))
+            raise RuntimeError("dừng ở đây: đủ để kiểm thứ tự")
+
+    class _Qdrant:
+        def collection_exists(self, name):
+            return True
+
+        def get_collection(self, name):
+            return SimpleNamespace(config=SimpleNamespace(metadata={"published": False}))
+
+    return _Conn(), _Predictor(), _Model(), _Qdrant(), events, lock
+
+
+def test_ner_va_ping_qwen_chay_ngoai_khoa_ghi_roi_moi_ghi_trong_khoa(monkeypatch):
+    conn, pred, model, q, events, lock = _two_phase_setup(monkeypatch)
+    with pytest.raises(RuntimeError, match="dừng ở đây"):
+        sync.sync_rag(conn, _cfg(), ner_predictor=pred, qdrant=q, model_client=model)
+    assert events == [("ner", False), ("ping", False), ("recheck", True), ("write", True)]
+    assert lock.entered == 1 and lock.held is False
+
+
+def test_bai_bi_sua_giua_hai_pha_bi_bo_de_lan_sau(monkeypatch):
+    conn, pred, model, q, events, _ = _two_phase_setup(monkeypatch, changed=True)
+    res = sync.sync_rag(conn, _cfg(), ner_predictor=pred, qdrant=q, model_client=model)
+    assert res["skipped_changed"] == 1 and res["chunks_inserted"] == 0 and res["limited"] is True
+    assert ("write", True) not in events
+
+
+def test_max_articles_phai_duong():
+    with pytest.raises(ValueError, match="max_articles"):
+        sync.inspect_articles(object(), None, max_articles=0)
+
+
+def test_cli_max_articles_truyen_xuong_sync(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(sync.db, "connect", lambda: _noop_ctx())
+    monkeypatch.setattr(sync, "sync_rag", lambda conn, cfg, **kw: seen.update(kw) or {"ok": 1})
+    assert sync.main(["--max-articles", "25"]) == 0
+    assert seen["max_articles"] == 25 and seen["article_ids"] is None

@@ -143,6 +143,7 @@ class ToolContext:
     user_id: int | None = None
     message_id: int | None = None
     read_lock: Callable[[], Any] | None = None
+    index_version: str = 'rag_v1'
     evidence: list[dict] = field(default_factory=list)
     profile_plans: list[P.UpdatePlan] = field(default_factory=list)
     adjustments: list[dict] = field(default_factory=list)
@@ -201,6 +202,24 @@ def _filters(ctx: ToolContext, args, tool: str) -> tuple[str | None, str | None,
     return (source.strip().lower() if source else None), date_from, date_to
 
 
+# Bài "đã vào kho RAG": cùng tiêu chí `pipeline.corpus_snapshot` (có chunk mà BM25 hoặc Qdrant ready ở index hiện hành).
+# Bài crawler vừa nạp nhưng chưa NER/chunk/index thì search_news không tìm được → không được tính vào số liệu.
+_IN_RAG = ('EXISTS (SELECT 1 FROM rag_chunks c JOIN rag_index_status s USING(chunk_id) '
+           "WHERE c.article_id = a.article_id AND s.index_version = %s "
+           "AND (s.bm25_status = 'ready' OR s.qdrant_status = 'ready'))")
+_NOT_HIDDEN = 'NOT (lower(a.source) = ANY(%s))'
+
+
+def _visible(ctx: ToolContext) -> tuple[list[str], list]:
+    """Điều kiện SQL (trên bí danh `a` của articles) + tham số: đã vào kho RAG và không thuộc báo người dùng ẩn."""
+    where, params = [_IN_RAG], [ctx.index_version]
+    hidden = list(dict.fromkeys(s.strip().lower() for s in ctx.hidden_sources if s and s.strip()))
+    if hidden:
+        where.append(_NOT_HIDDEN)
+        params.append(hidden)
+    return where, params
+
+
 def _describe(source, date_from, date_to, category=None, entity=None) -> str:
     parts = []
     if source:
@@ -250,15 +269,22 @@ def search_news(ctx: ToolContext, args: SearchNewsArgs) -> dict:
 
 
 def corpus_info(ctx: ToolContext, args: CorpusInfoArgs) -> dict:
+    """Phạm vi kho tính trên bài đã vào kho RAG và KHÔNG thuộc báo người dùng ẩn (cùng tiêu chí count/top_events).
+    Không có bài nào như vậy (FakeConn, kho rỗng) → dùng snapshot chung."""
     snap = ctx.snapshot()
+    where, params = _visible(ctx)
     rows = ctx.conn.execute(
         f"SELECT a.source, count(*), min((a.published_at AT TIME ZONE '{_VN}')::date), "
         f"max((a.published_at AT TIME ZONE '{_VN}')::date) FROM articles a "
-        'WHERE EXISTS (SELECT 1 FROM rag_chunks c WHERE c.article_id = a.article_id) '
-        'GROUP BY a.source ORDER BY a.source').fetchall()
+        f"WHERE {' AND '.join(where)} GROUP BY a.source ORDER BY a.source", params).fetchall()
     per_source = '; '.join(f'{s}: {n} bài, từ {lo} đến {hi}' for s, n, lo, hi in rows)
-    text = (f"Kho dữ liệu có {snap['articles']} bài của {len(snap['sources'])} báo, đăng từ {snap['from_date']} "
-            f"đến {snap['to_date']}. Đây là dữ liệu lưu sẵn, không phải tin cập nhật theo thời gian thực. "
+    if rows:
+        total, n_sources = sum(int(r[1]) for r in rows), len(rows)
+        lo, hi = min(r[2] for r in rows), max(r[3] for r in rows)
+    else:
+        total, n_sources, lo, hi = snap['articles'], len(snap['sources']), snap['from_date'], snap['to_date']
+    text = (f"Kho dữ liệu có {total} bài của {n_sources} báo, đăng từ {lo} "
+            f"đến {hi}. Đây là dữ liệu lưu sẵn, không phải tin cập nhật theo thời gian thực. "
             f'Từng báo: {per_source}.')
     eid = ctx.add({'kind': 'data', 'tool': 'corpus_info', 'title': 'Phạm vi kho dữ liệu', 'text': text})
     return {'id': eid, 'text': text}
@@ -266,7 +292,7 @@ def corpus_info(ctx: ToolContext, args: CorpusInfoArgs) -> dict:
 
 def count_articles(ctx: ToolContext, args: CountArticlesArgs) -> dict:
     source, date_from, date_to = _filters(ctx, args, 'count_articles')
-    where, params = [], []
+    where, params = _visible(ctx)
     if source:
         where.append('lower(a.source) = %s')
         params.append(source)
@@ -284,7 +310,7 @@ def count_articles(ctx: ToolContext, args: CountArticlesArgs) -> dict:
         where.append("EXISTS (SELECT 1 FROM article_ner n, jsonb_array_elements(n.entities) e "
                      "WHERE n.article_id = a.article_id AND lower(e->>'text') = lower(%s))")
         params.append(args.entity)
-    sql = 'SELECT count(*) FROM articles a' + (' WHERE ' + ' AND '.join(where) if where else '')
+    sql = 'SELECT count(*) FROM articles a WHERE ' + ' AND '.join(where)
     count = int(ctx.conn.execute(sql, params).fetchone()[0])
     text = f'Kho dữ liệu có {count} bài báo{_describe(source, date_from, date_to, args.category, args.entity)}.'
     eid = ctx.add({'kind': 'data', 'tool': 'count_articles', 'title': 'Đếm bài trong kho', 'text': text})
@@ -293,7 +319,14 @@ def count_articles(ctx: ToolContext, args: CountArticlesArgs) -> dict:
 
 def top_events(ctx: ToolContext, args: TopEventsArgs) -> dict:
     _, date_from, date_to = _filters(ctx, args, 'top_events')
-    where, params = ["e.status IN ('open', 'closed')", 'e.size >= 2'], []
+    visible, visible_params = _visible(ctx)
+    # Sự kiện phải có ít nhất một bài đã vào kho RAG và không thuộc báo bị ẩn (event_articles gọi tiếp mới có bài).
+    # Số bài/số báo/khoảng ngày trong câu dữ liệu cũng chỉ tính trên các bài đó (v), không lấy events.size/n_sources.
+    lateral = ('JOIN LATERAL (SELECT count(*) AS n, count(DISTINCT a.source) AS n_src, min(a.published_at) AS lo, '
+               'max(a.published_at) AS hi FROM event_articles ea JOIN articles a USING (article_id) '
+               'WHERE ea.event_id = e.event_id AND ' + ' AND '.join(visible) + ') v ON v.n > 0')
+    where = ["e.status IN ('open', 'closed')", 'e.size >= 2']
+    params = list(visible_params)
     if date_from:
         where.append(f"(e.last_seen AT TIME ZONE '{_VN}')::date >= %s::date")
         params.append(date_from)
@@ -306,8 +339,8 @@ def top_events(ctx: ToolContext, args: TopEventsArgs) -> dict:
     params.append(args.limit)
     try:
         rows = ctx.conn.execute(
-            'SELECT e.event_id, e.medoid_title, e.size, e.n_sources, e.first_seen, e.last_seen, e.category_std, '
-            'e.name_source FROM events e WHERE ' + ' AND '.join(where) +
+            'SELECT e.event_id, e.medoid_title, v.n, v.n_src, v.lo, v.hi, e.category_std, '
+            'e.name_source FROM events e ' + lateral + ' WHERE ' + ' AND '.join(where) +
             ' ORDER BY e.total_score DESC NULLS LAST, e.size DESC, e.event_id LIMIT %s', params).fetchall()
     except psycopg.errors.UndefinedTable:
         raise ToolError('Kho chưa có dữ liệu sự kiện (bảng events).') from None
@@ -369,7 +402,7 @@ def update_user_profile(ctx: ToolContext, args: P.ProfileUpdate) -> dict:
 
 HANDLERS = {'search_news': search_news, 'corpus_info': corpus_info, 'count_articles': count_articles,
             'top_events': top_events, 'event_articles': event_articles, 'update_user_profile': update_user_profile}
-READS_INDEX = {'search_news', 'corpus_info', 'count_articles', 'event_articles'}
+READS_INDEX = {'search_news', 'corpus_info', 'count_articles', 'top_events', 'event_articles'}
 
 
 def run_tool(ctx: ToolContext, name: str, arguments: dict, *, allowed) -> tuple[dict, str | None]:
