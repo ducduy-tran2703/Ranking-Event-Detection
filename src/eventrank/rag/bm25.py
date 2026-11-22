@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import time
 import unicodedata
@@ -277,6 +278,32 @@ Pointer publish thành công nhưng UPDATE DB lỗi: chạy lại để phục h
         updated = _mark_ready(conn, index_version)
         return {**manifest, "index_dir": str(path), "reused": reused,
                 "status_updated": updated, "total_seconds": round(time.perf_counter() - started, 3)}
+
+
+def prune_snapshots(root, *, keep=2):
+    """Xoá snapshot BM25 cũ, giữ snapshot CURRENT và `keep-1` snapshot mới nhất còn lại.
+
+    Chỉ đụng tới thư mục con có manifest.json; chưa publish (không có CURRENT.json) thì không xoá gì.
+    Snapshot đang bị reader khác mở (Windows khoá file) thì bỏ qua, lần sau dọn tiếp.
+    """
+    if type(keep) is not int or keep < 1:
+        raise ValueError("keep phải >= 1")
+    root = Path(root)
+    pointer = root / "CURRENT.json"
+    if not pointer.exists():
+        return []
+    current = json.loads(pointer.read_text(encoding="utf-8"))["build_dir"]
+    others = sorted((d for d in root.iterdir()
+                     if d.is_dir() and d.name != current and (d / "manifest.json").exists()),
+                    key=lambda d: d.stat().st_mtime, reverse=True)
+    removed = []
+    for old in others[keep - 1:]:
+        try:
+            shutil.rmtree(old)
+        except OSError:
+            continue
+        removed.append(old.name)
+    return removed
 
 
 def main(argv=None):

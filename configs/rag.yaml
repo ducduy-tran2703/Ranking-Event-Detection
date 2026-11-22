@@ -7,11 +7,29 @@ chunking:
 index_version: rag_v1
 bm25:
   root: data/rag/bm25
+  # Sync dựng snapshot mới mỗi lần; giữ CURRENT + bản liền trước, xoá bản cũ hơn.
+  keep_snapshots: 2
 dense:
   url: http://127.0.0.1:6333
   collection: rag_v1_qwen_text_v1
   batch_size: 32
   concurrency: 4
+ner:
+  model_dir: data/models/bamibert-qft-s44/best
+  ner_version: bamibert-qft-s44-clean-20261122
+  max_length: 2048
+  window_overlap: 512
+  batch_size: 8
+  device: auto
+sync:
+  # Chờ các lượt /ask đang giữ khoá đọc (gồm cả cold start Qwen) trước khi ghi index.
+  lock_wait_seconds: 600
+query_ner:
+  enabled: true
+  in_chunk_boost: 0.008
+  in_article_boost: 0.003
+  label_match_multiplier: 1.0
+  text_only_multiplier: 0.4
 retrieval:
   branch_limit: 30
   rrf_k: 60
@@ -23,6 +41,12 @@ generation:
 models:
   app_name: eventrank-rag-models
   cache_volume: eventrank-rag-model-cache
+  # Cả hai service tắt sau chừng này giây rảnh; đổi xong phải deploy lại Modal.
+  scaledown_window: 120
+  # Ping Qwen trong lúc gọi Gemma để hai service tắt cùng mốc sau token cuối.
+  keepalive:
+    interval_seconds: 30
+    max_seconds: 900
   embedding:
     model: Qwen/Qwen3-Embedding-0.6B
     revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
@@ -31,7 +55,7 @@ models:
     batch_size: 8
     gpu: L4
     max_containers: 4
-    buffer_containers: 3
+    buffer_containers: 0
     instruction: Given a Vietnamese news question, retrieve relevant news passages that answer the question.
   llm:
     model: google/gemma-4-12B-it-qat-w4a16-ct

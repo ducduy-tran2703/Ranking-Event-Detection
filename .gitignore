@@ -224,10 +224,16 @@ __marimo__/
 CLAUDE.local.md
 
 # Du lieu data lake (khong commit)
-data/
+/data/
 *.parquet
 *.html.gz
 
 # Frontend React (apps/web)
 node_modules/
 apps/web/dist/
+
+# Runtime crawler state and collected articles
+/data/
+
+*.jsonl
+*.txt

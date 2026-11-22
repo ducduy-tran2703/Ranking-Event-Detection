@@ -25,7 +25,11 @@ def qa_pipeline():
         calls.append('generate')
         return {'content': json.dumps(QA['valid_generation']), 'finish_reason': 'stop', 'usage': {}}
 
-    model = SimpleNamespace(config=config['models'], chat=chat)
+    def ping_embedding():
+        calls.append('ping')
+        return True
+
+    model = SimpleNamespace(config=config['models'], chat=chat, ping_embedding=ping_embedding)
     instance = pipeline.RAGPipeline(None, config, retriever=Retriever(), model=model,
                                      counter=Counter(), snapshot=QA['snapshot'])
     return instance, calls
@@ -38,8 +42,25 @@ def test_end_to_end_answer_has_checked_citations_and_budget(qa_pipeline):
     result = p.ask(QA['question'])
     assert result['status'] == 'answered' and result['sources'][0]['citation_id'] == 1
     assert result['answer'].endswith('[1]')
-    assert calls == ['retrieve', 'generate']
+    assert [call for call in calls if call != 'ping'] == ['retrieve', 'generate']
     assert result['trace']['context']['prompt_tokens'] + result['trace']['context']['output_reserve'] <= 20000
+
+
+def test_giu_qwen_song_den_khi_gemma_tra_xong(qa_pipeline):
+    p, calls = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    result = p.ask(QA['question'])
+    assert calls == ['retrieve', 'generate', 'ping']
+    assert result['trace']['keepalive'] == {'pings': 1, 'failures': 0}
+
+
+def test_bm25_only_khong_danh_thuc_qwen(qa_pipeline):
+    p, calls = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.retriever.search = lambda *a, **kw: {'mode': 'bm25_only', 'degraded': True, 'hits': records(),
+                                           'trace': {'versions': {}}}
+    result = p.ask(QA['question'])
+    assert 'ping' not in calls and 'keepalive' not in result['trace']
 
 
 def test_no_hits_never_calls_tokenizer_or_generator(qa_pipeline):
@@ -56,6 +77,34 @@ def test_unsupported_scope_does_not_retrieve_or_generate(qa_pipeline, question):
     p, calls = qa_pipeline
     result = p.ask(question)
     assert result['status'] == 'unsupported_query' and calls == []
+
+
+@pytest.mark.parametrize('question', ['Album này có bao nhiêu bài hát?', 'Đề toán có bao nhiêu bài thi?'])
+def test_cau_hoi_bai_hat_khong_bi_chan_nham_la_thong_ke(qa_pipeline, question):
+    p, calls = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    assert p.ask(question)['status'] != 'unsupported_query' and 'retrieve' in calls
+
+
+def test_cau_hoi_dem_bai_ve_mot_chu_de_van_bi_chan(qa_pipeline):
+    p, calls = qa_pipeline
+    assert p.ask('Có bao nhiêu bài về giá vàng?')['status'] == 'unsupported_query' and calls == []
+
+
+@pytest.mark.parametrize('filters, expected', [({'source': 'thanhnien'}, 8), ({}, 3)])
+def test_gioi_han_nguon_chi_ap_dung_khi_khong_loc_mot_bao(qa_pipeline, monkeypatch, filters, expected):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    seen = {}
+    real = pipeline.select_context
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline, 'select_context', spy)
+    p.ask(QA['question'], **filters)
+    assert seen['per_source'] == expected
 
 
 def test_unknown_citation_is_not_exposed_as_answer(qa_pipeline):
@@ -82,6 +131,17 @@ def test_generation_timeout_is_sanitized_and_not_returned_as_answer(qa_pipeline)
     assert 'private-token-example' not in str(error.value)
 
 
+def test_trace_ghi_lai_quote_da_bo(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    body = json.loads(json.dumps(QA['valid_generation']))
+    body['claims'].append({'text': 'Ý bịa ra.', 'evidence': [{'id': 1, 'quote': 'Việt Nam thắng 4-0.'}]})
+    p.model.chat = lambda *a, **kw: {'content': json.dumps(body, ensure_ascii=False), 'finish_reason': 'stop', 'usage': {}}
+    result = p.ask(QA['question'])
+    assert result['status'] == 'answered' and 'Ý bịa' not in result['answer']
+    assert [d['quote'] for d in result['trace']['validation']['dropped']] == ['Việt Nam thắng 4-0.']
+
+
 def test_truncated_model_response_is_not_accepted(qa_pipeline):
     p, _ = qa_pipeline
     p.model.config['llm']['max_model_len'] = 20000
@@ -95,3 +155,80 @@ def test_no_context_fits_does_not_generate(qa_pipeline):
     p.counter.count = lambda messages: 8192
     result = p.ask(QA['question'])
     assert result['status'] == 'insufficient_evidence' and 'generate' not in calls
+
+
+# ---------------------------------------------------------------- Query NER lỗi/thiếu không làm hỏng câu hỏi
+def test_query_ner_loi_van_tra_loi_va_ghi_trace(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.config['query_ner'] = {'enabled': True}
+
+    class Broken:
+        def predict_texts(self, texts):
+            raise RuntimeError('CUDA out of memory at C:/private')
+
+    p.query_ner = Broken()
+    result = p.ask(QA['question'])
+    assert result['status'] == 'answered'
+    assert result['trace']['query_ner'] == {'enabled': True, 'status': 'error', 'exception': 'RuntimeError'}
+
+
+def test_query_ner_thieu_checkpoint_ghi_ro_trong_trace(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.config['query_ner'] = {'enabled': True}
+    p.config['ner'] = {'model_dir': 'data/models/khong-ton-tai'}
+    result = p.ask(QA['question'])
+    assert result['status'] == 'answered'
+    assert result['trace']['query_ner'] == {'enabled': True, 'status': 'model_missing'}
+
+
+def test_query_ner_thanh_cong_ghi_hang_truoc_sau_boost(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.config['query_ner'] = {'enabled': True}
+    p.query_ner = SimpleNamespace(predict_texts=lambda texts: [[]])
+    result = p.ask(QA['question'])
+    q = result['trace']['query_ner']
+    assert q['status'] == 'ok' and q['entities'] == [] and q['boosted'] == []
+
+
+# ---------------------------------------------------------------- không đọc index khi sync đang ghi
+class _LockConn:
+    def __init__(self, events, free):
+        self.events, self.free = events, free
+
+    def execute(self, sql, params=None):
+        if 'pg_try_advisory_lock_shared' in sql:
+            self.events.append('lock_shared')
+            return SimpleNamespace(fetchone=lambda: (self.free,))
+        if 'pg_advisory_unlock_shared' in sql:
+            self.events.append('unlock_shared')
+            return SimpleNamespace(fetchone=lambda: (True,))
+        raise AssertionError(sql)
+
+
+def test_sync_dang_chay_thi_tra_index_sync_khong_truy_xuat(qa_pipeline):
+    p, calls = qa_pipeline
+    events = []
+    p.conn = _LockConn(events, free=False)
+    with pytest.raises(pipeline.RAGUnavailableError) as err:
+        p.ask(QA['question'])
+    assert err.value.phase == 'index_sync'
+    assert calls == [] and events == ['lock_shared']
+
+
+def test_khoa_doc_duoc_nha_truoc_khi_goi_gemma(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    events = []
+    p.conn = _LockConn(events, free=True)
+    original = p.model.chat
+
+    def chat(*a, **kw):
+        events.append('generate')
+        return original(*a, **kw)
+
+    p.model.chat = chat
+    assert p.ask(QA['question'])['status'] == 'answered'
+    assert events == ['lock_shared', 'unlock_shared', 'generate']

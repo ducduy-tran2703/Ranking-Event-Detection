@@ -82,6 +82,98 @@ def test_invalid_citation_or_claim_is_rejected(change):
         generation.validate_answer(json.dumps(body), select().evidence)
 
 
+def _answer_with_quote(quote, text):
+    rows = records()
+    rows[0]['text'] = text
+    body = copy.deepcopy(QA['valid_generation'])
+    body['claims'][0]['evidence'][0]['quote'] = quote
+    return generation.validate_answer(json.dumps(body, ensure_ascii=False), select(rows).evidence)
+
+
+@pytest.mark.parametrize('quote', [
+    'Ông A nói: “Chúng ta cần khuôn khổ mới”, theo báo cáo.',
+    'Chúng ta cần khuôn khổ mới, theo báo cáo.',
+])
+def test_quote_khong_bi_tu_choi_chi_vi_khac_dau_ngoac(quote):
+    text = 'Ông A nói: "Chúng ta cần khuôn khổ mới", theo báo cáo.'
+    assert _answer_with_quote(quote, text)['status'] == 'answered'
+
+
+@pytest.mark.parametrize('quote', [
+    'Ông A nói: "Chúng ta cần khuôn khổ cũ", theo báo cáo.',
+    'Ông A nói ... theo báo cáo.',
+])
+def test_quote_sai_chu_hoac_cat_bang_ba_cham_van_bi_tu_choi(quote):
+    with pytest.raises(generation.CitationError):
+        _answer_with_quote(quote, 'Ông A nói: "Chúng ta cần khuôn khổ mới", theo báo cáo.')
+
+
+LONG_TEXT = 'Đoạn đầu của bài báo rất dài. Câu ở giữa bài. Đoạn cuối của bài báo cũng dài.'
+
+
+@pytest.mark.parametrize('quote, text', [
+    ('tiến độ triển khai chậm', 'Tiến độ, triển khai: chậm.'),
+    ('Đoạn đầu của bài báo rất dài... Đoạn cuối của bài báo cũng dài.', LONG_TEXT),
+    ('Đoạn đầu của bài báo rất dài…', LONG_TEXT),
+])
+def test_quote_chap_nhan_hoa_thuong_dau_cau_va_ba_cham_co_that(quote, text):
+    assert _answer_with_quote(quote, text)['status'] == 'answered'
+
+
+@pytest.mark.parametrize('quote, text', [
+    ('hơn 11.038 tỷ đồng', 'Tổng số tiền hơn 11,038 tỷ đồng.'),
+    ('Đoạn cuối của bài báo cũng dài... Đoạn đầu của bài báo rất dài.', LONG_TEXT),
+    ('Đoạn đầu của bài báo rất dài... Đoạn này không hề có trong bài.', LONG_TEXT),
+])
+def test_quote_sai_so_sai_thu_tu_hoac_co_doan_bia_van_bi_tu_choi(quote, text):
+    with pytest.raises(generation.CitationError):
+        _answer_with_quote(quote, text)
+
+
+VALID_QUOTE = {'id': 1, 'quote': 'U23 Việt Nam thắng U23 Philippines 2-0.'}
+BAD_QUOTE = {'id': 1, 'quote': 'Việt Nam thắng 4-0.'}
+
+
+def _validate(claims):
+    body = {'status': 'answered', 'claims': claims}
+    return generation.validate_answer(json.dumps(body, ensure_ascii=False), select().evidence)
+
+
+def test_chi_bo_y_co_quote_sai_va_giu_y_dung():
+    result = _validate([{'text': 'Thắng 2-0.', 'evidence': [VALID_QUOTE]},
+                        {'text': 'Ý bịa ra.', 'evidence': [BAD_QUOTE]}])
+    assert result['status'] == 'answered' and result['answer'] == 'Thắng 2-0. [1]'
+    assert 'Ý bịa' not in result['answer']
+    assert result['dropped'] == [{'claim': 1, 'id': 1, 'quote': BAD_QUOTE['quote']}]
+
+
+def test_y_con_quote_dung_thi_giu_va_khong_nhan_quote_sai():
+    result = _validate([{'text': 'Thắng 2-0.', 'evidence': [VALID_QUOTE, BAD_QUOTE]}])
+    assert result['sources'][0]['quotes'] == [VALID_QUOTE['quote']]
+    assert len(result['dropped']) == 1
+
+
+def test_citation_cua_quote_bi_bo_khong_con_trong_cau_tra_loi():
+    result = _validate([{'text': 'Thắng 2-0 [2].', 'evidence': [VALID_QUOTE, {'id': 2, 'quote': 'Không có trong bài này.'}]}])
+    assert result['answer'] == 'Thắng 2-0. [1]' and [s['citation_id'] for s in result['sources']] == [1]
+
+
+def test_tat_ca_quote_sai_thi_van_tu_choi_ca_cau():
+    with pytest.raises(generation.CitationError, match='quote_not_in_evidence'):
+        _validate([{'text': 'Ý bịa ra.', 'evidence': [BAD_QUOTE]}])
+
+
+def test_id_bang_chung_khong_ton_tai_van_tu_choi_ca_cau():
+    with pytest.raises(generation.CitationError, match='unknown_citation_id'):
+        _validate([{'text': 'Thắng 2-0.', 'evidence': [VALID_QUOTE]},
+                   {'text': 'Ý khác.', 'evidence': [{'id': 999, 'quote': 'Bất kỳ.'}]}])
+
+
+def test_schema_gioi_han_do_dai_quote_va_prompt_cam_ba_cham():
+    assert generation.output_schema()['$defs']['_Ref']['properties']['quote']['maxLength'] == 300
+    assert 'ba chấm' in context.SYSTEM
+
+
 def test_refusal_never_presents_unrelated_sources_as_answer_citations():
     result = generation.validate_answer(json.dumps(QA['refusal']), select().evidence)
     assert result['status'] == 'insufficient_evidence' and result['sources'] == []

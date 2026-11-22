@@ -5,7 +5,9 @@ import json
 import math
 import os
 import re
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urljoin, urlsplit
@@ -54,7 +56,6 @@ def llm_command(spec):
         "--host", "0.0.0.0", "--port", "8000", "--max-model-len", str(spec["max_model_len"]),
         "--max-num-seqs", "1", "--gpu-memory-utilization", str(spec["gpu_memory_utilization"]),
         "--generation-config", "vllm", "--limit-mm-per-prompt", '{"image":0,"audio":0,"video":0}',
-        "--enforce-eager",
     ]
 
 
@@ -66,6 +67,40 @@ def _check_vectors(vectors, count, dimension):
             raise ValueError("Embedding response dimension or finite-value mismatch")
         if not math.isclose(sum(x * x for x in vector), 1.0, abs_tol=0.02):
             raise ValueError("Embedding is not L2 normalized")
+
+
+@contextmanager
+def keep_alive(ping, *, interval, max_seconds):
+    """Ping while the body runs, then once on exit so the idle timer restarts from that moment.
+
+    A failed ping never affects the body. max_seconds caps GPU spend if the body hangs,
+    and pings stop by themselves when this process dies.
+    """
+    stats = {"pings": 0, "failures": 0}
+    stop = threading.Event()
+    deadline = time.monotonic() + max_seconds
+
+    def send():
+        try:
+            alive = ping()
+        except Exception:  # noqa: BLE001 -- best effort; never surface client errors
+            alive = False
+        stats["pings"] += 1
+        stats["failures"] += not alive
+
+    def loop():
+        while not stop.wait(interval) and time.monotonic() < deadline:
+            send()
+
+    worker = threading.Thread(target=loop, name="model-keepalive", daemon=True)
+    worker.start()
+    try:
+        yield stats
+    finally:
+        stop.set()
+        worker.join()
+        if time.monotonic() < deadline:
+            send()
 
 
 class ModelClient:
@@ -127,6 +162,15 @@ class ModelClient:
         except ValueError:
             raise RuntimeError("Model service returned invalid JSON") from None
 
+    def ping_embedding(self):
+        """Reset the embedding container's idle timer; report failure instead of raising."""
+        if not self.embedding_url:
+            return False
+        try:
+            return self._http.get(self.embedding_url + "/health", timeout=15).status_code == 200
+        except httpx.HTTPError:
+            return False
+
     def embed(self, texts, *, input_type="document"):
         if input_type not in ("query", "document") or not texts or len(texts) > 32:
             raise ValueError("Expected 1..32 texts and query/document input_type")
@@ -184,6 +228,10 @@ class EmbedResponse(BaseModel):
 
 def create_embedding_api(spec, encoder):
     api = FastAPI(title="Eventrank embedding", docs_url=None, redoc_url=None)
+
+    @api.get("/health")
+    def health():
+        return {"status": "ok"}
 
     @api.post("/embed", response_model=EmbedResponse)
     def embed(request: EmbedRequest):

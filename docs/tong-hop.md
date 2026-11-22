@@ -236,6 +236,12 @@ Chuyên mục **không có trong RSS**: lấy từ JSON-LD `articleSection` / me
 
 ### 5.2 Kho thực tế trên R2 (HIỆN TRẠNG)
 
+**Kho local của crawler `automation/` (09/11/2026):** tách biệt với R2 bên dưới.
+Tuổi Trẻ, Thanh Niên, VietnamNet và VnExpress dùng `data/{bronze,silver,clean_silver}/<source>/<article_id>.json`
+và bản xuất `data/jobs/<job_id>/{bronze,silver,clean_silver}/<source>.jsonl`,
+với `<source>` là `tuoitre`, `thanhnien`, `vietnamnet` hoặc `vnexpress`, cùng cấu trúc các báo automation khác.
+Không tự upload hoặc thay đổi các object Silver trên R2.
+
 | | |
 |---|---|
 | Nhà cung cấp / bucket | Cloudflare R2 · **`vietnam-news-datalake`** (không có versioning: xoá hay ghi đè là mất vĩnh viễn) |
@@ -427,6 +433,21 @@ Chưa có đánh giá chất lượng retrieval/grounding hay worker delta. Tr�
 trong [kế hoạch RAG](plan-rag.md), lệnh kiểm thử trong [bàn giao](handoff/rag.md).
 
 ### 5.3 Hợp đồng dữ liệu lớp Silver
+
+**Luồng crawl local `automation/` (09/11/2026):** đã đăng ký thêm Tuổi Trẻ
+(`tuoitre`), Thanh Niên (`thanhnien`), VietnamNet (`vietnamnet`) và VnExpress (`vnexpress`), dùng cùng định dạng file theo bài và bản xuất theo job của bốn
+nguồn hiện có; độc lập với kho R2 và tầng ingest Postgres. Bronze giữ HTML
+cả trang để không mất JSON-LD/meta. Silver bốn nguồn tuân thủ 9 trường dưới
+đây, `source` trùng thư mục (`tuoitre`/`thanhnien`/`vietnamnet`/`vnexpress`), `published_at` có `+07:00`, thiếu tác giả = `null`;
+clean_silver cũng giữ `null` khi thiếu tác giả. Nhãn chuyên mục của luồng
+automation kế thừa ánh xạ 10 zone từ script cũ (không thay category của dữ liệu
+R2). Chi tiết đường dẫn, lịch và giới hạn: [bàn giao Tuổi Trẻ](handoff/crawl-tuoitre.md).
+Thanh Niên có selector, đồng tác giả và ngày đăng dự phòng riêng:
+[bàn giao Thanh Niên](handoff/crawl-thanhnien.md).
+VietnamNet phân trang từ `-page0`, có parser `.html` và JSON-LD riêng:
+[bàn giao VietnamNet](handoff/crawl-vietnamnet.md).
+VnExpress dùng trang đầu nguyên URL rồi `-p2`, `-p3`; redirect/chặn dừng nguồn:
+[bàn giao VnExpress](handoff/crawl-vnexpress.md).
 
 | Trường | Kiểu | Bắt buộc | Quy tắc | Thực tế 19/09 |
 |---|---|---|---|---|

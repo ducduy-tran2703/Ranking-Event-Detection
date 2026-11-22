@@ -1,9 +1,48 @@
 # Môi trường RAG local
 
 **Bắt đầu ở [kế hoạch RAG](../plan-rag.md)** để xem toàn bộ lộ trình và điểm tiếp nhận chat mới.
-Mốc hiện tại 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid RRF đã có.
-Kho đủ 96.230 point, collection đã publish. Đã có context + hỏi đáp có nguồn qua CLI/API;
-phạm vi được chốt là snapshot hiện tại. Đã đóng gói bundle snapshot RAG để bàn giao sang máy khác.
+Mốc 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid RRF đã có (96.230 point).
+**Cập nhật 22/11/2026:** Đã bổ sung pipeline đồng bộ tăng dần (delta sync), chạy NER BamiBERT local trên GPU máy, và tích hợp Query NER + Entity Soft Boost vào luồng hỏi đáp.
+
+## Cập nhật Delta Sync & Query NER (22/11/2026)
+
+1. **Checkpoint BamiBERT thống nhất (`bamibert-qft-s44`)**:
+   - Đã tải `ner-runs:/bamibert/20261122-qft-seed44/best` về `data/models/bamibert-qft-s44/best/` (và xóa bản cũ `bamibert-s43`).
+   - Kết quả từ `NER_Detect/results/query_v2/final_comparison_20261122.md`: val `0.9041`, test câu hỏi ngắn `0.8672` (cải thiện mạnh câu viết thường), test bài báo `0.9040`.
+   - `src/eventrank/rag/ner.py` load tokenizer qua `PreTrainedTokenizerFast(tokenizer_file=...)` để tương thích với `transformers==5.22.1`.
+2. **Pipeline đồng bộ tăng dần (`src/eventrank/rag/sync.py`, `dense.sync_delta`)**:
+   - Luồng: quét bài mới / sửa nội dung (`inspect_articles`) → xóa point Qdrant & chunk cũ (nếu sửa) → `BamiBertNER` (GPU máy) → `make_chunks` → Qwen Modal (`max_containers=4`, `concurrency=4`) → `Qdrant` delta → `BM25` atomic rebuild.
+   - API trigger: `POST /api/rag/sync` (nhận `{"article_ids": [...]}` hoặc `null`, trả `200` ngay và chạy worker nền dưới Postgres advisory lock) và `GET /api/rag/sync/status`.
+   - CLI: `.\.venv\Scripts\python.exe -X utf8 -m eventrank.rag.sync [--article-ids ...] [--dry-run]`.
+   - Kiểm thử E2E thật với 1 bài mẫu qua `POST /api/rag/sync`: chạy hết `NER GPU → Qwen Modal → Qdrant → BM25 rebuild` trong `185.372s` (gồm cold start Modal), truy xuất BM25 & Dense đều trả bài mẫu ở top 1, sau đó đã dọn sạch về đúng `96.230` chunk/point.
+   - Modal app `eventrank-rag-models` đã deploy lại với `models.embedding.max_containers: 4` (query dùng 1 container, batch sync scale tối đa 4 container).
+3. **Query NER + Entity Soft Boost (`src/eventrank/rag/query_ner.py`, `pipeline.py`)**:
+   - Bật/tắt độc lập trong `configs/rag.yaml` mục `query_ner` (`enabled: true`, `in_chunk_boost: 0.008`, `in_article_boost: 0.003`).
+   - Đối chiếu thực thể câu hỏi với `article_ner.entities` (NFC + casefold), cộng điểm ưu tiên khi khớp `(text, label)` ngay trong `[start_char, end_char)` của chunk trước khi vào `select_context`, lưu chi tiết vào `trace['query_ner']`.
+   - Chưa triển khai mở rộng cụm sự kiện (`event_articles`), reranker cross-encoder, và chưa có tập đánh giá ablation cho RAG.
+4. **Kiểm thử gần nhất**:
+   - `.\.venv\Scripts\python.exe -m pytest tests/rag tests/common tests/api -q -p no:cacheprovider`: **213 passed, 30 skipped** (30 test DB skip do chưa đặt `TEST_DATABASE_URL`).
+   - `.\.venv\Scripts\python.exe -m ruff check src/eventrank/rag apps/api/rag.py apps/api/schemas.py tests/rag tests/api/test_rag_api.py`: **All checks passed**.
+   - Đã cập nhật `apps/web/openapi.json`; `apps/web/src/api/schema.d.ts` cần chạy `npm run gen:types` trên máy có Node/npm.
+
+5. **Sửa lỗi sau rà soát (22/11/2026)** — test viết trước, đã fail đúng lý do rồi mới sửa:
+   - **BamiBERT nạp một lần:** `uvicorn apps.api.rag:app` (cổng 8001) nạp vào VRAM lúc khởi động
+     (đo thật: 6,5 giây, ~391 MB VRAM; mỗi câu hỏi sau đó 0,01–0,3 giây). `/ask` và worker `/sync` dùng chung
+     `SharedNER` (khoá tuần tự). App chính 8000 nạp lười ở request đầu. Tokenizer Gemma cũng giữ lại sau lần đầu.
+     Thiếu checkpoint/torch → câu hỏi vẫn trả lời, `trace.query_ner.status` = `model_missing`/`error`.
+   - **Khoá đọc/ghi:** `/ask` giữ `pg_try_advisory_lock_shared` (cùng key preparation) trong lúc truy xuất +
+     lấy entity, nhả trước khi gọi Gemma. Sync đang ghi → HTTP 503 "đang được đồng bộ", không đọc index lệch.
+     Sync chờ khoá tối đa `sync.lock_wait_seconds` (600) thay vì lỗi ngay; prepare/BM25 CLI vẫn không chờ.
+   - **Thứ tự sync:** hạ `qdrant_status='pending'` (autocommit) trước khi xoá point Qdrant; transaction lỗi
+     thì lượt sync sau embed lại, DB không còn ghi "ready" cho vector đã mất.
+   - `GET /api/rag/sync/status` và CLI sync chỉ giữ thông điệp ValueError/RuntimeError thuần; lỗi driver
+     (psycopg, httpx, qdrant) chỉ còn tên lớp. `POST /api/rag/sync` dùng cùng `chunk_version` với worker.
+   - Sau mỗi lần sync dựng BM25 mới: giữ CURRENT + bản liền trước (`bm25.keep_snapshots: 2`), xoá bản cũ hơn.
+     Vẫn dựng lại toàn bộ BM25 mỗi lần sync; cập nhật tăng dần chưa làm.
+   - `trace.query_ner.boosted` ghi `rrf_rank` → `rank` của chunk được boost để làm ablation sau.
+     **Trọng số boost 0,008/0,003 chưa được đo**; giữ nguyên cho tới khi có tập validation.
+   - Kiểm: `tests/rag tests/common tests/api` **234 passed, 30 skipped** (DB test thiếu `TEST_DATABASE_URL`);
+     Ruff đạt. **Chưa kiểm khoá advisory trên Postgres thật** (Postgres :5433 không chạy lúc sửa).
 
 ## Bàn giao Snapshot RAG sang máy khác (07/11/2026)
 
@@ -23,7 +62,7 @@ phạm vi được chốt là snapshot hiện tại. Đã đóng gói bundle sna
 ## Hỏi đáp CLI/API trên snapshot (06/11)
 
 Luồng `pipeline.py`: hybrid → hydrate Postgres → chọn context → Gemma → kiểm JSON/citation/quote.
-Mặc định tối đa 8 chunk, 2/bài, 3/nguồn; bỏ text trùng và chunk chồng offset, giữ nguyên chunk.
+Mặc định tối đa 8 chunk, 2/bài, 3/nguồn (không áp giới hạn nguồn khi đã lọc một báo); bỏ text trùng và chunk chồng offset, giữ nguyên chunk.
 Đếm cả system/query/metadata/chat template bằng tokenizer đúng revision Gemma, dành tối đa
 1024 token output trong cửa sổ 8192. Counter dùng OpenAI text blocks như renderer vLLM;
 đã đối chiếu prompt/token IDs thật (dạng string thuần lệch 1 token ở system).
@@ -49,7 +88,7 @@ Snapshot truy vấn thật có 28.725 bài/6 nguồn, published_at từ 2008-05-
 (min/max dữ liệu DB, không phải cam kết bao phủ liên tục các ngày trong khoảng).
 Source chứa URL/ngày/ID/offset lấy từ DB và quote được kiểm trong chunk, không nhận URL model tự bịa.
 Gemma dùng constrained JSON schema; invalid ID/quote/schema hoặc output bị cắt sẽ trả
-`invalid_generation` và không xuất nội dung model như câu trả lời hợp lệ. Quote so khớp NFC/whitespace;
+`invalid_generation` và không xuất nội dung model như câu trả lời hợp lệ. Quote tối đa 300 ký tự, so khớp sau khi chuẩn hoá NFC/whitespace/hoa thường và bỏ dấu câu (trừ dấu giữa hai chữ số). Quote có `...` phải có từng đoạn từ 15 ký tự, nguyên văn và đúng thứ tự. Quote sai thì chỉ bỏ quote đó, ý không còn quote đúng thì bỏ ý, ghi vào `trace.validation.dropped`; không còn ý nào mới trả `invalid_generation`. ID bằng chứng không tồn tại vẫn từ chối cả câu;
 đây là kiểm provenance, chưa chứng minh từng phát biểu được bằng chứng suy ra đúng về ngữ nghĩa.
 Không đặt ngưỡng RRF tùy ý; thiếu bằng chứng để model từ chối, bộ lọc ngoài snapshot trả sớm không gọi GPU.
 Câu hỏi ngày tương đối thiếu filter ngày và thống kê toàn kho được trả `unsupported_query`.
@@ -468,14 +507,19 @@ client kiểm tra version và vector trước khi nhận. Đổi embedding phả
 ```
 
 Make tương ứng: `rag-modal-deploy`, `rag-modal-cache`, `rag-model-smoke`.
-Mỗi model có endpoint riêng, proxy auth bắt buộc. Từ 06/11 Qwen dùng tối đa 4 container L4,
-mỗi container nhận 1 request; Gemma vẫn tối đa 1 container, ưu tiên L4 và dự phòng A10,
-min_containers=0 và scaledown_window=60 giây. Lần gọi đầu sau khi nghỉ cần chờ cold start;
+Mỗi model có endpoint riêng, proxy auth bắt buộc. Qua đợt index 06/11 Qwen từng dùng tối đa 4 container L4;
+YAML hiện đặt Qwen 1 container, buffer 0, mỗi container nhận 1 request; Gemma tối đa 1 container, ưu tiên L4
+và dự phòng A10; min_containers=0 và `models.scaledown_window=120` giây. **Giá trị GPU/idle trong YAML chỉ có
+hiệu lực sau `rag-modal-deploy`**; không cần embed lại vì các trường này không nằm trong `embedding_version`.
+Pipeline hỏi đáp gọi tuần tự Qwen rồi Gemma. Trong lúc chờ Gemma, `models.keep_alive` ping `GET /health` của Qwen
+30 giây một lần (giới hạn cứng 900 giây) và ping lần cuối khi Gemma trả xong, để cả hai tắt khoảng 2 phút sau
+token cuối. Không ping khi chạy `bm25_only`. Ping lỗi chỉ ghi vào `trace.keepalive`, không làm hỏng câu trả lời.
+Lần gọi đầu sau khi nghỉ cần chờ cold start;
 Volume chỉ cache trọng số, không chứa Postgres, Qdrant, BM25 hay toàn bộ corpus.
 Khoảng chờ scale-down vẫn có thể tính phí tài nguyên, Volume có phí lưu trữ riêng.
 Client xử lý redirect 303 khi cold start lâu, chỉ theo URL cùng origin để không gửi token sang host khác.
-Gemma dùng CUDA development image có nvcc cho FlashInfer, `--enforce-eager` để giảm công việc compile
-khi cold start. Đổi lựa chọn này cần đo lại độ trễ/throughput trên bộ workload cố định.
+Gemma dùng CUDA development image có nvcc cho FlashInfer. Từ 09/11 đã bỏ `--enforce-eager` (khi bật cờ này
+đo được ~19 token/giây, init engine 78 giây), chấp nhận cold start lâu hơn để đổi lấy tốc độ sinh chữ.
 Cache tải bằng HTTP (`HF_HUB_DISABLE_XET=1`) sau khi Xet bị kẹt trên lần thử thực tế;
 file tải dở được tải lại bằng thư viện trước khi dùng, không nối tiếp dữ liệu Xet theo HTTP.
 

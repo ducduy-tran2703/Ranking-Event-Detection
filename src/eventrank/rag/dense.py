@@ -219,6 +219,69 @@ def build_from_db(conn, q, model, *, collection, index_version='rag_v1',
                 'seconds': round(time.perf_counter() - started, 3)}
 
 
+def sync_delta(conn, q, model, *, collection, index_version='rag_v1',
+               batch_size=32, concurrency=4, delete_chunk_ids=(), progress=None):
+    """Delete replaced points, embed pending/failed chunks, and update collection binding."""
+    if type(batch_size) is not int or not 1 <= batch_size <= 32:
+        raise ValueError('batch_size must be 1..32')
+    if type(concurrency) is not int or not 1 <= concurrency <= 4:
+        raise ValueError('concurrency must be 1..4')
+    started = time.perf_counter()
+    with _preparation_lock(conn):
+        records = _snapshot(conn, index_version)
+        binding = _binding(records, model, index_version)
+        if not q.collection_exists(collection):
+            return build_from_db(conn, q, model, collection=collection,
+                                 index_version=index_version, batch_size=batch_size,
+                                 concurrency=concurrency, progress=progress)
+        info = q.get_collection(collection)
+        vectors = info.config.params.vectors
+        if (not isinstance(vectors, qm.VectorParams) or vectors.size != binding['dimension']
+                or vectors.distance != qm.Distance.COSINE):
+            raise ValueError('Collection dimension/distance mismatch')
+        prev_binding = (info.config.metadata or {}).get('binding', {})
+        for key in ('schema_version', 'index_version', 'embedding_version', 'dimension', 'input_view'):
+            if prev_binding.get(key) != binding[key]:
+                raise ValueError(f'Collection {key} mismatch; use a new collection')
+
+        deleted = 0
+        delete_list = [str(cid) for cid in delete_chunk_ids]
+        for start in range(0, len(delete_list), 256):
+            q.delete(collection_name=collection,
+                     points_selector=qm.PointIdsList(points=delete_list[start:start + 256]),
+                     wait=True)
+            deleted += len(delete_list[start:start + 256])
+
+        pending_ids = {
+            str(r[0]) for r in conn.execute(
+                "SELECT chunk_id FROM rag_index_status "
+                "WHERE index_version=%s AND qdrant_status IN ('pending', 'failed')",
+                (index_version,),
+            )
+        }
+        selected = [r for r in records if r['chunk_id'] in pending_ids]
+        embedded = updated = 0
+        if selected:
+            embedded, updated = _index_records(conn, q, model, collection, selected, binding,
+                                                batch_size, concurrency, progress)
+        if _binding(_snapshot(conn, index_version), model, index_version) != binding:
+            raise ValueError('corpus changed during delta indexing; cannot publish')
+        if q.count(collection, exact=True).count != len(records):
+            raise ValueError('Collection point count mismatch after delta sync')
+        q.update_collection(collection, metadata={'binding': binding, 'published': True})
+        return {
+            **binding,
+            'collection': collection,
+            'selected': len(selected),
+            'deleted': deleted,
+            'published': True,
+            'concurrency': concurrency,
+            'embedded': embedded,
+            'status_updated': updated,
+            'seconds': round(time.perf_counter() - started, 3),
+        }
+
+
 def _hydrate(conn, ids, version):
     rows = conn.execute(
         'SELECT c.chunk_id,c.article_id,c.text,c.start_char,c.end_char,c.chunking_version, '
