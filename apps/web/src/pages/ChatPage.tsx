@@ -220,6 +220,9 @@ function Conversation({ id, status, statusError }: { id: number | null; status?:
             <ul>{status.problems.map((p) => <li key={p}>{p}</li>)}</ul>
           </div>
         )}
+        {status && available && !!status.warnings?.length && (
+          <p className="small muted" role="status">⚠ {status.warnings.join(" ")}</p>
+        )}
         {showFilters && <FilterRow status={status} value={filters} onChange={setFilters} />}
         <div className="chat-input">
           <label htmlFor="chat-q" className="sr-only">Câu hỏi</label>

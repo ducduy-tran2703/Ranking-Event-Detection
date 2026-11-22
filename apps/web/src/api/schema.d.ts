@@ -1129,6 +1129,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/system/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_admin_system_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/settings/rag-sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Rag Sync */
+        put: operations["put_rag_sync_api_admin_system_settings_rag_sync_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/settings/event-worker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Event Worker */
+        put: operations["put_event_worker_api_admin_system_settings_event_worker_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/crawler/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Crawler Schedule */
+        patch: operations["patch_crawler_schedule_api_admin_system_crawler_schedule_patch"];
+        trace?: never;
+    };
+    "/api/admin/system/crawler/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Crawler */
+        post: operations["run_crawler_api_admin_system_crawler_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/rag-sync/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Rag Sync */
+        post: operations["run_rag_sync_api_admin_system_rag_sync_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1332,6 +1434,88 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** CrawlerRunAccepted */
+        CrawlerRunAccepted: {
+            /** Id */
+            id: string | null;
+            /** Status */
+            status: string | null;
+            /** Sources */
+            sources: string[];
+            /** Message */
+            message: string;
+        };
+        /** CrawlerRunBody */
+        CrawlerRunBody: {
+            /**
+             * Sources
+             * @description bỏ trống = theo lịch cào
+             */
+            sources?: ("baochinhphu" | "nhandan" | "dantri" | "qdnd" | "tuoitre" | "thanhnien" | "vietnamnet" | "vnexpress")[] | null;
+        };
+        /** CrawlerScheduleBody */
+        CrawlerScheduleBody: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Interval Minutes */
+            interval_minutes?: (5 | 10 | 15 | 20 | 30 | 60) | null;
+            /** Sources */
+            sources?: ("baochinhphu" | "nhandan" | "dantri" | "qdnd" | "tuoitre" | "thanhnien" | "vietnamnet" | "vnexpress")[] | null;
+        };
+        /** CrawlerSettings */
+        CrawlerSettings: {
+            /**
+             * Reachable
+             * @description dịch vụ crawler có trả lời không; False thì các trường khác rỗng
+             */
+            reachable: boolean;
+            /** Message */
+            message?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Interval Minutes */
+            interval_minutes?: number | null;
+            /**
+             * Sources
+             * @default []
+             */
+            sources: string[];
+            /**
+             * All Sources
+             * @default [
+             *       "baochinhphu",
+             *       "nhandan",
+             *       "dantri",
+             *       "qdnd",
+             *       "tuoitre",
+             *       "thanhnien",
+             *       "vietnamnet",
+             *       "vnexpress"
+             *     ]
+             */
+            all_sources: string[];
+            /**
+             * Interval Choices
+             * @default [
+             *       5,
+             *       10,
+             *       15,
+             *       20,
+             *       30,
+             *       60
+             *     ]
+             */
+            interval_choices: number[];
+            /** Next Run At */
+            next_run_at?: string | null;
+            /** Active Job Id */
+            active_job_id?: string | null;
+            /**
+             * Jobs
+             * @default []
+             */
+            jobs: components["schemas"]["LiveCrawlerJob"][];
+        };
         /** DateRange */
         DateRange: {
             /** Min Date */
@@ -1530,6 +1714,52 @@ export interface components {
             so_gio_trong_top10: number;
             /** Chuyen Muc Chinh */
             chuyen_muc_chinh: string | null;
+        };
+        /** EventWorkerBlock */
+        EventWorkerBlock: {
+            settings: components["schemas"]["EventWorkerSettings"];
+            /**
+             * Interval Choices
+             * @default [
+             *       60,
+             *       120,
+             *       300,
+             *       600,
+             *       900,
+             *       1800,
+             *       3600
+             *     ]
+             */
+            interval_choices: number[];
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+            /**
+             * Yaml Interval Seconds
+             * @description chu kỳ trong configs/pipeline.yaml (dùng khi chưa lưu cài đặt)
+             */
+            yaml_interval_seconds: number;
+            /**
+             * Worker Alive
+             * @description có tiến trình worker đang giữ khoá trên DB này
+             */
+            worker_alive?: boolean | null;
+            last_run?: components["schemas"]["SystemRun"] | null;
+        };
+        /** EventWorkerSettings */
+        EventWorkerSettings: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Interval Seconds
+             * @default 300
+             * @enum {integer}
+             */
+            interval_seconds: 60 | 120 | 300 | 600 | 900 | 1800 | 3600;
         };
         /** FeedbackBody */
         FeedbackBody: {
@@ -2350,6 +2580,11 @@ export interface components {
             available: boolean;
             /** Problems */
             problems: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
             snapshot: components["schemas"]["RAGSnapshot"] | null;
             /** Daily Limit */
             daily_limit: number | null;
@@ -2539,6 +2774,126 @@ export interface components {
             } | null;
             /** Last Error */
             last_error?: string | null;
+        };
+        /** RagSchedulerStatus */
+        RagSchedulerStatus: {
+            /**
+             * Scheduler Running
+             * @description luồng nền đang chạy trong tiến trình API này
+             */
+            scheduler_running: boolean;
+            /**
+             * Leader
+             * @description giữ khoá advisory: bộ lập lịch duy nhất của DB
+             */
+            leader: boolean;
+            /** Started At */
+            started_at?: string | null;
+            /** Last Check At */
+            last_check_at?: string | null;
+            /** Next Check At */
+            next_check_at?: string | null;
+            /**
+             * Last Decision
+             * @description mã lý do lần kiểm gần nhất (off, no_pending, waiting_crawl…)
+             */
+            last_decision?: string | null;
+            /** Last Decision Error */
+            last_decision_error?: string | null;
+            /**
+             * Consecutive Failures
+             * @default 0
+             */
+            consecutive_failures: number;
+        };
+        /** RagSyncBlock */
+        RagSyncBlock: {
+            settings: components["schemas"]["RagSyncSettings"];
+            /**
+             * Interval Choices
+             * @default [
+             *       15,
+             *       30,
+             *       60,
+             *       120,
+             *       240,
+             *       360,
+             *       720,
+             *       1440
+             *     ]
+             */
+            interval_choices: number[];
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Updated By
+             * @description tên hiển thị của quản trị viên đổi lần cuối
+             */
+            updated_by?: string | null;
+            /**
+             * Env Enabled
+             * @description RAG_AUTO_SYNC không tắt bộ lập lịch
+             */
+            env_enabled: boolean;
+            /** Running */
+            running: boolean;
+            /** Trigger */
+            trigger?: string | null;
+            /**
+             * Pending Articles
+             * @description bài chờ NER/chunk/index; None nếu không đếm được
+             */
+            pending_articles?: number | null;
+            /** Without Ner */
+            without_ner?: number | null;
+            /** Recent Runs */
+            recent_runs: components["schemas"]["SystemRun"][];
+            /** Last Error */
+            last_error?: string | null;
+            /**
+             * Dense Published
+             * @description collection Qdrant đang publish (False: chatbot chỉ dùng BM25 tới lượt đồng bộ thành công); None nếu không hỏi được Qdrant
+             */
+            dense_published?: boolean | null;
+            scheduler: components["schemas"]["RagSchedulerStatus"];
+        };
+        /** RagSyncRunAccepted */
+        RagSyncRunAccepted: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "already_running";
+            /** Message */
+            message: string;
+        };
+        /**
+         * RagSyncSettings
+         * @description Khối cài đặt `rag_sync` (bảng `system_settings`).
+         */
+        RagSyncSettings: {
+            /**
+             * Mode
+             * @default after_crawl
+             * @enum {string}
+             */
+            mode: "after_crawl" | "interval" | "off";
+            /**
+             * Interval Minutes
+             * @default 60
+             * @enum {integer}
+             */
+            interval_minutes: 15 | 30 | 60 | 120 | 240 | 360 | 720 | 1440;
+            /**
+             * Max Articles Per Run
+             * @default 200
+             */
+            max_articles_per_run: number;
+            /**
+             * Min Mem Available Mb
+             * @default 1500
+             */
+            min_mem_available_mb: number;
         };
         /** RawSourceValue */
         RawSourceValue: {
@@ -2746,6 +3101,48 @@ export interface components {
             kind: "keyword" | "category" | "source" | "entity";
             /** Value */
             value: string;
+        };
+        /** SystemRun */
+        SystemRun: {
+            /** Run Id */
+            run_id: number;
+            /** Status */
+            status: string;
+            /** Step */
+            step?: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Seconds */
+            seconds: number | null;
+            /** Trigger */
+            trigger?: string | null;
+            /**
+             * Reason
+             * @description lý do bộ lập lịch chạy lượt này (after_crawl, retry_failed…)
+             */
+            reason?: string | null;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: string | null;
+        };
+        /** SystemSettings */
+        SystemSettings: {
+            /**
+             * Settings Available
+             * @description DB đã áp migration 011 (system_settings)
+             */
+            settings_available: boolean;
+            crawler: components["schemas"]["CrawlerSettings"];
+            rag_sync: components["schemas"]["RagSyncBlock"];
+            event_worker: components["schemas"]["EventWorkerBlock"];
         };
         /** TimelinePoint */
         TimelinePoint: {
@@ -4750,6 +5147,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LiveOverview"];
+                };
+            };
+        };
+    };
+    get_settings_api_admin_system_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemSettings"];
+                };
+            };
+        };
+    };
+    put_rag_sync_api_admin_system_settings_rag_sync_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RagSyncSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagSyncBlock"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_event_worker_api_admin_system_settings_event_worker_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventWorkerSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventWorkerBlock"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_crawler_schedule_api_admin_system_crawler_schedule_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrawlerScheduleBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrawlerSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_crawler_api_admin_system_crawler_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrawlerRunBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrawlerRunAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_rag_sync_api_admin_system_rag_sync_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagSyncRunAccepted"];
                 };
             };
         };
