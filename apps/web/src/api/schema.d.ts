@@ -21,6 +21,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rag/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger Sync */
+        post: operations["trigger_sync_api_rag_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rag/sync/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sync Status */
+        get: operations["sync_status_api_rag_sync_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -900,6 +934,41 @@ export interface components {
             /** Quotes */
             quotes: string[];
         };
+        /** RAGSyncAccepted */
+        RAGSyncAccepted: {
+            /** Status */
+            status: string;
+            /** Requested */
+            requested: number;
+            /** Queued Articles */
+            queued_articles: number;
+            /** Already Ready */
+            already_ready: number;
+            /** Missing Article Ids */
+            missing_article_ids: string[];
+            /** Message */
+            message: string;
+        };
+        /** RAGSyncRequest */
+        RAGSyncRequest: {
+            /** Article Ids */
+            article_ids?: string[] | null;
+        };
+        /** RAGSyncStatus */
+        RAGSyncStatus: {
+            /** Running */
+            running: boolean;
+            /** Last Started At */
+            last_started_at?: string | null;
+            /** Last Finished At */
+            last_finished_at?: string | null;
+            /** Last Result */
+            last_result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Last Error */
+            last_error?: string | null;
+        };
         /** RawSourceValue */
         RawSourceValue: {
             /** Source Raw */
@@ -1145,6 +1214,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_sync_api_rag_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RAGSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RAGSyncAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_status_api_rag_sync_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RAGSyncStatus"];
                 };
             };
         };

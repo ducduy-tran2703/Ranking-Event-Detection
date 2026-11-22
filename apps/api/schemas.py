@@ -407,3 +407,25 @@ class EventMap(BaseModel):
 class MapDates(BaseModel):
     dates: list[str]
     mac_dinh: str | None
+
+
+# ---------------------------------------------------------------- RAG đồng bộ tăng dần
+class RAGSyncRequest(BaseModel):
+    article_ids: list[str] | None = None
+
+
+class RAGSyncAccepted(BaseModel):
+    status: str              # "accepted" | "already_running" | "up_to_date"
+    requested: int
+    queued_articles: int
+    already_ready: int
+    missing_article_ids: list[str]
+    message: str
+
+
+class RAGSyncStatus(BaseModel):
+    running: bool
+    last_started_at: str | None = None
+    last_finished_at: str | None = None
+    last_result: dict | None = None
+    last_error: str | None = None

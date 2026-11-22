@@ -71,9 +71,9 @@ Chat mới cần xác nhận lại khi máy/corpus thay đổi.
 | 3. Dense indexing/search | **Xong; đã kiểm thật** | `dense.py`, `verify_dense.py`; 96.230 point, 9 case search đạt; resume embedded=0/status_updated=0; report trong bàn giao |
 | 4. Hybrid retrieval | **Xong baseline kỹ thuật, đã smoke thật** | `hybrid.py`, `verify_hybrid.py`; RRF, trace, source/date, strict/fallback; chưa đánh giá relevance |
 | 5. Context + hỏi đáp có nguồn | Đã triển khai baseline snapshot | `context.py`, `token_budget.py`, `generation.py`, `pipeline.py`; CLI và API, kiểm citation/quote |
-| 6. NER + cluster expansion | Chưa có | Đã có NER/mapping trong DB; chưa có query NER/boost/expansion |
+| 6. NER + cluster expansion | **Đã có Query NER + Soft Boost**; chưa có cluster expansion | `ner.py`, `query_ner.py`, `bamibert-qft-s44`; chưa nối `event_articles` và chưa đo ablation |
 | 7. Reranker | Chưa chốt/chưa triển khai | Bổ sung sau baseline, có thể bật/tắt để so sánh |
-| 8. Cập nhật dữ liệu/index | Chưa có worker delta | Preparation hiện chặn thay chunk đã index để tránh orphan |
+| 8. Cập nhật dữ liệu/index | **Đã triển khai delta sync + API** | `sync.py`, `ner.py`, `dense.sync_delta`, `POST /api/rag/sync`; đã kiểm E2E 1 bài mẫu |
 | 9. Đánh giá + API/demo | API đã có; đánh giá chưa có | `POST /api/rag/ask`, Swagger; chưa có tập đánh giá relevance/grounding |
 
 Chuẩn bị tập đánh giá ở bước 9 có thể làm song song từ đầu, **trước khi tune** bước 4–7.

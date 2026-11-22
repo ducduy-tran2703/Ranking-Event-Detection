@@ -41,13 +41,36 @@ VALUES (%(chunk_id)s,%(article_id)s,%(chunk_index)s,%(text)s,%(start_char)s,%(en
 
 
 @contextmanager
-def _preparation_lock(conn):
-    if not conn.execute("SELECT pg_try_advisory_lock(%s)", (_LOCK,)).fetchone()[0]:
-        raise ValueError("Một tiến trình preparation RAG khác đang chạy")
+def _preparation_lock(conn, *, wait_seconds=0, poll_seconds=1.0):
+    """Khoá ghi độc quyền cho preparation/BM25/dense/sync (session-level, re-entrant cùng kết nối).
+
+    `wait_seconds>0`: chờ các lượt đọc ngắn (`index_read_lock`) hoặc tiến trình khác nhả khoá.
+    """
+    deadline = time.monotonic() + wait_seconds
+    while not conn.execute("SELECT pg_try_advisory_lock(%s)", (_LOCK,)).fetchone()[0]:
+        if time.monotonic() >= deadline:
+            raise ValueError("Một tiến trình preparation RAG khác đang chạy")
+        time.sleep(poll_seconds)
     try:
         yield
     finally:
         conn.execute("SELECT pg_advisory_unlock(%s)", (_LOCK,))
+
+
+class IndexBusyError(RuntimeError):
+    """Index đang được ghi (sync/preparation); đọc lúc này có thể thấy BM25/Qdrant/DB lệch nhau."""
+
+
+@contextmanager
+def index_read_lock(conn):
+    """Khoá đọc chia sẻ cùng key với `_preparation_lock`: nhiều lượt đọc song song được,
+    nhưng không chồng lên lượt ghi. Không chờ: đang ghi thì báo bận ngay."""
+    if not conn.execute("SELECT pg_try_advisory_lock_shared(%s)", (_LOCK,)).fetchone()[0]:
+        raise IndexBusyError("RAG index is being synchronized")
+    try:
+        yield
+    finally:
+        conn.execute("SELECT pg_advisory_unlock_shared(%s)", (_LOCK,))
 
 
 def _jsonl(path):

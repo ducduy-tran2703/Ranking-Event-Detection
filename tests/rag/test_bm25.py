@@ -3,6 +3,7 @@ import uuid
 
 import pytest
 
+from eventrank.rag import bm25
 from eventrank.rag.bm25 import BM25Index, analyze, create_index
 
 
@@ -67,3 +68,25 @@ def test_tham_so_sai_phai_bao_loi(tmp_path, kwargs):
     create_index(records(), path)
     with pytest.raises(ValueError):
         BM25Index(path).search("điện", **kwargs)
+
+
+def test_don_snapshot_cu_giu_current_va_ban_gan_nhat(tmp_path):
+    import json
+    import os
+    names = ["old1", "old2", "prev", "cur"]
+    for i, name in enumerate(names):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "manifest.json").write_text("{}", encoding="utf-8")
+        os.utime(d, (1_000 + i, 1_000 + i))
+    (tmp_path / "CURRENT.json").write_text(json.dumps({"build_dir": "cur"}), encoding="utf-8")
+    (tmp_path / "ghi-chu.txt").write_text("không phải snapshot", encoding="utf-8")
+    removed = bm25.prune_snapshots(tmp_path, keep=2)
+    assert sorted(removed) == ["old1", "old2"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["CURRENT.json", "cur", "ghi-chu.txt", "prev"]
+
+
+def test_don_snapshot_khong_lam_gi_khi_chua_publish(tmp_path):
+    (tmp_path / "build").mkdir()
+    assert bm25.prune_snapshots(tmp_path, keep=2) == []
+    assert (tmp_path / "build").exists()
