@@ -58,6 +58,22 @@ Script: scratchpad của phiên, viết lại theo "Cách tái hiện chung" ở
 
 Vẫn là smoke chức năng (một kịch bản, 2 lần chạy), **chưa phải đánh giá chất lượng** — xem việc #5.
 
+## Đã sửa ở nhánh `feat/rag-auto-sync` (22/11/2026)
+
+- **Lỗi 14 — số liệu tool lệch kho RAG:** `count_articles`, `top_events`, `corpus_info` đếm cả bài crawler vừa nạp nhưng
+  **chưa NER/chunk/index** (chatbot nói "kho có N bài" mà `search_news` không tìm được các bài đó; lệch `corpus_snapshot`).
+  Giờ chỉ tính bài có chunk mà BM25 hoặc Qdrant `ready` ở `index_version` hiện hành (cùng tiêu chí `pipeline.corpus_snapshot`);
+  `top_events` chỉ lấy sự kiện có ít nhất một bài như vậy. `ToolContext.index_version` lấy từ `configs/rag.yaml`.
+- **Lỗi 15 — không loại báo người dùng ẩn:** `count_articles`, `top_events`, `corpus_info` bỏ qua `ctx.hidden_sources`
+  (chỉ `search_news`, `event_articles` loại). Giờ cả ba loại (`NOT lower(a.source) = ANY(...)`, không phân biệt hoa
+  thường/khoảng trắng): sự kiện chỉ còn bài của báo ẩn thì không hiện; `corpus_info` không liệt kê báo ẩn và tính tổng số
+  bài/khoảng ngày trên các báo còn lại. Câu dữ liệu của `top_events` ("N bài của M báo, đăng từ … đến …") giờ chỉ đếm bài
+  đã vào kho RAG và không thuộc báo ẩn, không lấy `events.size/n_sources`.
+- `top_events` giờ đọc trạng thái chỉ mục nên chạy trong khoá đọc (`READS_INDEX`) như các tool đọc khác.
+- Test: `tests/rag/test_tools.py` (SQL/tham số) và `tests/rag/test_tools_db.py` (Postgres tạm: bài chưa index và báo ẩn
+  không được đếm), `tests/rag/test_tools_edge_db.py`. **Chưa chạy lại E2E 7 lượt** sau sửa (cần GPU Modal); số "2.086 bài VnExpress tháng 9" ở bảng trên có thể
+  giảm nếu kho còn bài chưa index.
+
 ## Lỗi/việc còn dở khác
 
 | # | Mức | Mô tả | Hướng xử lý |

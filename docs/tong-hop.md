@@ -355,7 +355,7 @@ sách, thống kê và trang chi tiết của cả 19.938 sự kiện khớp b�
 | `trend_scores` | (`trend_version`, `t`, `event_id`) | MỌI ứng viên mỗi mốc giờ: `score`, `rank`, `n_articles`, `n_articles_3h`, `n_sources`, `n_sources_eff`, `velocity` |
 | `trend_baselines` | (`trend_version`, `hour_of_day`) | mức nền theo giờ trong ngày (TB = 1) |
 | `article_embeddings` | (`article_id`, `model_version`) | `vec` bytea float32 LE đã chuẩn hoá L2, `dim`, `content_hash` (khác bài hiện tại → tính lại) |
-| `worker_runs` | `run_id` | mỗi vòng worker / lần nạp (`step` import/embed/assign/recluster/name/trend/notify), `versions`, `stats`, `status` |
+| `worker_runs` | `run_id` | mỗi vòng worker / lần nạp (`step` import/embed/assign/recluster/name/trend/notify; `rag_sync` = lượt đồng bộ RAG tự động, từ migration 011), `versions`, `stats`, `status` |
 | `category_map` | (`source`, `category_raw`) | chuyên mục chung (`norm_category`) |
 | `most_read_snapshots` | `snapshot_id`; UNIQUE (`source`, `captured_at`, `rank`) | hộp "Xem nhiều" mỗi giờ (chưa có crawler ghi) |
 
@@ -373,6 +373,7 @@ nghiệp vụ `src/eventrank/accounts/` (auth, me, admin, cli), HTTP `apps/api/a
 | `004_user_features.sql` | `event_bookmarks`, `event_follows`, `topic_subscriptions`, `feedback_reports` | FK vào `events`; chủ đề duy nhất theo `lower(value)`, ≤ 50/người; báo sai: khách gửi được (IP giữ 90 ngày) |
 | `005_notifications.sql` | `notifications`, `email_outbox` | Bản demo CHƯA gửi thư: thư nằm ở `email_outbox` + link ghi vào log máy chủ |
 | `006_admin.sql` | `audit_logs`, `api_tokens` | Khoá API chỉ hiện đầy đủ một lần; DB giữ sha256 + 10 ký tự đầu |
+| `011_system_settings.sql` | `system_settings` (`key` PK, `value` jsonb object, `updated_at`, `updated_by` → `users`) | Cài đặt đổi khi đang chạy theo khối: `rag_sync` (`eventrank.rag.auto_sync`), `event_worker` (`eventrank.serving.worker_settings`); thiếu dòng = mặc định. Trang `/admin/cai-dat`, API `/api/admin/system/*`. Cùng file nới CHECK `worker_runs.step` thêm `rag_sync` và thêm cột `article_ner.source_updated_at` (`articles.updated_at` của bản bài đã chạy NER; khác giá trị hiện tại → bài chờ đồng bộ RAG; backfill cho dòng có `article_ner.updated_at >= articles.updated_at`) |
 
 Chưa làm (migration sau): `oauth_identities` (Google), `event_views` (cá nhân hoá), `push_devices`,
 `notification_deliveries` (cổng thông báo + mobile). Luật: sai mật khẩu 5 lần/15 phút → khoá 15 phút (423); 30 lần sai/15
