@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Fixture HTML có ngày cố định: tắt lọc bài cũ để test không hỏng theo thời gian (test riêng tự bật).
 os.environ["CRAWLER_MAX_ARTICLE_AGE_DAYS"] = "0"
+# Bộ lập lịch đồng bộ RAG (eventrank.rag.auto_sync) không bao giờ chạy trong test, kể cả khi create_app() không truyền store.
+os.environ["RAG_AUTO_SYNC"] = "0"
 
 
 @pytest.fixture(scope="session")

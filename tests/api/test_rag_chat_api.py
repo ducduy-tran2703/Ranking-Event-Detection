@@ -118,7 +118,8 @@ def test_hoi_xep_hang_roi_worker_tra_loi_va_gan_su_kien(env, pg_conn):
 
     assert run_worker(app) == 1
     assert fake.calls == [("U23 Việt Nam thắng U23 Philippines bao nhiêu?",
-                           {"source": "tuoitre", "date_from": "2026-09-18", "date_to": "2026-09-19"})]
+                           {"source": "tuoitre", "date_from": "2026-09-18", "date_to": "2026-09-19",
+                            "allow_fallback": True})]          # chat qua hàng đợi luôn cho phép chỉ dùng BM25
     assert fake.closed == 1
     done = c.get(f"/api/rag/messages/{msg['message_id']}").json()
     assert done["status"] == "answered" and done["answer"].endswith("[1]") and done["seconds"] is not None
@@ -259,6 +260,28 @@ def test_readiness_bao_tung_thieu_sot(pg_conn, tmp_path):
     r = C.readiness(pg_conn, config, qdrant_get=lambda p: {"result": {"config": {"metadata": {"published": True}}}},
                     env=env, root=tmp_path)
     assert r["problems"] == ["Kho RAG trong Postgres chưa có dữ liệu."]
+
+
+def test_readiness_qdrant_tat_ma_co_bm25_chi_la_canh_bao(pg_conn, tmp_path):
+    """Sync lỗi giữa chừng gỡ "published" của Qdrant: chat vẫn chạy bằng BM25 → cảnh báo, không phải problem."""
+    config = {"index_version": "rag_v1", "bm25": {"root": "bm25"},
+              "dense": {"url": "http://127.0.0.1:1", "collection": "c"}}
+    (tmp_path / "bm25").mkdir()
+    (tmp_path / "bm25/CURRENT.json").write_text("{}")
+    (tmp_path / "data/rag/tokenizers").mkdir(parents=True)
+    (tmp_path / "data/rag/tokenizers/x").write_text("")
+    env = {k: "x" for k in C.MODEL_ENV}
+    unpublished = lambda p: {"result": {"config": {"metadata": {"published": False}}}}
+
+    def down(path):
+        raise OSError("connection refused")
+    for qget in (unpublished, down):
+        r = C.readiness(pg_conn, config, qdrant_get=qget, env=env, root=tmp_path)
+        assert r["problems"] == ["Kho RAG trong Postgres chưa có dữ liệu."]
+        assert len(r["warnings"]) == 1 and "BM25" in r["warnings"][0]
+    (tmp_path / "bm25/CURRENT.json").unlink()        # thiếu cả hai nhánh → problem
+    r = C.readiness(pg_conn, config, qdrant_get=unpublished, env=env, root=tmp_path)
+    assert "Chưa có chỉ mục BM25." in r["problems"] and len(r["problems"]) == 3 and r["warnings"] == []
 
 
 def test_worker_nen_tu_tra_loi_khi_bat_autostart(env, pg_conn):

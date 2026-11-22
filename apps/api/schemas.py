@@ -10,6 +10,11 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from eventrank.rag.auto_sync import INTERVALS as RAG_SYNC_INTERVALS
+from eventrank.rag.auto_sync import RagSyncSettings
+from eventrank.serving.worker_settings import INTERVALS as EVENT_WORKER_INTERVALS
+from eventrank.serving.worker_settings import EventWorkerSettings
+
 
 class RAGQuestion(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -131,6 +136,8 @@ class RAGChatStatus(BaseModel):
     """Trạng thái hỏi đáp cho web: có dùng được không (kiểm nhanh, không gọi GPU) và hạn mức của người đang đăng nhập."""
     available: bool
     problems: list[str]
+    # Chat vẫn chạy nhưng kém hơn (vd. Qdrant chưa publish/tắt → chỉ BM25). Không chặn khung chat.
+    warnings: list[str] = []
     snapshot: RAGSnapshot | None
     daily_limit: int | None
     used_today: int | None
@@ -928,3 +935,112 @@ class LiveOverview(BaseModel):
     events: LiveEvents
     tables: list[LiveTable]
     crawler: LiveCrawler | None = Field(description="lịch cào từ dịch vụ crawler :8002; None nếu dịch vụ không trả lời")
+
+
+# ---------------------------------------------------------------------- cài đặt hệ thống (/api/admin/system)
+# Chỉ quản trị viên. Mô hình cài đặt RAG/worker lấy thẳng từ module sở hữu (một nguồn sự thật cho kiểm giá trị).
+# Lịch cào báo do dịch vụ crawler (:8002) giữ; API chỉ chuyển tiếp và kiểm lại cùng luật với api/schemas.py của crawler.
+CrawlerSource = Literal["baochinhphu", "nhandan", "dantri", "qdnd", "tuoitre", "thanhnien", "vietnamnet", "vnexpress"]
+CRAWLER_SOURCES: tuple[str, ...] = ("baochinhphu", "nhandan", "dantri", "qdnd", "tuoitre", "thanhnien", "vietnamnet",
+                                    "vnexpress")
+
+
+class CrawlerScheduleBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    interval_minutes: Literal[5, 10, 15, 20, 30, 60] | None = None
+    sources: list[CrawlerSource] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def some_field(self):
+        if self.enabled is None and self.interval_minutes is None and self.sources is None:
+            raise ValueError("Cần ít nhất một trường: enabled, interval_minutes hoặc sources")
+        return self
+
+
+class CrawlerRunBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sources: list[CrawlerSource] | None = Field(default=None, min_length=1, description="bỏ trống = theo lịch cào")
+
+
+class CrawlerSettings(BaseModel):
+    reachable: bool = Field(description="dịch vụ crawler có trả lời không; False thì các trường khác rỗng")
+    message: str | None = None
+    enabled: bool | None = None
+    interval_minutes: int | None = None
+    sources: list[str] = []
+    all_sources: list[str] = list(CRAWLER_SOURCES)
+    interval_choices: list[int] = [5, 10, 15, 20, 30, 60]
+    next_run_at: datetime | None = None
+    active_job_id: str | None = None
+    jobs: list[LiveCrawlerJob] = []
+
+
+class CrawlerRunAccepted(BaseModel):
+    id: str | None
+    status: str | None
+    sources: list[str]
+    message: str
+
+
+class SystemRun(BaseModel):
+    run_id: int
+    status: str
+    step: str | None = None
+    started_at: datetime
+    finished_at: datetime | None
+    seconds: float | None
+    trigger: str | None = None
+    reason: str | None = Field(None, description="lý do bộ lập lịch chạy lượt này (after_crawl, retry_failed…)")
+    stats: dict[str, Any]
+    error: str | None
+
+
+class RagSchedulerStatus(BaseModel):
+    scheduler_running: bool = Field(description="luồng nền đang chạy trong tiến trình API này")
+    leader: bool = Field(description="giữ khoá advisory: bộ lập lịch duy nhất của DB")
+    started_at: datetime | None = None
+    last_check_at: datetime | None = None
+    next_check_at: datetime | None = None
+    last_decision: str | None = Field(None, description="mã lý do lần kiểm gần nhất (off, no_pending, waiting_crawl…)")
+    last_decision_error: str | None = None
+    consecutive_failures: int = 0
+
+
+class RagSyncBlock(BaseModel):
+    settings: RagSyncSettings
+    interval_choices: list[int] = list(RAG_SYNC_INTERVALS)
+    updated_at: datetime | None = None
+    updated_by: str | None = Field(None, description="tên hiển thị của quản trị viên đổi lần cuối")
+    env_enabled: bool = Field(description="RAG_AUTO_SYNC không tắt bộ lập lịch")
+    running: bool
+    trigger: str | None = None
+    pending_articles: int | None = Field(None, description="bài chờ NER/chunk/index; None nếu không đếm được")
+    without_ner: int | None = None
+    recent_runs: list[SystemRun]
+    last_error: str | None = None
+    dense_published: bool | None = Field(None, description="collection Qdrant đang publish (False: chatbot chỉ dùng "
+                                         "BM25 tới lượt đồng bộ thành công); None nếu không hỏi được Qdrant")
+    scheduler: RagSchedulerStatus
+
+
+class EventWorkerBlock(BaseModel):
+    settings: EventWorkerSettings
+    interval_choices: list[int] = list(EVENT_WORKER_INTERVALS)
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+    yaml_interval_seconds: float = Field(description="chu kỳ trong configs/pipeline.yaml (dùng khi chưa lưu cài đặt)")
+    worker_alive: bool | None = Field(None, description="có tiến trình worker đang giữ khoá trên DB này")
+    last_run: SystemRun | None = None
+
+
+class SystemSettings(BaseModel):
+    settings_available: bool = Field(description="DB đã áp migration 011 (system_settings)")
+    crawler: CrawlerSettings
+    rag_sync: RagSyncBlock
+    event_worker: EventWorkerBlock
+
+
+class RagSyncRunAccepted(BaseModel):
+    status: Literal["accepted", "already_running"]
+    message: str
