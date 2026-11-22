@@ -21,7 +21,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from apps.api import accounts, rag_chat, schemas
+from apps.api import accounts, live, rag_chat, schemas
 from apps.api.event_reload import EventReloader
 from apps.api.rag import router as rag_router
 from eventrank.common.config import load_config
@@ -302,6 +302,7 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
 
     app.include_router(accounts.router)   # /api/auth, /api/me, /api/admin, báo sai — trước route SPA bắt-tất-cả
     app.include_router(rag_chat.router)   # /api/rag/status|conversations|messages — khung chat hỏi đáp
+    app.include_router(live.router)       # /api/live/overview — số liệu trực tiếp từ Postgres + crawler
 
     add_basic_auth(app)
 

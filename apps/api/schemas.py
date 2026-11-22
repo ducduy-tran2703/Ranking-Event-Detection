@@ -722,3 +722,209 @@ class RAGProfileUpdate(BaseModel):
 class RAGProfileConfirm(BaseModel):
     model_config = ConfigDict(extra='forbid')
     accept: bool
+
+
+# ---------------------------------------------------------------------- số liệu trực tiếp (Postgres đang chạy)
+class LiveTotals(BaseModel):
+    articles: int
+    new_1h: int = Field(description="bài vào hệ thống (crawled_at) trong 1 giờ qua")
+    new_24h: int
+    first_published: datetime | None
+    last_published: datetime | None
+    last_crawled: datetime | None
+    embedded: int
+    not_embedded: int
+    in_events: int
+    rag_articles: int = Field(description="số bài đã cắt đoạn cho Hỏi đáp RAG")
+    rag_chunks: int
+    events_new_24h: int = Field(description="sự kiện mới tạo trong 24 giờ qua, không tính sự kiện đã gộp")
+    db_bytes: int
+    events_by_status: dict[str, int]
+
+
+class LiveSource(BaseModel):
+    source: str
+    display_name: str
+    total: int
+    new_1h: int
+    new_24h: int
+    first_published: datetime | None
+    last_published: datetime | None
+    last_crawled: datetime | None
+    last_run_at: datetime | None
+    last_run_status: str | None
+    last_error: str | None
+    stuck: bool
+    runs_24h: int
+    failed_24h: int
+    seen_24h: int
+    rejected_24h: int
+    flags: dict[str, int]
+
+
+class LiveHourSeries(BaseModel):
+    source: str
+    ingested: list[int] = Field(description="số bài vào hệ thống theo giờ, cùng thứ tự với `hours`")
+    published: list[int] = Field(description="số bài theo giờ đăng")
+
+
+class LiveHourly(BaseModel):
+    hours: list[datetime] = Field(description="đầu mỗi giờ, 48 giờ gần nhất, cũ nhất trước")
+    events_created: list[int]
+    series: list[LiveHourSeries]
+
+
+class LiveDaySeries(BaseModel):
+    source: str
+    counts: list[int]
+
+
+class LiveDaily(BaseModel):
+    days: list[date] = Field(description="14 ngày gần nhất theo giờ Việt Nam, cũ nhất trước")
+    series: list[LiveDaySeries]
+
+
+class LiveCrawlRun(BaseModel):
+    run_id: int
+    source: str
+    crawler: str
+    started_at: datetime
+    finished_at: datetime | None
+    seconds: float | None
+    status: str
+    n_seen: int
+    n_new: int
+    n_updated: int
+    n_unchanged: int
+    n_rejected: int
+    reject_reasons: dict[str, Any]
+    error: str | None
+
+
+class LiveWorkerStep(BaseModel):
+    run_id: int
+    status: str
+    seconds: float | None
+    stats: dict[str, Any]
+    error: str | None
+
+
+class LiveWorkerRound(BaseModel):
+    started_at: datetime
+    finished_at: datetime | None
+    status: str
+    steps: dict[str, LiveWorkerStep]
+
+
+class LiveStepLast(BaseModel):
+    step: str
+    status: str
+    started_at: datetime
+    finished_at: datetime | None
+
+
+class LiveWorker(BaseModel):
+    last_by_step: list[LiveStepLast]
+    rounds: list[LiveWorkerRound]
+    rounds_24h: int
+    failed_24h: int
+    embedded_24h: int
+    new_events_24h: int
+    moved_24h: int
+    merged_24h: int
+    named_24h: int
+
+
+class LiveSizeBucket(BaseModel):
+    label: str
+    events: int
+    articles: int
+
+
+class LiveSourcesBucket(BaseModel):
+    n_sources: int
+    events: int
+
+
+class LiveCategory(BaseModel):
+    category: str
+    events: int
+    articles: int
+
+
+class LiveTopEvent(BaseModel):
+    event_id: str
+    display_name: str
+    status: str
+    size: int
+    n_sources: int
+    sources: dict[str, int]
+    first_seen: datetime
+    last_seen: datetime
+    category_std: str | None
+    peak_score: float | None
+
+
+class LiveEvents(BaseModel):
+    window_days: int
+    total: int
+    multi_source: int
+    size_hist: list[LiveSizeBucket]
+    sources_hist: list[LiveSourcesBucket]
+    naming: dict[str, int] = Field(description="nguồn tên của sự kiện ≥ 2 bài: model | medoid | title | editor")
+    categories: list[LiveCategory]
+    top: list[LiveTopEvent]
+
+
+class LiveTable(BaseModel):
+    table: str
+    rows: int
+    bytes: int
+
+
+class LiveCrawlerSource(BaseModel):
+    source: str
+    status: str | None
+    phase: str | None
+    discovered: int
+    processed: int
+    clean: int
+    rejected: int
+    failed: int
+    inserted: int
+    updated: int
+    errors: list[str]
+    n_errors: int
+
+
+class LiveCrawlerJob(BaseModel):
+    id: str | None
+    trigger: str | None
+    status: str | None
+    created_at: datetime | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    sources: list[LiveCrawlerSource]
+
+
+class LiveCrawler(BaseModel):
+    enabled: bool
+    interval_minutes: int | None
+    next_run_at: datetime | None
+    active_job_id: str | None
+    jobs_total: int
+    jobs: list[LiveCrawlerJob]
+
+
+class LiveOverview(BaseModel):
+    generated_at: datetime
+    clock_mode: str
+    totals: LiveTotals
+    sources: list[LiveSource]
+    hourly: LiveHourly
+    daily: LiveDaily
+    crawl_runs: list[LiveCrawlRun]
+    worker: LiveWorker
+    events: LiveEvents
+    tables: list[LiveTable]
+    crawler: LiveCrawler | None = Field(description="lịch cào từ dịch vụ crawler :8002; None nếu dịch vụ không trả lời")

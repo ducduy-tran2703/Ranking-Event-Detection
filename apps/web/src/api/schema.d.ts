@@ -1112,6 +1112,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/live/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["overview_api_live_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1673,6 +1690,404 @@ export interface components {
             duplicate_url: number;
             /** Duplicate Id */
             duplicate_id: number;
+        };
+        /** LiveCategory */
+        LiveCategory: {
+            /** Category */
+            category: string;
+            /** Events */
+            events: number;
+            /** Articles */
+            articles: number;
+        };
+        /** LiveCrawlRun */
+        LiveCrawlRun: {
+            /** Run Id */
+            run_id: number;
+            /** Source */
+            source: string;
+            /** Crawler */
+            crawler: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Seconds */
+            seconds: number | null;
+            /** Status */
+            status: string;
+            /** N Seen */
+            n_seen: number;
+            /** N New */
+            n_new: number;
+            /** N Updated */
+            n_updated: number;
+            /** N Unchanged */
+            n_unchanged: number;
+            /** N Rejected */
+            n_rejected: number;
+            /** Reject Reasons */
+            reject_reasons: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: string | null;
+        };
+        /** LiveCrawler */
+        LiveCrawler: {
+            /** Enabled */
+            enabled: boolean;
+            /** Interval Minutes */
+            interval_minutes: number | null;
+            /** Next Run At */
+            next_run_at: string | null;
+            /** Active Job Id */
+            active_job_id: string | null;
+            /** Jobs Total */
+            jobs_total: number;
+            /** Jobs */
+            jobs: components["schemas"]["LiveCrawlerJob"][];
+        };
+        /** LiveCrawlerJob */
+        LiveCrawlerJob: {
+            /** Id */
+            id: string | null;
+            /** Trigger */
+            trigger: string | null;
+            /** Status */
+            status: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Sources */
+            sources: components["schemas"]["LiveCrawlerSource"][];
+        };
+        /** LiveCrawlerSource */
+        LiveCrawlerSource: {
+            /** Source */
+            source: string;
+            /** Status */
+            status: string | null;
+            /** Phase */
+            phase: string | null;
+            /** Discovered */
+            discovered: number;
+            /** Processed */
+            processed: number;
+            /** Clean */
+            clean: number;
+            /** Rejected */
+            rejected: number;
+            /** Failed */
+            failed: number;
+            /** Inserted */
+            inserted: number;
+            /** Updated */
+            updated: number;
+            /** Errors */
+            errors: string[];
+            /** N Errors */
+            n_errors: number;
+        };
+        /** LiveDaily */
+        LiveDaily: {
+            /**
+             * Days
+             * @description 14 ngày gần nhất theo giờ Việt Nam, cũ nhất trước
+             */
+            days: string[];
+            /** Series */
+            series: components["schemas"]["LiveDaySeries"][];
+        };
+        /** LiveDaySeries */
+        LiveDaySeries: {
+            /** Source */
+            source: string;
+            /** Counts */
+            counts: number[];
+        };
+        /** LiveEvents */
+        LiveEvents: {
+            /** Window Days */
+            window_days: number;
+            /** Total */
+            total: number;
+            /** Multi Source */
+            multi_source: number;
+            /** Size Hist */
+            size_hist: components["schemas"]["LiveSizeBucket"][];
+            /** Sources Hist */
+            sources_hist: components["schemas"]["LiveSourcesBucket"][];
+            /**
+             * Naming
+             * @description nguồn tên của sự kiện ≥ 2 bài: model | medoid | title | editor
+             */
+            naming: {
+                [key: string]: number;
+            };
+            /** Categories */
+            categories: components["schemas"]["LiveCategory"][];
+            /** Top */
+            top: components["schemas"]["LiveTopEvent"][];
+        };
+        /** LiveHourSeries */
+        LiveHourSeries: {
+            /** Source */
+            source: string;
+            /**
+             * Ingested
+             * @description số bài vào hệ thống theo giờ, cùng thứ tự với `hours`
+             */
+            ingested: number[];
+            /**
+             * Published
+             * @description số bài theo giờ đăng
+             */
+            published: number[];
+        };
+        /** LiveHourly */
+        LiveHourly: {
+            /**
+             * Hours
+             * @description đầu mỗi giờ, 48 giờ gần nhất, cũ nhất trước
+             */
+            hours: string[];
+            /** Events Created */
+            events_created: number[];
+            /** Series */
+            series: components["schemas"]["LiveHourSeries"][];
+        };
+        /** LiveOverview */
+        LiveOverview: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Clock Mode */
+            clock_mode: string;
+            totals: components["schemas"]["LiveTotals"];
+            /** Sources */
+            sources: components["schemas"]["LiveSource"][];
+            hourly: components["schemas"]["LiveHourly"];
+            daily: components["schemas"]["LiveDaily"];
+            /** Crawl Runs */
+            crawl_runs: components["schemas"]["LiveCrawlRun"][];
+            worker: components["schemas"]["LiveWorker"];
+            events: components["schemas"]["LiveEvents"];
+            /** Tables */
+            tables: components["schemas"]["LiveTable"][];
+            /** @description lịch cào từ dịch vụ crawler :8002; None nếu dịch vụ không trả lời */
+            crawler: components["schemas"]["LiveCrawler"] | null;
+        };
+        /** LiveSizeBucket */
+        LiveSizeBucket: {
+            /** Label */
+            label: string;
+            /** Events */
+            events: number;
+            /** Articles */
+            articles: number;
+        };
+        /** LiveSource */
+        LiveSource: {
+            /** Source */
+            source: string;
+            /** Display Name */
+            display_name: string;
+            /** Total */
+            total: number;
+            /** New 1H */
+            new_1h: number;
+            /** New 24H */
+            new_24h: number;
+            /** First Published */
+            first_published: string | null;
+            /** Last Published */
+            last_published: string | null;
+            /** Last Crawled */
+            last_crawled: string | null;
+            /** Last Run At */
+            last_run_at: string | null;
+            /** Last Run Status */
+            last_run_status: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /** Stuck */
+            stuck: boolean;
+            /** Runs 24H */
+            runs_24h: number;
+            /** Failed 24H */
+            failed_24h: number;
+            /** Seen 24H */
+            seen_24h: number;
+            /** Rejected 24H */
+            rejected_24h: number;
+            /** Flags */
+            flags: {
+                [key: string]: number;
+            };
+        };
+        /** LiveSourcesBucket */
+        LiveSourcesBucket: {
+            /** N Sources */
+            n_sources: number;
+            /** Events */
+            events: number;
+        };
+        /** LiveStepLast */
+        LiveStepLast: {
+            /** Step */
+            step: string;
+            /** Status */
+            status: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** LiveTable */
+        LiveTable: {
+            /** Table */
+            table: string;
+            /** Rows */
+            rows: number;
+            /** Bytes */
+            bytes: number;
+        };
+        /** LiveTopEvent */
+        LiveTopEvent: {
+            /** Event Id */
+            event_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Status */
+            status: string;
+            /** Size */
+            size: number;
+            /** N Sources */
+            n_sources: number;
+            /** Sources */
+            sources: {
+                [key: string]: number;
+            };
+            /**
+             * First Seen
+             * Format: date-time
+             */
+            first_seen: string;
+            /**
+             * Last Seen
+             * Format: date-time
+             */
+            last_seen: string;
+            /** Category Std */
+            category_std: string | null;
+            /** Peak Score */
+            peak_score: number | null;
+        };
+        /** LiveTotals */
+        LiveTotals: {
+            /** Articles */
+            articles: number;
+            /**
+             * New 1H
+             * @description bài vào hệ thống (crawled_at) trong 1 giờ qua
+             */
+            new_1h: number;
+            /** New 24H */
+            new_24h: number;
+            /** First Published */
+            first_published: string | null;
+            /** Last Published */
+            last_published: string | null;
+            /** Last Crawled */
+            last_crawled: string | null;
+            /** Embedded */
+            embedded: number;
+            /** Not Embedded */
+            not_embedded: number;
+            /** In Events */
+            in_events: number;
+            /**
+             * Rag Articles
+             * @description số bài đã cắt đoạn cho Hỏi đáp RAG
+             */
+            rag_articles: number;
+            /** Rag Chunks */
+            rag_chunks: number;
+            /**
+             * Events New 24H
+             * @description sự kiện mới tạo trong 24 giờ qua, không tính sự kiện đã gộp
+             */
+            events_new_24h: number;
+            /** Db Bytes */
+            db_bytes: number;
+            /** Events By Status */
+            events_by_status: {
+                [key: string]: number;
+            };
+        };
+        /** LiveWorker */
+        LiveWorker: {
+            /** Last By Step */
+            last_by_step: components["schemas"]["LiveStepLast"][];
+            /** Rounds */
+            rounds: components["schemas"]["LiveWorkerRound"][];
+            /** Rounds 24H */
+            rounds_24h: number;
+            /** Failed 24H */
+            failed_24h: number;
+            /** Embedded 24H */
+            embedded_24h: number;
+            /** New Events 24H */
+            new_events_24h: number;
+            /** Moved 24H */
+            moved_24h: number;
+            /** Merged 24H */
+            merged_24h: number;
+            /** Named 24H */
+            named_24h: number;
+        };
+        /** LiveWorkerRound */
+        LiveWorkerRound: {
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Status */
+            status: string;
+            /** Steps */
+            steps: {
+                [key: string]: components["schemas"]["LiveWorkerStep"];
+            };
+        };
+        /** LiveWorkerStep */
+        LiveWorkerStep: {
+            /** Run Id */
+            run_id: number;
+            /** Status */
+            status: string;
+            /** Seconds */
+            seconds: number | null;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error: string | null;
         };
         /** LoginBody */
         LoginBody: {
@@ -4315,6 +4730,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_live_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveOverview"];
                 };
             };
         };
