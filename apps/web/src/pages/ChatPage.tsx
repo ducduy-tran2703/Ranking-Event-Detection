@@ -47,8 +47,8 @@ export function ChatPage() {
                   <h2>Đăng nhập để đặt câu hỏi</h2>
                   <p className="muted">Mỗi câu hỏi chạy mô hình ngôn ngữ trên GPU, nên chỉ thành viên đã đăng nhập mới hỏi được.</p>
                   <div className="inline" style={{ marginTop: 10 }}>
-                    <Link to={loginHref(loc.pathname + loc.search)} className="btn sm pill">Đăng nhập</Link>
-                    <Link to="/register" className="btn-ghost sm pill">Tạo tài khoản</Link>
+                    <Link to={loginHref(loc.pathname + loc.search)} className="btn sm">Đăng nhập</Link>
+                    <Link to="/register" className="btn-ghost sm">Tạo tài khoản</Link>
                   </div>
                 </div>
               </Welcome>
@@ -197,7 +197,7 @@ function Conversation({ id, status, statusError }: { id: number | null; status?:
           <div className="error-box" role="alert">
             <strong>Không mở được cuộc trò chuyện.</strong>
             <span className="detail">{errorMessage(conv.error)}</span>
-            <Link to="/hoi-dap" className="btn-ghost sm pill">Cuộc trò chuyện mới</Link>
+            <Link to="/hoi-dap" className="btn-ghost sm">Cuộc trò chuyện mới</Link>
           </div>
         ) : (
           <ol className="chat-msgs" aria-live="polite">
@@ -232,7 +232,7 @@ function Conversation({ id, status, statusError }: { id: number | null; status?:
               {stop.isPending ? <IconSpinner className="spin" /> : <span className="chat-stop-icon" aria-hidden="true" />} Dừng
             </button>
           ) : (
-            <button type="submit" className="btn pill" disabled={blocked || !text.trim()}>
+            <button type="submit" className="btn" disabled={blocked || !text.trim()}>
               {ask.isPending ? <><IconSpinner className="spin" /> Đang gửi</> : "Gửi"}
             </button>
           )}
@@ -257,7 +257,7 @@ function Welcome({ status, children }: { status?: RagStatus; children?: ReactNod
   const s = status?.snapshot;
   return (
     <div className="chat-welcome">
-      <h1>Hỏi đáp <span className="grad-text">tin tức</span></h1>
+      <h1>Hỏi đáp tin tức</h1>
       <p className="muted">
         Đặt câu hỏi bằng tiếng Việt về các sự kiện trong kho tin. Hệ thống tìm các đoạn báo liên quan (theo từ khoá và theo nghĩa),
         rồi để mô hình ngôn ngữ trả lời <strong>chỉ dựa trên các đoạn đó</strong>. Mỗi ý trong câu trả lời có trích dẫn nguyên văn và
@@ -375,7 +375,7 @@ function AssistantBubble({ m, onRetry, canRetry, onStop, stopping }: {
     return (
       <div className="chat-bubble bot info">
         <p className="muted">Đã dừng câu hỏi này.</p>
-        <button type="button" className="btn-ghost sm pill" disabled={!canRetry} onClick={onRetry}>Hỏi lại</button>
+        <button type="button" className="btn-ghost sm" disabled={!canRetry} onClick={onRetry}>Hỏi lại</button>
       </div>
     );
   }
@@ -384,7 +384,7 @@ function AssistantBubble({ m, onRetry, canRetry, onStop, stopping }: {
       <div className="chat-bubble bot warn" role="alert">
         <p><strong>{m.status === "failed" ? "Chưa trả lời được." : "Câu trả lời không qua được bước kiểm trích dẫn nên đã bị loại."}</strong></p>
         <p className="small">{m.status === "failed" ? m.error : m.answer}</p>
-        <button type="button" className="btn-ghost sm pill" disabled={!canRetry} onClick={onRetry}>Hỏi lại</button>
+        <button type="button" className="btn-ghost sm" disabled={!canRetry} onClick={onRetry}>Hỏi lại</button>
       </div>
     );
   }

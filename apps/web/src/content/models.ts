@@ -59,8 +59,10 @@ export const NAMING: BarRow[] = [
   { name: "Tiêu đề bài đại diện (mốc)", value: 0.517 },
   { name: "ViT5 v1", value: 0.632, ci: "[0,610; 0,655]" },
   { name: "ViT5 v1 + hậu kiểm (đang dùng)", value: 0.622, ci: "[0,599; 0,645]", used: true },
+  // Nguồn: README R2 models/naming/bartpho_{large_s44,base_s42}_NguyenDinhHieu/ (05/11/2026), chưa tích hợp vào pipeline.
+  { name: "BARTpho-syllable (chưa tích hợp)", value: 0.654, ci: "[0,632; 0,676]" },
+  { name: "BARTpho-syllable base", value: 0.631, ci: "[0,609; 0,653]" },
 ];
-export const NAMING_TRAINING = "BARTpho (large, base)";
 export const NAMING_NOTE =
   "Hậu kiểm thay tên mô hình bằng tiêu đề rút gọn ở 2,8% sự kiện (tên không khớp nội dung, lặp, quá dài). Trên 85 tên được chấm lại, "
   + "11,8% [6,5%; 20,3%] sai nghĩa hoặc bịa.";
@@ -69,6 +71,6 @@ export const NAMING_NOTE =
 export const CAVEATS = [
   "Nhãn dùng để đo do Claude gán; 100 cặp bài có người duyệt. Tập vàng gom cụm chưa có nhãn người.",
   "Tập vàng được dựng có dùng bkai v1, nên kết quả gom cụm có thể thiên về v1.",
-  "BARTpho đang huấn luyện trên Kaggle, chưa có số đo.",
+  "BARTpho-syllable hơn ViT5 +0,022 [+0,001; +0,042] ROUGE-L trên dev (sát ngưỡng ý nghĩa) nhưng chưa được tích hợp vào pipeline.",
   "Điểm xu hướng là công thức, chưa đánh giá được vì chưa có dữ liệu \"Xem nhiều\" của các báo để đối chiếu.",
 ];

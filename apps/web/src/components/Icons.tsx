@@ -49,6 +49,21 @@ export const IconChevronLeft = ({ size = 18, className }: P) => (
 export const IconChevronRight = ({ size = 18, className }: P) => (
   <svg {...base(size)} className={className}><path d="M9 18l6-6-6-6" /></svg>
 );
+export const IconExternal = ({ size = 15, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M7 17 17 7" /><path d="M8 7h9v9" /></svg>
+);
+export const IconArrowLeft = ({ size = 16, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></svg>
+);
+export const IconCheck = ({ size = 16, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M20 6 9 17l-5-5" /></svg>
+);
+export const IconMail = ({ size = 22, className }: P) => (
+  <svg {...base(size)} className={className}><rect x="3" y="5" width="18" height="14" /><path d="m3 7 9 6 9-6" /></svg>
+);
+export const IconAlert = ({ size = 16, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4" /><path d="M12 17h.01" /></svg>
+);
 export const IconSpinner = ({ size = 16, className }: P) => (
   <svg {...base(size)} strokeWidth={2.5} className={className}><path d="M21 12a9 9 0 1 1-6.2-8.56" /></svg>
 );

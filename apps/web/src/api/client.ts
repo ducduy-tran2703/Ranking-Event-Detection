@@ -28,6 +28,7 @@ export type EventStats = Schemas["EventStats"];
 export type EventMap = Schemas["EventMap"];
 export type MapEvent = Schemas["MapEvent"];
 export type SourceOverview = Schemas["SourceOverview"];
+export type LiveOverview = Schemas["LiveOverview"];
 
 type QueryOf<P extends keyof paths> = paths[P] extends { get: { parameters: { query?: infer Q } } }
   ? NonNullable<Q>

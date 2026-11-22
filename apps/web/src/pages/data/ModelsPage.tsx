@@ -1,9 +1,8 @@
 import type { CSSProperties } from "react";
 import {
-  CAVEATS, CLUSTERING, CLUSTERING_AXIS_FROM, CLUSTERING_NOTE, EMB_NOTE, EMBEDDINGS, NAMING, NAMING_NOTE, NAMING_TRAINING, STEPS,
+  CAVEATS, CLUSTERING, CLUSTERING_AXIS_FROM, CLUSTERING_NOTE, EMB_NOTE, EMBEDDINGS, NAMING, NAMING_NOTE, STEPS,
   type BarRow, type Status,
 } from "../../content/models";
-import { IconSpinner } from "../../components/Icons";
 import { fmtDec } from "../../lib/format";
 import { useTitle } from "../../lib/useTitle";
 import { DataNav } from "./DataNav";
@@ -89,14 +88,7 @@ export function ModelsPage() {
         <section aria-labelledby="h-name" className="card pad-sm rise" style={delay(.25)}>
           <h2 id="h-name" style={{ fontSize: 17 }}>3. Đặt tên: ROUGE-L</h2>
           <p className="hint" style={{ marginBottom: 12 }}>320 sự kiện tập dev, so với tên tham chiếu. Trục bắt đầu từ 0.</p>
-          <Bars rows={NAMING} from={0} extra={
-            <li className="two">
-              <span>{NAMING_TRAINING}</span>
-              <span className="inline" style={{ color: "var(--accent-dark)", fontSize: 13, fontWeight: 600 }}>
-                <IconSpinner className="spin" /> Đang huấn luyện trên Kaggle
-              </span>
-            </li>
-          } />
+          <Bars rows={NAMING} from={0} />
           <p className="small" style={{ marginTop: 12, color: "var(--body-2)" }}>{NAMING_NOTE}</p>
         </section>
       </div>
@@ -113,7 +105,7 @@ function MiniBar({ v }: { v: number }) {
   return (
     <div className="inline" style={{ flexWrap: "nowrap" }}>
       <span className="heat lg" style={{ flex: "1 1 auto" }} aria-hidden="true">
-        <span className="grow" style={{ width: `${Math.round(v * 100)}%`, background: "linear-gradient(90deg, #7dd3fc, #0369a1)" }} />
+        <span style={{ width: `${Math.round(v * 100)}%`, background: "var(--accent)" }} />
       </span>
       <span className="tnum" style={{ width: 44, textAlign: "right" }}>{f3(v)}</span>
     </div>

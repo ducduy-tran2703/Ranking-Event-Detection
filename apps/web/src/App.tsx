@@ -16,6 +16,8 @@ const NotFoundPage = page(() => import("./pages/NotFoundPage"), "NotFoundPage");
 const DataQualityPage = page(() => import("./pages/data/DataQualityPage"), "DataQualityPage");
 const ModelsPage = page(() => import("./pages/data/ModelsPage"), "ModelsPage");
 const ClusterMapPage = page(() => import("./pages/data/ClusterMapPage"), "ClusterMapPage");
+const SystemPage = page(() => import("./pages/data/SystemPage"), "SystemPage");
+const LiveDataPage = page(() => import("./pages/data/LiveDataPage"), "LiveDataPage");
 const AuthPage = page(() => import("./pages/account/AuthPage"), "AuthPage");
 const MePage = page(() => import("./pages/account/MePage"), "MePage");
 const AdminShell = page(() => import("./pages/admin/AdminShell"), "AdminShell");
@@ -59,6 +61,8 @@ export function App() {
         <Route path="du-lieu/chat-luong" element={<DataQualityPage />} />
         <Route path="du-lieu/mo-hinh" element={<ModelsPage />} />
         <Route path="du-lieu/gom-cum" element={<ClusterMapPage />} />
+        <Route path="du-lieu/he-thong" element={<SystemPage />} />
+        <Route path="du-lieu/may-chu" element={<LiveDataPage />} />
         <Route path="me" element={<RequireAuth><MePage /></RequireAuth>} />
         {/* đường dẫn cũ của trang kiểm soát dữ liệu */}
         <Route path="time" element={<Moved to={kho.time} />} />

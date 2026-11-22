@@ -71,6 +71,16 @@ export const useCategories = (filter: StatsFilter) =>
 export const useQuality = () =>
   useQuery({ queryKey: ["quality"], queryFn: () => unwrap(api.GET("/api/stats/quality")) });
 
+/** Số liệu trực tiếp từ Postgres + crawler. `live`: tự tải lại 30 s/lần (API đệm 15 s). */
+export const useLiveOverview = (live: boolean) =>
+  useQuery({
+    queryKey: ["live-overview"],
+    queryFn: () => unwrap(api.GET("/api/live/overview")),
+    refetchInterval: live ? 30_000 : false,
+    refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
+  });
+
 export const useFiles = () =>
   useQuery({ queryKey: ["files"], queryFn: () => unwrap(api.GET("/api/files")) });
 

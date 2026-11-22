@@ -5,7 +5,7 @@ import {
 } from "../../api/accountQueries";
 import { AUTH_MOCK, AuthError, GENERIC_LOGIN_ERROR, passwordProblem, type Role } from "../../api/auth";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../../api/mockdb";
-import { IconBell } from "../../components/Icons";
+import { IconBell, IconCheck, IconMail } from "../../components/Icons";
 import { safeNext } from "../../lib/routes";
 import { useTitle } from "../../lib/useTitle";
 
@@ -48,12 +48,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       <section aria-labelledby="h-why" className="auth-promo rise">
         <h2 id="h-why">Theo dõi sự kiện, không bỏ lỡ diễn biến</h2>
         <ul>
-          <li><span aria-hidden="true">✓</span>Lưu sự kiện để đọc lại</li>
-          <li><span aria-hidden="true">✓</span>Nhận thông báo khi sự kiện có thêm bài mới</li>
-          <li><span aria-hidden="true">✓</span>Đăng ký chủ đề: người, địa danh, chuyên mục</li>
+          <li><IconCheck />Lưu sự kiện để đọc lại</li>
+          <li><IconCheck />Nhận thông báo khi sự kiện có thêm bài mới</li>
+          <li><IconCheck />Đăng ký chủ đề: người, địa danh, chuyên mục</li>
         </ul>
-        <div className="float-note float" aria-hidden="true">
-          <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--soft-2)", color: "var(--accent)",
+        <div className="float-note" aria-hidden="true">
+          <span style={{ width: 36, height: 36, background: "var(--soft-2)", color: "var(--accent)",
                          display: "grid", placeItems: "center", flex: "none" }}><IconBell /></span>
           <span><b>Sự kiện bạn theo dõi · vừa xong</b>Có thêm bài mới về sự kiện bạn đang theo dõi</span>
         </div>
@@ -114,7 +114,7 @@ function LoginForm({ next }: { next: string | null }) {
         <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
         Giữ đăng nhập trên thiết bị này (30 ngày)
       </label>
-      <button type="submit" className="btn pill" disabled={login.isPending || !email || !password}>
+      <button type="submit" className="btn" disabled={login.isPending || !email || !password}>
         {login.isPending ? "Đang đăng nhập…" : "Đăng nhập"}
       </button>
       {AUTH_MOCK && (
@@ -156,12 +156,12 @@ function RegisterForm({ next }: { next: string | null }) {
     // khi thật sự đã có phiên đăng nhập; không thì mời đăng nhập.
     return (
       <div className="done fade" role="status">
-        <span className="mail-icon" aria-hidden="true">✉</span>
+        <span className="mail-icon" aria-hidden="true"><IconMail /></span>
         <h1>Kiểm tra email của bạn</h1>
         <p>Nếu email này chưa được dùng cho tài khoản nào, bạn sẽ nhận thư xác minh trong vài phút (link có hiệu lực 24 giờ).
           Nếu email đã có tài khoản, hãy đăng nhập hoặc dùng “Quên mật khẩu”.</p>
-        {user ? <Link to={safeNext(next)} className="btn pill">Vào trang của tôi</Link>
-          : <Link to={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="btn pill">Đăng nhập</Link>}
+        {user ? <Link to={safeNext(next)} className="btn">Vào trang của tôi</Link>
+          : <Link to={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="btn">Đăng nhập</Link>}
       </div>
     );
   }
@@ -202,7 +202,7 @@ function RegisterForm({ next }: { next: string | null }) {
         Tôi đồng ý với điều khoản sử dụng và cách xử lý dữ liệu cá nhân
       </label>
       {touched && !agree && <span id="reg-agree-err" className="field-error" role="alert">Cần đồng ý điều khoản để tạo tài khoản.</span>}
-      <button type="submit" className="btn pill" disabled={reg.isPending}>{reg.isPending ? "Đang tạo…" : "Tạo tài khoản"}</button>
+      <button type="submit" className="btn" disabled={reg.isPending}>{reg.isPending ? "Đang tạo…" : "Tạo tài khoản"}</button>
     </form>
   );
 }
@@ -215,7 +215,7 @@ function ForgotForm() {
       <div className="done fade" role="status">
         <h1>Đã gửi yêu cầu</h1>
         <p>Nếu email này có tài khoản, bạn sẽ nhận được link đặt lại mật khẩu trong vài phút. Đặt mật khẩu mới sẽ đăng xuất mọi thiết bị khác.</p>
-        <Link to="/login" className="btn-ghost pill">Quay lại đăng nhập</Link>
+        <Link to="/login" className="btn-ghost">Quay lại đăng nhập</Link>
       </div>
     );
   }
@@ -229,7 +229,7 @@ function ForgotForm() {
         <input id="forgot-email" className="field" type="email" autoComplete="email" required value={email}
                onChange={(e) => setEmail(e.target.value)} />
       </div>
-      <button type="submit" className="btn pill" disabled={forgot.isPending || !email}>
+      <button type="submit" className="btn" disabled={forgot.isPending || !email}>
         {forgot.isPending ? "Đang gửi…" : "Gửi link đặt lại"}
       </button>
       <Link to="/login" className="link-btn" style={{ textAlign: "center", color: "var(--muted)" }}>← Quay lại đăng nhập</Link>
@@ -251,7 +251,7 @@ function ResetForm({ token }: { token: string }) {
       <div className="done fade" role="status">
         <h1>Đã đặt mật khẩu mới</h1>
         <p>Mọi thiết bị đã bị đăng xuất. Đăng nhập lại bằng mật khẩu mới.</p>
-        <Link to="/login" className="btn pill">Đăng nhập</Link>
+        <Link to="/login" className="btn">Đăng nhập</Link>
       </div>
     );
   }
@@ -272,7 +272,7 @@ function ResetForm({ token }: { token: string }) {
                aria-invalid={!!mismatch} aria-describedby="reset-pw2-hint" />
         {mismatch && <span id="reset-pw2-hint" className="field-error">Hai mật khẩu chưa khớp.</span>}
       </div>
-      <button type="submit" className="btn pill" disabled={reset.isPending || !pw || !!problem || !!mismatch}>
+      <button type="submit" className="btn" disabled={reset.isPending || !pw || !!problem || !!mismatch}>
         {reset.isPending ? "Đang lưu…" : "Đặt mật khẩu mới"}
       </button>
     </form>
@@ -290,7 +290,7 @@ function Verify({ token }: { token: string }) {
       <h1>Xác minh email</h1>
       {!token && <p>Link không đầy đủ. Hãy mở lại link trong email.</p>}
       {verify.isPending && <p>Đang xác minh…</p>}
-      {verify.isSuccess && <><p className="form-ok">Email đã được xác minh. Cảm ơn bạn!</p><Link to="/me" className="btn pill">Vào trang của tôi</Link></>}
+      {verify.isSuccess && <><p className="form-ok">Email đã được xác minh. Cảm ơn bạn!</p><Link to="/me" className="btn">Vào trang của tôi</Link></>}
       {verify.error && <p className="form-error">{errText(verify.error)}</p>}
     </div>
   );

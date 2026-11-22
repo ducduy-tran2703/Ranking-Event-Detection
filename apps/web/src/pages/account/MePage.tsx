@@ -1,3 +1,4 @@
+import { IconClose } from "../../components/Icons";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -86,7 +87,7 @@ function Notifications() {
   const unread = q.data?.filter((n) => !n.read).length ?? 0;
   return (
     <Section id="thong-bao" title="Thông báo" d={.05} actions={unread > 0 && (
-      <button type="button" className="btn-ghost sm pill" onClick={() => readAll.mutate(undefined)}>Đánh dấu đã đọc hết</button>
+      <button type="button" className="btn-ghost sm" onClick={() => readAll.mutate(undefined)}>Đánh dấu đã đọc hết</button>
     )}>
       <QueryState q={q} empty="Chưa có thông báo nào. Theo dõi sự kiện hoặc đăng ký chủ đề để nhận tin.">
         <ul className="rows" style={{ marginTop: 8 }}>
@@ -126,7 +127,7 @@ function Follows() {
                 <input type="checkbox" checked={f.notify} onChange={(e) => notify.mutate({ id: f.event_id, on: e.target.checked })} />
                 Báo cho tôi
               </label>
-              <button type="button" className="btn-ghost sm pill" onClick={() => unfollow.mutate(f.event_id)}
+              <button type="button" className="btn-ghost sm" onClick={() => unfollow.mutate(f.event_id)}
                       aria-label={`Bỏ theo dõi: ${f.ten}`}>Bỏ theo dõi</button>
             </li>
           ))}
@@ -151,7 +152,7 @@ function Saved() {
                   {[b.chuyen_muc, `${b.size} bài`, `lưu ngày ${fmtShort(b.at).slice(0, 5)}`, b.note && `Ghi chú: ${b.note}`].filter(Boolean).join(" · ")}
                 </div>
               </div>
-              <button type="button" className="btn-ghost sm pill" onClick={() => remove.mutate(b.event_id)}
+              <button type="button" className="btn-ghost sm" onClick={() => remove.mutate(b.event_id)}
                       aria-label={`Bỏ lưu: ${b.ten}`}>Bỏ lưu</button>
             </li>
           ))}
@@ -179,7 +180,7 @@ function Topics() {
             <span key={s.id} className="tag" style={{ fontSize: 14, fontWeight: 400, padding: "4px 4px 4px 12px" }}>
               {s.kind === "keyword" ? "Từ khoá" : "Chuyên mục"}: {s.value}
               <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} aria-label={`Bỏ chủ đề ${s.value}`}
-                      onClick={() => remove.mutate(s.id)}>✕</button>
+                      onClick={() => remove.mutate(s.id)}><IconClose size={16} /></button>
             </span>
           ))}
         </div>
@@ -298,7 +299,7 @@ function Security({ email, verified }: { email: string; verified: boolean }) {
               <span className="inline" style={{ gap: 10 }}>
                 <span className="small muted">Hoạt động {timeAgo(s.last_seen)}</span>
                 {!s.current && (
-                  <button type="button" className="btn-ghost sm pill" onClick={() => revoke.mutate(s.id)}
+                  <button type="button" className="btn-ghost sm" onClick={() => revoke.mutate(s.id)}
                           aria-label={`Đăng xuất phiên ${s.device}`}>Đăng xuất</button>
                 )}
               </span>
@@ -307,9 +308,9 @@ function Security({ email, verified }: { email: string; verified: boolean }) {
         </ul>
       </QueryState>
       <div className="inline" style={{ gap: 10, marginTop: 14 }}>
-        <button type="button" className="btn-ghost pill" aria-expanded={pwOpen} aria-controls="doi-mat-khau"
+        <button type="button" className="btn-ghost" aria-expanded={pwOpen} aria-controls="doi-mat-khau"
                 onClick={() => setPwOpen(!pwOpen)}>Đổi mật khẩu</button>
-        <button ref={allBtn} type="button" className="btn-ghost pill" aria-expanded={confirm === "all"}
+        <button ref={allBtn} type="button" className="btn-ghost" aria-expanded={confirm === "all"}
                 onClick={() => setConfirm("all")}>Đăng xuất mọi thiết bị</button>
         <button ref={delBtn} type="button" className="btn-ghost pill danger-solid" aria-expanded={confirm === "delete"}
                 onClick={() => setConfirm("delete")}>Xoá tài khoản</button>
@@ -329,7 +330,7 @@ function Security({ email, verified }: { email: string; verified: boolean }) {
           </div>
           {change.error && <p className="form-error" role="alert">{errText(change.error)}</p>}
           {change.isSuccess && <p className="form-ok" role="status">Đã đổi mật khẩu.</p>}
-          <button type="submit" className="btn pill" style={{ alignSelf: "flex-start" }} disabled={!oldPw || !newPw || change.isPending}>
+          <button type="submit" className="btn" style={{ alignSelf: "flex-start" }} disabled={!oldPw || !newPw || change.isPending}>
             Lưu mật khẩu mới</button>
         </form>
       )}

@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router";
 import { useCurrentUser, useNotifications } from "../api/accountQueries";
 import { initials } from "../lib/format";
 import { loginHref } from "../lib/routes";
-import { IconBell, IconClose, IconMenu, IconSearch, IconTrend, IconUser } from "./Icons";
+import { IconArrowLeft, IconBell, IconClose, IconMenu, IconSearch, IconUser } from "./Icons";
 
 const NAV = [
   { to: "/", label: "Xu hướng", end: true },
@@ -16,8 +16,7 @@ const NAV = [
 function Brand({ sub }: { sub?: boolean }) {
   return (
     <Link to="/" className="brand" aria-label="EventRank — về trang xu hướng">
-      <span className="brand-mark" aria-hidden="true"><IconTrend /></span>
-      <span className="brand-name">Event<span>Rank</span></span>
+      <span className="brand-name">EventRank</span>
       {sub && <span className="brand-sub">Sự kiện tin tức Việt Nam</span>}
     </Link>
   );
@@ -27,7 +26,7 @@ function SkipLink() {
   return <a href="#noi-dung" className="skip-link">Bỏ qua, tới nội dung chính</a>;
 }
 
-/** Header công khai: thanh xanh nổi, nav 4 mục; điện thoại: icon tìm kiếm / tài khoản / menu. */
+/** Header công khai: thanh nổi trên cùng bề mặt với trang; điện thoại: icon tìm kiếm / tài khoản / menu. */
 export function SiteHeader() {
   const { data: user } = useCurrentUser();
   const notis = useNotifications();
@@ -65,7 +64,7 @@ export function SiteHeader() {
               <>
                 <Link to="/me#thong-bao" className="hdr-icon"
                       aria-label={unread ? `Thông báo, ${unread} chưa đọc` : "Thông báo, không có tin chưa đọc"}>
-                  <IconBell size={21} className={unread ? "ring" : undefined} />
+                  <IconBell size={21} />
                   {unread > 0 && <span className="hdr-badge" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
                 </Link>
                 {user.role === "admin" && <Link to="/admin" className="hdr-btn desktop-only">Quản trị</Link>}
@@ -119,14 +118,14 @@ export function SimpleHeader() {
       <header className="site-header simple">
         <div className="hdr">
           <Brand sub />
-          <Link to="/" className="hdr-back">← Về trang xu hướng</Link>
+          <Link to="/" className="hdr-back"><IconArrowLeft /> Về trang xu hướng</Link>
         </div>
       </header>
     </>
   );
 }
 
-/** Header khu quản trị: xanh đậm hơn + nhãn "Quản trị". */
+/** Header khu quản trị: cùng kiểu thanh nổi + nhãn "Quản trị". */
 export function AdminHeader({ who }: { who?: string }) {
   return (
     <>
@@ -134,8 +133,7 @@ export function AdminHeader({ who }: { who?: string }) {
       <header className="site-header admin">
         <div className="hdr">
           <Link to="/admin" className="brand" aria-label="EventRank Quản trị — trang đầu khu quản trị">
-            <span className="brand-mark" aria-hidden="true"><IconTrend /></span>
-            <span className="brand-name">Event<span>Rank</span></span>
+            <span className="brand-name">EventRank</span>
             <span className="admin-tag">Quản trị</span>
           </Link>
           <div className="hdr-right">

@@ -1,6 +1,6 @@
 import { sourceMeta } from "../lib/sources";
 
-const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
+const PALETTE = ["#22397a", "#8c2a22", "#2f5d3d", "#7a3b12", "#5a3f78", "#2f5a63", "#9a6b12", "#4a4036"];
 
 /** Mỗi nguồn luôn một màu cố định, ở mọi biểu đồ của Kho dữ liệu. */
 export function sourceColor(source: string): string {
