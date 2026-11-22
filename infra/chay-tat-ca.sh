@@ -10,7 +10,7 @@
 #   WORKER=auto|1|0    worker liên tục; auto = chỉ bật khi RAM trống ≥ WORKER_MIN_FREE_MB (mặc định auto)
 #   WORKER_MIN_FREE_MB RAM trống tối thiểu cho WORKER=auto, MB (mặc định 2000; một vòng worker đỉnh ~1,9–2,2 GB)
 #   QDRANT=1|0         bật Qdrant cho Hỏi đáp RAG (mặc định 1)
-#   WEB_DIR            thư mục frontend (mặc định apps/web; bản Neumorphism: ../RED-web-redesign/apps/web)
+#   WEB_DIR            thư mục frontend (mặc định apps/web)
 #   WEB_HOST           địa chỉ Vite nghe (mặc định 0.0.0.0 để trình duyệt Windows vào được web trong WSL)
 #   DETACH=1           bật xong thì trả terminal, dịch vụ chạy nền; tắt bằng `make down`
 #

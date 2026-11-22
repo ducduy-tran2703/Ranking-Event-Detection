@@ -77,7 +77,7 @@ Tuỳ chọn, đặt trước lệnh:
 | `WORKER=0` / `WORKER=1` | auto | Không bật worker / ép bật dù RAM thấp |
 | `WORKER_MIN_FREE_MB` | 2000 | Ngưỡng RAM cho `WORKER=auto` |
 | `QDRANT=0` | 1 | Không bật Qdrant (trang Hỏi đáp sẽ báo chưa sẵn sàng) |
-| `WEB_DIR` | `apps/web` | Thư mục frontend khác, ví dụ một worktree giao diện mới |
+| `WEB_DIR` | `apps/web` | Thư mục frontend khác (mặc định đã là giao diện Neumorphism hiện tại) |
 | `WEB_HOST` | `0.0.0.0` | Địa chỉ Vite nghe |
 | `DETACH=1` | 0 | Bật xong trả terminal, dịch vụ chạy nền; tắt bằng `make down` |
 
@@ -86,7 +86,6 @@ Ví dụ:
 ```bash
 WORKER=0 make up                                        # máy yếu: không chạy worker
 DETACH=1 make up                                        # chạy nền
-WEB_DIR=../RED-web-redesign/apps/web make up            # dùng frontend ở worktree khác
 QDRANT_STOP=1 make down                                 # tắt cả Qdrant
 ```
 
@@ -143,6 +142,7 @@ API tự nạp dữ liệu mới sau tối đa 60 giây. Chi tiết và số đo
 
 | Trang | Xem gì |
 |---|---|
+| http://localhost:5173/du-lieu/may-chu | **Dữ liệu máy chủ, trực tiếp** (tự cập nhật 30 s): đường ống crawler → Postgres → worker → web, bài theo giờ / ngày từng báo, các vòng worker, phân bố sự kiện, job cào và lỗi tách bài, dung lượng bảng. API: `GET /api/live/overview` |
 | http://localhost:5173/admin/kho | Tổng quan kho: bài theo thời gian, chuyên mục, chất lượng, danh sách bài, từng báo |
 | http://localhost:5173/admin/thu-thap | Tình trạng cào từng báo |
 | http://localhost:5173/du-lieu/gom-cum | Bản đồ cụm sự kiện |
