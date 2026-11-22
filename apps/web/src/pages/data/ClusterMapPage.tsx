@@ -9,7 +9,7 @@ import { eventHref } from "../../lib/routes";
 import { useTitle } from "../../lib/useTitle";
 import { DataNav } from "./DataNav";
 
-const COLORS = ["#0369A1", "#EA580C", "#059669", "#9333EA", "#38BDF8", "#DB2777", "#CA8A04", "#DC2626"];
+const COLORS = ["#22397A", "#B4552B", "#2F7A4B", "#6B4A92", "#2F7F8C", "#A53A5C", "#9A7A12", "#8C2A22"];
 const delay = (s: number): CSSProperties => ({ animationDelay: `${s}s` });
 
 /**
@@ -129,7 +129,7 @@ function MapView({ data, stale }: { data: EventMap; stale: boolean }) {
             return (
               <span key={i} className="pt pop" title={colored ? names.get(k) : undefined}
                     style={{ left: `${3 + x * .94}%`, top: `${3 + y * .94}%`, width: s, height: s,
-                             background: colored ? COLORS[k % COLORS.length] : "#CBD5E1",
+                             background: colored ? COLORS[k % COLORS.length] : "#C9C2B2",
                              opacity: dim ? (colored ? .15 : .25) : (colored ? .95 : .7),
                              animationDelay: `${(Math.min(i, 800) * .0012).toFixed(3)}s` }} />
             );

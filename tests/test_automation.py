@@ -58,6 +58,9 @@ class AutomationTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.settings = Settings(data_dir=self.root, scheduler_enabled=False)
+        env = patch.dict("os.environ", {"CRAWLER_USER_AGENT": "EventRank-Test/1.0 (test)"})
+        env.start()
+        self.addCleanup(env.stop)
 
     def wait_job(self, manager, job_id):
         deadline = time.monotonic() + 5
@@ -218,7 +221,7 @@ class AutomationTests(unittest.TestCase):
         client = SourceClient("qdnd", settings, threading.Event())
         session = Mock()
         session.get.return_value = Mock(status_code=429)
-        with patch.object(client, "_session", return_value=session):
+        with patch.object(client, "_session", return_value=session), patch.object(client, "_check_robots"):
             with self.assertRaises(SourceBlocked):
                 client.get(URL)
             with self.assertRaises(SourceBlocked):
@@ -266,7 +269,7 @@ class AutomationTests(unittest.TestCase):
             return response
 
         session.get.side_effect = get
-        with patch.object(client, "_session", return_value=session):
+        with patch.object(client, "_session", return_value=session), patch.object(client, "_check_robots"):
             with ThreadPoolExecutor(max_workers=2) as pool:
                 list(pool.map(client.get, [URL] * 3))
         self.assertEqual(len(starts), 3)

@@ -48,3 +48,16 @@ export:
   events_json_min_size: 2                    # events.json chỉ chứa sự kiện ≥ 2 bài
   events_json_top: 100                       # + 100 sự kiện "nổi bật" = tổng điểm theo giờ cao nhất
   latest_min_candidates: 10                  # xu_huong_moi_nhat = mốc cuối có ≥ 10 sự kiện trong bảng
+
+# Worker chạy liên tục (python -m eventrank.serving.worker / make worker) — đọc/ghi Postgres, dùng chung mô hình và tham số ở trên.
+worker:
+  interval_seconds: 300        # giây giữa hai vòng (crawler 30 phút/lần)
+  pending_max_age_days: 7      # bài đăng cũ hơn chừng này không được gán (khớp CRAWLER_MAX_ARTICLE_AGE_DAYS)
+  # Sự kiện từ chừng này bài trở lên chỉ lớn thêm, không tách (ý tưởng ở tong-hop 9.1). Rỗng = không khoá: chọn trên 14/09
+  # (không khoá F1 0,961; khoá ≥ 5 bài 0,957; ≥ 3 bài 0,949). Đặt số để ưu tiên event_id ổn định hơn độ chính xác cụm.
+  lock_min_size:
+  min_lock_jaccard: 0.0        # chỉ có tác dụng khi có khoá: cụm phải trùng sự kiện khoá ít nhất chừng này mới được nhập
+  rename_growth: 1.5           # đặt lại tên khi số bài ≥ 1,5 lần lúc đặt tên trước
+  rescore_hours: 6             # số mốc giờ gần nhất được tính lại mỗi vòng (bài đến muộn, cụm đổi)
+  backfill_hours: 48           # bù tối đa chừng này giờ khi worker nghỉ lâu
+  closed_after_hours: 48       # sự kiện không có bài mới quá chừng này → closed

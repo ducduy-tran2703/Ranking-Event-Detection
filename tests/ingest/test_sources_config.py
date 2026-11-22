@@ -4,10 +4,10 @@ import pytest
 from eventrank.ingest import sources
 
 
-def test_sau_bao_hien_co_chua_bat_chua_co_crawler():
+def test_tam_bao_hien_co_chua_bat_chua_co_crawler():
     rows = {r["source"]: r for r in sources.load_sources()}
     assert set(rows) == {"tuoitre", "thanhnien", "vietnamnet", "nhandan", "vnexpress",
-                         "baochinhphu"}
+                         "baochinhphu", "dantri", "qdnd"}
     assert not any(r["enabled"] for r in rows.values())
     assert all(r["homepage"].startswith("https://") for r in rows.values())
     assert "302" in rows["vnexpress"]["notes"]

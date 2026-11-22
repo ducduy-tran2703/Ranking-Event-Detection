@@ -62,7 +62,7 @@ export function FeedbackTab() {
               {r.status === "open" && (
                 <div className="inline">
                   <button type="button" className="btn sm pill solid" onClick={() => act.mutate({ id: r.id, status: "resolved" })}>Đã xử lý</button>
-                  <button type="button" className="btn-ghost sm pill" onClick={() => act.mutate({ id: r.id, status: "rejected" })}>Không sai</button>
+                  <button type="button" className="btn-ghost sm" onClick={() => act.mutate({ id: r.id, status: "rejected" })}>Không sai</button>
                 </div>
               )}
             </li>
@@ -133,7 +133,7 @@ export function UsersTab() {
                     {u.locked_until ? `Khoá tạm tới ${fmtShort(u.locked_until).slice(6)} (sai mật khẩu 5 lần)`
                       : u.email_verified ? "Đang hoạt động" : "Chưa xác minh email"}
                   </td>
-                  <td>{u.locked_until && <button type="button" className="btn-ghost sm pill" onClick={() => unlock.mutate(u.id)}>Mở khoá</button>}</td>
+                  <td>{u.locked_until && <button type="button" className="btn-ghost sm" onClick={() => unlock.mutate(u.id)}>Mở khoá</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -148,7 +148,7 @@ export function UsersTab() {
             <>
               <span className="small">Xoá mọi tài khoản, báo sai, thư, khoá giả lập trên trình duyệt này và đăng xuất?</span>
               <button type="button" className="btn-ghost sm pill danger-solid" onClick={() => { resetMock(); window.location.assign("/"); }}>Xoá hết</button>
-              <button type="button" className="btn-ghost sm pill" onClick={() => setConfirmReset(false)}>Huỷ</button>
+              <button type="button" className="btn-ghost sm" onClick={() => setConfirmReset(false)}>Huỷ</button>
             </>
           )}
         </div>

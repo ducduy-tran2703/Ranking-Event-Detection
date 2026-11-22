@@ -2658,6 +2658,27 @@
           }
         }
       }
+    },
+    "/api/live/overview": {
+      "get": {
+        "tags": [
+          "Số liệu trực tiếp"
+        ],
+        "summary": "Overview",
+        "operationId": "overview_api_live_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveOverview"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4296,6 +4317,1196 @@
           "duplicate_id"
         ],
         "title": "IssueCounts"
+      },
+      "LiveCategory": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "events",
+          "articles"
+        ],
+        "title": "LiveCategory"
+      },
+      "LiveCrawlRun": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "crawler": {
+            "type": "string",
+            "title": "Crawler"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "n_seen": {
+            "type": "integer",
+            "title": "N Seen"
+          },
+          "n_new": {
+            "type": "integer",
+            "title": "N New"
+          },
+          "n_updated": {
+            "type": "integer",
+            "title": "N Updated"
+          },
+          "n_unchanged": {
+            "type": "integer",
+            "title": "N Unchanged"
+          },
+          "n_rejected": {
+            "type": "integer",
+            "title": "N Rejected"
+          },
+          "reject_reasons": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Reject Reasons"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "source",
+          "crawler",
+          "started_at",
+          "finished_at",
+          "seconds",
+          "status",
+          "n_seen",
+          "n_new",
+          "n_updated",
+          "n_unchanged",
+          "n_rejected",
+          "reject_reasons",
+          "error"
+        ],
+        "title": "LiveCrawlRun"
+      },
+      "LiveCrawler": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "interval_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Minutes"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "active_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Job Id"
+          },
+          "jobs_total": {
+            "type": "integer",
+            "title": "Jobs Total"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/LiveCrawlerJob"
+            },
+            "type": "array",
+            "title": "Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "interval_minutes",
+          "next_run_at",
+          "active_job_id",
+          "jobs_total",
+          "jobs"
+        ],
+        "title": "LiveCrawler"
+      },
+      "LiveCrawlerJob": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/LiveCrawlerSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "trigger",
+          "status",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "sources"
+        ],
+        "title": "LiveCrawlerJob"
+      },
+      "LiveCrawlerSource": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase"
+          },
+          "discovered": {
+            "type": "integer",
+            "title": "Discovered"
+          },
+          "processed": {
+            "type": "integer",
+            "title": "Processed"
+          },
+          "clean": {
+            "type": "integer",
+            "title": "Clean"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "inserted": {
+            "type": "integer",
+            "title": "Inserted"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "n_errors": {
+            "type": "integer",
+            "title": "N Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "status",
+          "phase",
+          "discovered",
+          "processed",
+          "clean",
+          "rejected",
+          "failed",
+          "inserted",
+          "updated",
+          "errors",
+          "n_errors"
+        ],
+        "title": "LiveCrawlerSource"
+      },
+      "LiveDaily": {
+        "properties": {
+          "days": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Days",
+            "description": "14 ngày gần nhất theo giờ Việt Nam, cũ nhất trước"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/LiveDaySeries"
+            },
+            "type": "array",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "series"
+        ],
+        "title": "LiveDaily"
+      },
+      "LiveDaySeries": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "counts": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "counts"
+        ],
+        "title": "LiveDaySeries"
+      },
+      "LiveEvents": {
+        "properties": {
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "multi_source": {
+            "type": "integer",
+            "title": "Multi Source"
+          },
+          "size_hist": {
+            "items": {
+              "$ref": "#/components/schemas/LiveSizeBucket"
+            },
+            "type": "array",
+            "title": "Size Hist"
+          },
+          "sources_hist": {
+            "items": {
+              "$ref": "#/components/schemas/LiveSourcesBucket"
+            },
+            "type": "array",
+            "title": "Sources Hist"
+          },
+          "naming": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Naming",
+            "description": "nguồn tên của sự kiện ≥ 2 bài: model | medoid | title | editor"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/LiveCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "top": {
+            "items": {
+              "$ref": "#/components/schemas/LiveTopEvent"
+            },
+            "type": "array",
+            "title": "Top"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_days",
+          "total",
+          "multi_source",
+          "size_hist",
+          "sources_hist",
+          "naming",
+          "categories",
+          "top"
+        ],
+        "title": "LiveEvents"
+      },
+      "LiveHourSeries": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "ingested": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Ingested",
+            "description": "số bài vào hệ thống theo giờ, cùng thứ tự với `hours`"
+          },
+          "published": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Published",
+            "description": "số bài theo giờ đăng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "ingested",
+          "published"
+        ],
+        "title": "LiveHourSeries"
+      },
+      "LiveHourly": {
+        "properties": {
+          "hours": {
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "type": "array",
+            "title": "Hours",
+            "description": "đầu mỗi giờ, 48 giờ gần nhất, cũ nhất trước"
+          },
+          "events_created": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Events Created"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/LiveHourSeries"
+            },
+            "type": "array",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hours",
+          "events_created",
+          "series"
+        ],
+        "title": "LiveHourly"
+      },
+      "LiveOverview": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "clock_mode": {
+            "type": "string",
+            "title": "Clock Mode"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/LiveTotals"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/LiveSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "hourly": {
+            "$ref": "#/components/schemas/LiveHourly"
+          },
+          "daily": {
+            "$ref": "#/components/schemas/LiveDaily"
+          },
+          "crawl_runs": {
+            "items": {
+              "$ref": "#/components/schemas/LiveCrawlRun"
+            },
+            "type": "array",
+            "title": "Crawl Runs"
+          },
+          "worker": {
+            "$ref": "#/components/schemas/LiveWorker"
+          },
+          "events": {
+            "$ref": "#/components/schemas/LiveEvents"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/LiveTable"
+            },
+            "type": "array",
+            "title": "Tables"
+          },
+          "crawler": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveCrawler"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "lịch cào từ dịch vụ crawler :8002; None nếu dịch vụ không trả lời"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "clock_mode",
+          "totals",
+          "sources",
+          "hourly",
+          "daily",
+          "crawl_runs",
+          "worker",
+          "events",
+          "tables",
+          "crawler"
+        ],
+        "title": "LiveOverview"
+      },
+      "LiveSizeBucket": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "events",
+          "articles"
+        ],
+        "title": "LiveSizeBucket"
+      },
+      "LiveSource": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "new_1h": {
+            "type": "integer",
+            "title": "New 1H"
+          },
+          "new_24h": {
+            "type": "integer",
+            "title": "New 24H"
+          },
+          "first_published": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published"
+          },
+          "last_published": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published"
+          },
+          "last_crawled": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawled"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_run_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run Status"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "stuck": {
+            "type": "boolean",
+            "title": "Stuck"
+          },
+          "runs_24h": {
+            "type": "integer",
+            "title": "Runs 24H"
+          },
+          "failed_24h": {
+            "type": "integer",
+            "title": "Failed 24H"
+          },
+          "seen_24h": {
+            "type": "integer",
+            "title": "Seen 24H"
+          },
+          "rejected_24h": {
+            "type": "integer",
+            "title": "Rejected 24H"
+          },
+          "flags": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "display_name",
+          "total",
+          "new_1h",
+          "new_24h",
+          "first_published",
+          "last_published",
+          "last_crawled",
+          "last_run_at",
+          "last_run_status",
+          "last_error",
+          "stuck",
+          "runs_24h",
+          "failed_24h",
+          "seen_24h",
+          "rejected_24h",
+          "flags"
+        ],
+        "title": "LiveSource"
+      },
+      "LiveSourcesBucket": {
+        "properties": {
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          },
+          "events": {
+            "type": "integer",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_sources",
+          "events"
+        ],
+        "title": "LiveSourcesBucket"
+      },
+      "LiveStepLast": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "status",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "LiveStepLast"
+      },
+      "LiveTable": {
+        "properties": {
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "table",
+          "rows",
+          "bytes"
+        ],
+        "title": "LiveTable"
+      },
+      "LiveTopEvent": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          },
+          "sources": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Sources"
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen"
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen"
+          },
+          "category_std": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Std"
+          },
+          "peak_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "display_name",
+          "status",
+          "size",
+          "n_sources",
+          "sources",
+          "first_seen",
+          "last_seen",
+          "category_std",
+          "peak_score"
+        ],
+        "title": "LiveTopEvent"
+      },
+      "LiveTotals": {
+        "properties": {
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "new_1h": {
+            "type": "integer",
+            "title": "New 1H",
+            "description": "bài vào hệ thống (crawled_at) trong 1 giờ qua"
+          },
+          "new_24h": {
+            "type": "integer",
+            "title": "New 24H"
+          },
+          "first_published": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published"
+          },
+          "last_published": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published"
+          },
+          "last_crawled": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Crawled"
+          },
+          "embedded": {
+            "type": "integer",
+            "title": "Embedded"
+          },
+          "not_embedded": {
+            "type": "integer",
+            "title": "Not Embedded"
+          },
+          "in_events": {
+            "type": "integer",
+            "title": "In Events"
+          },
+          "rag_articles": {
+            "type": "integer",
+            "title": "Rag Articles",
+            "description": "số bài đã cắt đoạn cho Hỏi đáp RAG"
+          },
+          "rag_chunks": {
+            "type": "integer",
+            "title": "Rag Chunks"
+          },
+          "events_new_24h": {
+            "type": "integer",
+            "title": "Events New 24H",
+            "description": "sự kiện mới tạo trong 24 giờ qua, không tính sự kiện đã gộp"
+          },
+          "db_bytes": {
+            "type": "integer",
+            "title": "Db Bytes"
+          },
+          "events_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Events By Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "new_1h",
+          "new_24h",
+          "first_published",
+          "last_published",
+          "last_crawled",
+          "embedded",
+          "not_embedded",
+          "in_events",
+          "rag_articles",
+          "rag_chunks",
+          "events_new_24h",
+          "db_bytes",
+          "events_by_status"
+        ],
+        "title": "LiveTotals"
+      },
+      "LiveWorker": {
+        "properties": {
+          "last_by_step": {
+            "items": {
+              "$ref": "#/components/schemas/LiveStepLast"
+            },
+            "type": "array",
+            "title": "Last By Step"
+          },
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/LiveWorkerRound"
+            },
+            "type": "array",
+            "title": "Rounds"
+          },
+          "rounds_24h": {
+            "type": "integer",
+            "title": "Rounds 24H"
+          },
+          "failed_24h": {
+            "type": "integer",
+            "title": "Failed 24H"
+          },
+          "embedded_24h": {
+            "type": "integer",
+            "title": "Embedded 24H"
+          },
+          "new_events_24h": {
+            "type": "integer",
+            "title": "New Events 24H"
+          },
+          "moved_24h": {
+            "type": "integer",
+            "title": "Moved 24H"
+          },
+          "merged_24h": {
+            "type": "integer",
+            "title": "Merged 24H"
+          },
+          "named_24h": {
+            "type": "integer",
+            "title": "Named 24H"
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_by_step",
+          "rounds",
+          "rounds_24h",
+          "failed_24h",
+          "embedded_24h",
+          "new_events_24h",
+          "moved_24h",
+          "merged_24h",
+          "named_24h"
+        ],
+        "title": "LiveWorker"
+      },
+      "LiveWorkerRound": {
+        "properties": {
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "steps": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LiveWorkerStep"
+            },
+            "type": "object",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "started_at",
+          "finished_at",
+          "status",
+          "steps"
+        ],
+        "title": "LiveWorkerRound"
+      },
+      "LiveWorkerStep": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Stats"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "seconds",
+          "stats",
+          "error"
+        ],
+        "title": "LiveWorkerStep"
       },
       "LoginBody": {
         "properties": {

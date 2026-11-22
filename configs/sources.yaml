@@ -86,3 +86,23 @@ sources:
 
 # Nếu thêm Dân Trí: sitemap có BOM (get_xml() tự bỏ), chỉ mục dừng ở 7/2026 (tháng 9 trả 404),
 # robots.txt có Crawl-delay: 1 (client vẫn giữ tối thiểu 2 s).
+
+  - source: dantri
+    display_name: Dân Trí
+    homepage: https://dantri.com.vn
+    enabled: false
+    crawler: ""
+    rss: []
+    sitemap: ""
+    notes: >-
+      Cào qua automation/ (api.main), không qua `ingest run`. Chưa có Silver lịch sử trong DB.
+
+  - source: qdnd
+    display_name: Quân đội Nhân dân
+    homepage: https://www.qdnd.vn
+    enabled: false
+    crawler: ""
+    rss: []
+    sitemap: ""
+    notes: >-
+      Cào qua automation/ (api.main), không qua `ingest run`. Chưa có Silver lịch sử trong DB.

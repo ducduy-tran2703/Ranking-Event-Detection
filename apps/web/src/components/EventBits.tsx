@@ -46,7 +46,7 @@ export function EventErrorBox({ error, onRetry }: { error: unknown; onRetry?: ()
           Người quản trị chạy <code>make pipeline</code> (tạo <code>data/runs/&lt;run_id&gt;/</code>) hoặc đặt{" "}
           <code>EVENTS_RUN_DIR</code>, rồi khởi động lại API. Trang dữ liệu bài báo trong khu Quản trị vẫn dùng được.
         </span>
-        {onRetry && <button type="button" className="btn-ghost sm pill" onClick={onRetry}>Thử lại</button>}
+        {onRetry && <button type="button" className="btn-ghost sm" onClick={onRetry}>Thử lại</button>}
       </div>
     );
   }

@@ -75,6 +75,8 @@ make weak-labels     # sinh nhãn yếu → data/weak_labels/v3/ (cần data/lak
 make agreement       # đo đồng thuận nhãn người ↔ nhãn LLM (Cohen's κ)
 make db-migrate      # áp migration Postgres (infra/db/migrations/) vào DATABASE_URL
 make ingest-status   # tình trạng từng báo trong Postgres (crawler: docs/handoff/ingest.md)
+make crawler         # dịch vụ cào 8 báo, CÀO NGAY khi bật, nạp vào Postgres (cần CRAWLER_USER_AGENT trong .env)
+make worker          # bài mới trong Postgres → embedding → gom cụm giữ event_id → đặt tên → xu hướng (docs/handoff/worker.md)
 make test-db         # test cần Postgres (TEST_DATABASE_URL), thiếu biến thì skip
 ```
 

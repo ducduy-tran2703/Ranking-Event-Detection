@@ -7,6 +7,7 @@ import { prefetchRoute } from "../api/prefetch";
 import { useRunInfo } from "../api/queries";
 import { sourceName, DEFAULT_SOURCES } from "../lib/sources";
 import { loginHref } from "../lib/routes";
+import { IconAlert } from "./Icons";
 import { AdminHeader, SimpleHeader, SiteHeader } from "./SiteHeader";
 import { Loading } from "./Status";
 
@@ -30,7 +31,7 @@ export function PreviewStrip() {
   if (!AUTH_MOCK) return null;
   return (
     <p className="preview-strip" role="note" data-testid="preview-strip">
-      <span aria-hidden="true">⚠</span>
+      <IconAlert />
       <span><strong>Bản xem trước</strong> — tài khoản chưa nối máy chủ, dữ liệu chỉ lưu trên trình duyệt này.</span>
     </p>
   );
@@ -114,7 +115,7 @@ export function RequireAuth({ role, children }: { role?: Role; children: ReactNo
       <div className="page">
         <div className="error-box" role="alert">
           <strong>Không kiểm tra được đăng nhập.</strong>
-          <button type="button" className="btn-ghost sm pill" onClick={() => refetch()}>Thử lại</button>
+          <button type="button" className="btn-ghost sm" onClick={() => refetch()}>Thử lại</button>
         </div>
       </div>
     );
@@ -124,13 +125,13 @@ export function RequireAuth({ role, children }: { role?: Role; children: ReactNo
     return (
       <div className="page narrow">
         <div className="notfound" role="alert">
-          <span className="big grad-text" aria-hidden="true">403</span>
+          <span className="big" aria-hidden="true">403</span>
           <h1>Khu này chỉ dành cho quản trị viên</h1>
           <p className="muted">
             Bạn đang đăng nhập bằng <b>{user.email}</b> (vai trò <b>{user.role}</b>).
             {AUTH_MOCK && <> Trong bản xem trước, đăng nhập bằng tài khoản mẫu <code>admin@example.com</code> để vào.</>}
           </p>
-          <Link to="/" className="btn pill">Về trang xu hướng</Link>
+          <Link to="/" className="btn">Về trang xu hướng</Link>
         </div>
       </div>
     );

@@ -58,7 +58,7 @@ export function EventsPage() {
   return (
     <div className="page">
       <div className="page-head rise">
-        <h1>Sự kiện{get("category") ? <> · <span className="grad-text">{get("category")}</span></> : null}</h1>
+        <h1>Sự kiện{get("category") ? <> · {get("category")}</> : null}</h1>
         <p>Mỗi sự kiện gom các bài của nhiều báo cùng đưa một tin. Tìm theo tên sự kiện hoặc tiêu đề bài đại diện, gõ không dấu cũng được.</p>
         <EventNotice />
       </div>
@@ -71,7 +71,7 @@ export function EventsPage() {
         <button type="submit" className="btn">Tìm</button>
       </form>
 
-      <div className="filters card pad-sm" role="group" aria-label="Bộ lọc">
+      <div className="filters" role="group" aria-label="Bộ lọc">
         <label>
           Báo
           <select value={get("source")} onChange={(e) => update({ source: e.target.value })}>
@@ -108,7 +108,7 @@ export function EventsPage() {
             {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        <button type="button" className="btn-ghost sm pill" disabled={!filtered} onClick={() => setParams({})}>Bỏ lọc</button>
+        <button type="button" className="btn-ghost sm" disabled={!filtered} onClick={() => setParams({})}>Bỏ lọc</button>
       </div>
 
       {events.isPending && <Loading lines={6} h={60} label="Đang tải danh sách sự kiện…" />}
@@ -144,7 +144,7 @@ function EventItem({ e }: { e: EventSummary }) {
       <Link to={eventHref(e.event_id)} className="title">{e.ten}</Link>
       <div className="meta">
         <span><b>{fmtInt(e.size)}</b> bài · {e.n_sources} báo</span>
-        <span>{fmtShort(e.first_seen)} → {fmtShort(e.last_seen)}</span>
+        <span>{fmtShort(e.first_seen)} đến {fmtShort(e.last_seen)}</span>
         {e.tong_diem != null && <span>tổng điểm {fmtScore(e.tong_diem)}</span>}
         {e.so_gio_trong_top10 > 0 && <span>{e.so_gio_trong_top10} giờ trong top 10</span>}
       </div>

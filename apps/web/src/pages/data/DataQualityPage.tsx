@@ -1,3 +1,4 @@
+import { IconCheck, IconFlag } from "../../components/Icons";
 import type { CSSProperties } from "react";
 import { useOverview, useQuality, useRunInfo, useTimeline } from "../../api/queries";
 import { ErrorBox, Loading } from "../../components/Status";
@@ -157,11 +158,11 @@ function Body({ period, overview, quality, timeline }: {
         <section aria-labelledby="h-rules" className="card pad-sm rise" style={delay(.25)}>
           <h2 id="h-rules" style={{ fontSize: 16, marginBottom: 10 }}>Kiểm tra khi nạp</h2>
           <ul className="stack" style={{ listStyle: "none", margin: 0, padding: 0, gap: 8, fontSize: 14 }}>
-            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span aria-hidden="true" style={{ color: "var(--ok)", fontWeight: 800 }}>✓</span>Mã bài = sha256(url), không trùng URL</li>
-            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span aria-hidden="true" style={{ color: "var(--ok)", fontWeight: 800 }}>✓</span>Ngày đăng bắt buộc có múi giờ</li>
-            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span aria-hidden="true" style={{ color: "var(--ok)", fontWeight: 800 }}>✓</span>Có tiêu đề và chuyên mục</li>
-            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span aria-hidden="true" style={{ color: "var(--accent)", fontWeight: 800 }}>⚑</span>Gắn cờ, không loại: thiếu sapo, thân bài rỗng hoặc dưới {quality.short_content_words} từ, thiếu tác giả, ngày ở tương lai</li>
-            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><span aria-hidden="true" style={{ color: "var(--accent)", fontWeight: 800 }}>⚑</span>Bài gần trùng giữa các báo được đánh dấu, không xoá: đó là tín hiệu chính để gom sự kiện</li>
+            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><IconCheck size={16} className="ok-mark" />Mã bài = sha256(url), không trùng URL</li>
+            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><IconCheck size={16} className="ok-mark" />Ngày đăng bắt buộc có múi giờ</li>
+            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><IconCheck size={16} className="ok-mark" />Có tiêu đề và chuyên mục</li>
+            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><IconFlag size={16} className="flag-mark" />Gắn cờ, không loại: thiếu sapo, thân bài rỗng hoặc dưới {quality.short_content_words} từ, thiếu tác giả, ngày ở tương lai</li>
+            <li className="inline" style={{ flexWrap: "nowrap", alignItems: "flex-start" }}><IconFlag size={16} className="flag-mark" />Bài gần trùng giữa các báo được đánh dấu, không xoá: đó là tín hiệu chính để gom sự kiện</li>
           </ul>
         </section>
         <section aria-labelledby="h-known" className="card pad-sm rise" style={delay(.3)}>

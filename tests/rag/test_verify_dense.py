@@ -1,5 +1,5 @@
 import pytest
-import test_dense
+import test_rag_dense as test_dense
 
 from eventrank.rag import dense, verify_dense
 

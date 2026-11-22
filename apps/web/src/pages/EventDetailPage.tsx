@@ -9,7 +9,8 @@ import type { FeedbackKind, Snapshot } from "../api/me";
 import { useEvent } from "../api/queries";
 import { EventErrorBox, NameSourceBadge } from "../components/EventBits";
 import { HourBars } from "../components/HourBars";
-import { IconBell, IconBookmark, IconFlag, IconLink } from "../components/Icons";
+import { IconArrowLeft, IconBell, IconBookmark, IconExternal, IconFlag, IconLink } from "../components/Icons";
+import { SourceStrip } from "../components/SourceStrip";
 import { useToast } from "../components/Layouts";
 import { Loading } from "../components/Status";
 import { fmtInt, fmtShort, vnClock } from "../lib/format";
@@ -36,7 +37,7 @@ export function EventDetailPage() {
       {ev.error && (
         <>
           <EventErrorBox error={ev.error} onRetry={() => ev.refetch()} />
-          <Link to="/events" className="btn-ghost pill" style={{ alignSelf: "flex-start" }}>← Danh sách sự kiện</Link>
+          <Link to="/events" className="btn-ghost" style={{ alignSelf: "flex-start" }}><IconArrowLeft /> Danh sách sự kiện</Link>
         </>
       )}
       {ev.data && <EventBody data={ev.data} />}
@@ -95,8 +96,6 @@ function EventBody({ data }: { data: EventDetail }) {
     <>
       {toast.node}
       <section aria-labelledby="h-ev" className="ev-hero rise">
-        <div aria-hidden="true" className="blob" style={{ right: -80, top: -100, width: 380, height: 380,
-          background: "radial-gradient(circle, rgba(56,189,248,.28) 0%, rgba(56,189,248,0) 70%)" }} />
         <div className="stack">
           <nav aria-label="Vị trí" className="crumbs">
             <Link to="/">Xu hướng</Link><span aria-hidden="true">/</span>
@@ -111,6 +110,7 @@ function EventBody({ data }: { data: EventDetail }) {
             <NameSourceBadge source={data.nguon_ten} long />
           </div>
           <h1 id="h-ev">{data.ten}</h1>
+          <SourceStrip sources={data.sources} total={data.size} />
           {data.ten_bi_an && (
             <p className="small" style={{ color: "var(--warn)" }}>
               Tên mô hình của sự kiện này đang ẩn (cửa sổ tập test đặt tên) — đang hiển thị tiêu đề bài đại diện.
@@ -143,7 +143,7 @@ function EventBody({ data }: { data: EventDetail }) {
             <div className="stat"><dt>Số bài</dt><dd>{fmtInt(data.size)}</dd></div>
             <div className="stat"><dt>Hạng cao nhất</dt><dd className="accent">{bestRank ? `#${bestRank}` : "—"}</dd></div>
             <div className="stat"><dt>Giờ trong top 10</dt><dd>{data.so_gio_trong_top10}</dd></div>
-            <div className="stat"><dt>Diễn ra</dt><dd className="text"><span className="nowrap">{fmtShort(data.first_seen)}</span> → <span className="nowrap">{fmtShort(data.last_seen)}</span></dd></div>
+            <div className="stat"><dt>Diễn ra</dt><dd className="text"><span className="nowrap">{fmtShort(data.first_seen)}</span> đến <span className="nowrap">{fmtShort(data.last_seen)}</span></dd></div>
           </dl>
         </div>
       </section>
@@ -179,7 +179,7 @@ function EventBody({ data }: { data: EventDetail }) {
                       <div className="meta"><b>{m.name}</b> · {fmtShort(a.published_at)}{a.category && <> · {a.category}</>}</div>
                       {safeUrl ? (
                         <a href={safeUrl} target="_blank" rel="noopener noreferrer" className="title">
-                          {a.title || "(không có tiêu đề)"} <span aria-hidden="true" style={{ color: "var(--accent-2)" }}>↗</span>
+                          {a.title || "(không có tiêu đề)"}<IconExternal />
                           <span className="sr-only"> (mở bài gốc trên {m.name}, tab mới)</span>
                         </a>
                       ) : (
@@ -207,7 +207,7 @@ function EventBody({ data }: { data: EventDetail }) {
               {data.sources.map((s) => (
                 <li key={s.source}>
                   <span>{sourceMeta(s.source).name}</span>
-                  <span className="track" aria-hidden="true"><span className="grow" style={{ width: `${(s.n / maxN) * 100}%` }} /></span>
+                  <span className="track" aria-hidden="true"><span style={{ width: `${(s.n / maxN) * 100}%`, background: sourceMeta(s.source).fg }} /></span>
                   <span className="n" aria-label={`${s.n} bài`}>{s.n}</span>
                 </li>
               ))}
@@ -222,9 +222,7 @@ function EventBody({ data }: { data: EventDetail }) {
               </div>
             </section>
           )}
-          <section aria-labelledby="h-follow" className="follow-card rise" style={delay(.3)}>
-            <div aria-hidden="true" className="blob" style={{ right: -50, bottom: -60, width: 200, height: 200,
-              background: "radial-gradient(circle, rgba(255,255,255,.25) 0%, rgba(255,255,255,0) 70%)" }} />
+          <section aria-labelledby="h-follow" className="soft-panel">
             <h2 id="h-follow">Nhận tin khi có diễn biến mới</h2>
             <p>Theo dõi để được báo khi sự kiện có thêm bài, thay vì phải tự quay lại kiểm tra.</p>
             {user ? (
@@ -257,7 +255,7 @@ function ReportForm({ data, onClose }: { data: EventDetail; onClose: () => void 
           Cảm ơn bạn! Báo sai đã được ghi lại.
           {AUTH_MOCK && " (Bản xem trước: chỉ lưu trên trình duyệt này, quản trị viên xem ở Quản trị › Báo sai.)"}
         </p>
-        <button type="button" className="btn-ghost sm pill" style={{ alignSelf: "flex-start" }} onClick={onClose}>Đóng</button>
+        <button type="button" className="btn-ghost sm" style={{ alignSelf: "flex-start" }} onClick={onClose}>Đóng</button>
       </div>
     );
   }

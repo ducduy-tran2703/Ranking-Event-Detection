@@ -33,7 +33,7 @@ export function ErrorBox({ error, onRetry, title = "Không tải được dữ l
           ? "Không kết nối được máy chủ API. Kiểm tra backend có đang chạy ở cổng 8000 không."
           : errorMessage(error))}
       </span>
-      {onRetry && <button type="button" className="btn-ghost sm pill" onClick={onRetry}>Thử lại</button>}
+      {onRetry && <button type="button" className="btn-ghost sm" onClick={onRetry}>Thử lại</button>}
     </div>
   );
 }

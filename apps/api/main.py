@@ -21,7 +21,8 @@ from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from apps.api import accounts, rag_chat, schemas
+from apps.api import accounts, live, rag_chat, schemas
+from apps.api.event_reload import EventReloader
 from apps.api.rag import router as rag_router
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
@@ -130,7 +131,10 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
                 app.state.events_error = (str(exc) if isinstance(exc, (RunNotFound, HideWindowError))
                                           else f"Không nạp được kết quả pipeline sự kiện (xem log server). "
                                                f"{NO_RUN_MESSAGE}")
+        reloader = EventReloader.start_if_db(app)
         yield
+        if reloader is not None:
+            reloader.stop()
         if app.state.rag_worker is not None:
             app.state.rag_worker.stop()
         if app.state.db_pool is not None:
@@ -298,6 +302,7 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
 
     app.include_router(accounts.router)   # /api/auth, /api/me, /api/admin, báo sai — trước route SPA bắt-tất-cả
     app.include_router(rag_chat.router)   # /api/rag/status|conversations|messages — khung chat hỏi đáp
+    app.include_router(live.router)       # /api/live/overview — số liệu trực tiếp từ Postgres + crawler
 
     add_basic_auth(app)
 

@@ -10,6 +10,9 @@ from eventrank.lake.reader import SilverStore
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Fixture HTML có ngày cố định: tắt lọc bài cũ để test không hỏng theo thời gian (test riêng tự bật).
+os.environ["CRAWLER_MAX_ARTICLE_AGE_DAYS"] = "0"
+
 
 @pytest.fixture(scope="session")
 def local_cfg() -> LakeConfig:

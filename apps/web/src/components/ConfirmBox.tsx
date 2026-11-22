@@ -30,7 +30,7 @@ export function ConfirmBox({ title, children, confirmLabel, onConfirm, onCancel,
       {children && <span id="confirm-detail" className="detail">{children}</span>}
       <div className="inline">
         <button type="button" className="btn-ghost sm pill danger-solid" disabled={busy} onClick={onConfirm}>{confirmLabel}</button>
-        <button type="button" className="btn-ghost sm pill" onClick={onCancel}>Huỷ</button>
+        <button type="button" className="btn-ghost sm" onClick={onCancel}>Huỷ</button>
       </div>
     </div>
   );

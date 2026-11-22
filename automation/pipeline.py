@@ -2,16 +2,20 @@ import json
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
+from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
 
 from crawler import harvester_dantri as dt
 from process_data.clean_record import clean_record
 
+from .db_sink import import_pending
 from .discovery import discover
 from .http import CrawlStopped, SourceBlocked, SourceClient
 from .state import SourceState, now_iso
 from .storage import read_json, write_json, write_text
+
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
 class Pipeline:
@@ -22,6 +26,16 @@ class Pipeline:
 
     def article_path(self, stage, source, key):
         return self.root / stage / source / f"{key}.json"
+
+    def too_old(self, published_at):
+        """Listing pages keep pinned items for months; they are not news arriving now."""
+        max_days = self.settings.max_article_age_days
+        if not max_days:
+            return False
+        published = datetime.fromisoformat(published_at)
+        if published.tzinfo is None:
+            published = published.replace(tzinfo=VN_TZ)
+        return published < datetime.now(timezone.utc) - timedelta(days=max_days)
 
     def process_article(self, source, key, entry, client):
         """Each task owns a distinct ID. Atomic canonical files make replay safe."""
@@ -61,6 +75,8 @@ class Pipeline:
         if silver["category"].casefold() == "khoa học - công nghệ":
             silver["category"] = "Khoa học - Công nghệ"
         write_json(self.article_path("silver", source, key), silver)
+        if self.too_old(silver["published_at"]):
+            return "rejected", "older_than_max_age"
         cleaned, reason = clean_record(silver)
         if cleaned is None:
             return "rejected", reason
@@ -182,6 +198,13 @@ class Pipeline:
                        for key in dict.fromkeys(touched) if state.articles[key]["status"] == "rejected"]
             write_text(self.root / "jobs" / job_id / "rejects" / f"{source}.jsonl",
                        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rejects))
+            if self.settings.db_sink:
+                # A database outage must not fail the crawl: exports stay pending for the next job.
+                try:
+                    stats["db"] = import_pending(self.root, source)
+                except Exception as exc:
+                    stats["db"] = {"error": f"{type(exc).__name__}: {exc}"}
+                    stats["errors"].append(f"db_sink: {type(exc).__name__}: {exc}")
             stats["phase"] = "finished"
             report(dict(stats))
         return stats
