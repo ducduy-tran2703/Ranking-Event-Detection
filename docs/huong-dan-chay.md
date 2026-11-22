@@ -1,7 +1,7 @@
 # Hướng dẫn chạy EventRank trên máy local
 
 Tài liệu này dành cho người chạy toàn bộ hệ thống trên máy của mình (WSL hoặc Linux): cào báo, lưu vào Postgres, gom
-sự kiện, mở web, hỏi đáp RAG, và xem dữ liệu trực quan. Cập nhật 10/11/2026.
+sự kiện, mở web, hỏi đáp RAG, và xem dữ liệu trực quan. Cập nhật 22/11/2026 (trang Cài đặt hệ thống, đồng bộ RAG tự động).
 
 ## Tóm tắt nhanh
 
@@ -112,7 +112,9 @@ WORKER=0 make up                # mở lại web, API tự thấy dữ liệu m�
   Nạp xong có file `<báo>.db-imported`.
 - Bài cũ hơn 7 ngày bị bỏ (`CRAWLER_MAX_ARTICLE_AGE_DAYS`).
 - Tiến độ: http://localhost:8002/crawl/jobs, hoặc `make ingest-status`.
-- Đổi lịch hoặc chọn báo: http://localhost:8002/docs → `PATCH /crawl/schedule`, ví dụ
+- Đổi lịch hoặc chọn báo: trang **Quản trị → Cài đặt hệ thống** (http://localhost:5173/admin/cai-dat, thẻ "Cào báo":
+  bật/tắt, chu kỳ, chọn báo, "Cào ngay"). API chính chỉ chuyển tiếp sang crawler; crawler tắt thì trang báo rõ.
+  Cách cũ vẫn dùng được: http://localhost:8002/docs → `PATCH /crawl/schedule`, ví dụ
   `{"interval_minutes": 60, "sources": ["vnexpress", "tuoitre"]}`.
 - Cào ngay một lượt cả 8 báo: `make crawl-now` (crawler phải đang chạy). Chỉ vài báo: `POST /crawl/jobs` với
   `{"sources": ["vnexpress"]}`.
@@ -125,6 +127,23 @@ WORKER=0 make up                # mở lại web, API tự thấy dữ liệu m�
 Mỗi vòng: `embed` (vector cho bài mới) → `recluster` (gom cụm, giữ `event_id` cũ) → `name` (ViT5 đặt tên cụm ≥ 2
 bài, cụm 1 bài dùng tiêu đề) → `trend` (điểm nóng theo giờ). Mỗi bước ghi một dòng vào bảng `worker_runs`.
 API tự nạp dữ liệu mới sau tối đa 60 giây. Chi tiết và số đo: `docs/handoff/worker.md`.
+Tạm dừng hoặc đổi chu kỳ khi đang chạy: trang Cài đặt hệ thống, thẻ "Worker sự kiện" (có hiệu lực trong ≤ 30 giây).
+
+### Đồng bộ RAG (chatbot thấy bài mới)
+
+- Mặc định **tự chạy sau mỗi lượt cào báo**: API chính (`make api`/`make dev`/`make up`) có luồng nền kiểm mỗi phút; có bài
+  chờ và crawler vừa nạp xong thì chạy NER BamiBERT → chia chunk → Qwen (Modal) → Qdrant → BM25, tối đa 200 bài mỗi lượt
+  (bài mới đăng trước, còn thì lượt sau chạy tiếp ngay). Mới bật API thì **không** tự chạy cho tới lượt cào kế tiếp.
+- Chỉnh ở trang Cài đặt hệ thống, thẻ "Đồng bộ RAG": chế độ *Cùng lúc với cào báo / Theo chu kỳ / Tắt*, số bài tối đa
+  mỗi lần, ngưỡng RAM; nút **Đồng bộ ngay**; xem số bài chờ, các lần chạy gần nhất và lỗi (bảng `worker_runs`, step
+  `rag_sync`). Mỗi lần đồng bộ có thể bật GPU Modal (tốn tiền); trong lúc ghi chỉ mục chatbot tạm báo "đang đồng bộ".
+- Tắt hẳn bộ lập lịch: đặt `RAG_AUTO_SYNC=0` trong môi trường/`.env` rồi bật lại API (trang vẫn cho bấm "Đồng bộ ngay").
+- Chạy tay một lượt không cần API: `make rag-sync ARGS="--max-articles 200"` (thêm `--dry-run` để chỉ đếm). Lệnh này có
+  thể bật GPU Modal; đừng chạy cùng lúc với API trên máy ít RAM (mỗi tiến trình nạp một bản BamiBERT).
+- Lượt lỗi (Modal tắt…) tự thử lại sau 5 → 15 → 45 phút, tối đa 3 lần cho mỗi lượt cào/chu kỳ.
+- Phát lại dữ liệu cũ (`make ingest-replay`) không ghi `crawl_runs`, nên chế độ "Cùng lúc với cào báo" không bao giờ chạy:
+  khi demo phát lại thì chọn **Theo chu kỳ**.
+- Trang Cài đặt hệ thống cần migration 011: `make db-migrate`.
 
 ### Web và API
 
@@ -145,6 +164,7 @@ API tự nạp dữ liệu mới sau tối đa 60 giây. Chi tiết và số đo
 | http://localhost:5173/du-lieu/may-chu | **Dữ liệu máy chủ, trực tiếp** (tự cập nhật 30 s): đường ống crawler → Postgres → worker → web, bài theo giờ / ngày từng báo, các vòng worker, phân bố sự kiện, job cào và lỗi tách bài, dung lượng bảng. API: `GET /api/live/overview` |
 | http://localhost:5173/admin/kho | Tổng quan kho: bài theo thời gian, chuyên mục, chất lượng, danh sách bài, từng báo |
 | http://localhost:5173/admin/thu-thap | Tình trạng cào từng báo |
+| http://localhost:5173/admin/cai-dat | **Cài đặt hệ thống**: lịch cào báo, đồng bộ RAG, worker sự kiện — đổi khi đang chạy |
 | http://localhost:5173/du-lieu/gom-cum | Bản đồ cụm sự kiện |
 | http://localhost:5173/du-lieu/mo-hinh | Các mô hình đang dùng |
 | http://localhost:8000/docs | Thử trực tiếp mọi API |
@@ -172,7 +192,8 @@ Thông số kết nối lấy từ `DATABASE_URL` trong `.env`
 | `events` | Sự kiện: `display_name`, `size` (số bài), `n_sources`, `first_seen`, `status` |
 | `event_articles` | Bài nào thuộc sự kiện nào (`is_medoid` = bài đại diện) |
 | `trend_scores` | Điểm nóng theo giờ: `t`, `rank`, `score` |
-| `worker_runs` | Lịch sử worker: `step`, `status`, `stats`, `error` |
+| `worker_runs` | Lịch sử worker: `step`, `status`, `stats`, `error` (step `rag_sync` = lượt đồng bộ RAG tự động) |
+| `system_settings` | Cài đặt đổi trên trang Cài đặt hệ thống (`rag_sync`, `event_worker`) |
 | `crawl_runs` | Lịch sử cào từng báo |
 | `rag_chunks`, `rag_conversations`, `rag_messages` | Đoạn văn cho RAG, lịch sử hỏi đáp |
 | `users`, `event_bookmarks`, `event_follows` | Tài khoản và tính năng người dùng |

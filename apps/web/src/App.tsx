@@ -27,6 +27,7 @@ const MailTab = page(() => import("./pages/admin/MockTabs"), "MailTab");
 const UsersTab = page(() => import("./pages/admin/MockTabs"), "UsersTab");
 const KeysTab = page(() => import("./pages/admin/MockTabs"), "KeysTab");
 const KhoShell = page(() => import("./pages/admin/KhoShell"), "KhoShell");
+const SettingsTab = page(() => import("./pages/admin/SettingsTab"), "SettingsTab");
 // Kho dữ liệu: 7 trang kiểm soát dữ liệu cũ (giữ chức năng), nay trong khu quản trị.
 const OverviewPage = page(() => import("./pages/OverviewPage"), "OverviewPage");
 const TimePage = page(() => import("./pages/TimePage"), "TimePage");
@@ -88,6 +89,7 @@ export function App() {
           <Route path="thu" element={<MailTab />} />
           <Route path="nguoi-dung" element={<UsersTab />} />
           <Route path="khoa-api" element={<KeysTab />} />
+          <Route path="cai-dat" element={<SettingsTab />} />
           <Route path="kho" element={<KhoShell />}>
             <Route index element={<OverviewPage />} />
             <Route path="thoi-gian" element={<TimePage />} />

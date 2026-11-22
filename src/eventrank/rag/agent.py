@@ -194,7 +194,8 @@ class ToolCallingPipeline:
             conn=self.conn, question=question, filters={k: v for k, v in filters.items() if v},
             search=lambda *a, **k: self.search(*a, **k), snapshot=lambda: snapshot,
             categories=list(self.config.get('profile', {}).get('categories', [])), hidden_sources=hidden,
-            user_id=user_id, message_id=message_id, read_lock=base._read_lock if self.conn is not None else None)
+            user_id=user_id, message_id=message_id, read_lock=base._read_lock if self.conn is not None else None,
+            index_version=self.config['index_version'])
         ctx.profile_plans = profile_plans
         client = base._client()
         if base.counter is None:

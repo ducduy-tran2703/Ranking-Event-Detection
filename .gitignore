@@ -237,3 +237,5 @@ apps/web/dist/
 
 *.jsonl
 *.txt
+# Bộ đệm tsc --noEmit (TypeScript incremental), sinh tự động
+apps/web/tsconfig.tsbuildinfo

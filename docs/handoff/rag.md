@@ -4,6 +4,66 @@
 Mốc 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid RRF đã có (96.230 point).
 **Cập nhật 22/11/2026:** Đã bổ sung pipeline đồng bộ tăng dần (delta sync), chạy NER BamiBERT local trên GPU máy, và tích hợp Query NER + Entity Soft Boost vào luồng hỏi đáp.
 
+## Đồng bộ tự động sau cào báo (nhánh `feat/rag-auto-sync`, 22/11/2026)
+
+Cào báo xong thì kho RAG tự cập nhật; chỉnh trên web ở **Quản trị → Cài đặt hệ thống** (`/admin/cai-dat`), không sửa YAML,
+không khởi động lại. Cần migration **011** (`system_settings` + bước `rag_sync` trong `worker_runs`).
+
+- **Bộ lập lịch** `src/eventrank/rag/auto_sync.py` chạy trong tiến trình API chính (luồng `rag-auto-sync`, bật ở `lifespan`
+  của `apps/api/main.py`) để dùng chung BamiBERT (`apps/api/rag.py::shared_ner`, chỉ nạp khi có lượt cần NER). Mỗi 60 s đọc lại
+  khối cài đặt `rag_sync` từ Postgres rồi quyết định (`decide`, hàm thuần, có test):
+  - `after_crawl` (mặc định): có bài chờ + có dòng `crawl_runs` xong **sau** lần `rag_sync` gần nhất + không có lượt cào đang
+    chạy (`crawl_runs.status='running'` trong 2 giờ, hoặc dịch vụ crawler báo `active_job_id`).
+  - `interval` (15 phút … 24 giờ): có bài chờ và đã qua chu kỳ kể từ lần trước. `off`: không tự chạy.
+  - Lô trước bị cắt bởi `max_articles_per_run` (mặc định 200, bài **mới đăng trước**) mà còn bài chờ → chạy tiếp lô sau luôn
+    (cả hai chế độ; `after_crawl` vẫn đợi lượt cào đang chạy xong).
+  - Chưa từng có `rag_sync`: mốc so sánh là lúc bộ lập lịch khởi động → bật API **không** tự đốt GPU Modal. Nút "Đồng bộ ngay"
+    (`POST /api/admin/system/rag-sync/run`) bỏ qua chế độ/điều kiện chờ.
+  - Bỏ qua khi `MemAvailable` < `min_mem_available_mb` (mặc định 1500 MB), khi đang có lượt `/api/rag/sync` tay (hai đường dùng
+    chung `SYNC_STATE`), hoặc khi tiến trình API khác đã giữ khoá advisory `0x72616773796E63` (một bộ lập lịch mỗi DB).
+  - Mỗi lượt một dòng `worker_runs` step `rag_sync` (`versions.trigger` = auto/forced, `stats` = kết quả `sync_rag`, lỗi qua
+    `safe_error`). Luồng bắt mọi Exception; lỗi liên tiếp giãn chờ gấp đôi, tối đa 30 phút.
+  - Tắt hẳn: `RAG_AUTO_SYNC=0` (tests/conftest.py đặt sẵn) hoặc `create_app(rag_auto_sync=False)`; `create_app(store)` của test
+    mặc định tắt.
+- **`sync_rag` hai pha** (sửa 3 lỗi cũ):
+  1. Pha tính **không giữ khoá ghi**: `inspect_articles`, NER (lô 16 bài, báo tiến độ), chia chunk trong RAM,
+     `ModelClient.ping_embedding()` để Modal bật Qwen trước. Pha ghi **giữ khoá**: đọc lại hash văn bản từng bài, bài bị
+     crawler sửa giữa hai pha thì bỏ (`skipped_changed`, `limited=True` → lô sau làm lại); ghi NER/chunk; `dense.sync_delta`;
+     dựng lại BM25. Chat chỉ báo "đang đồng bộ" trong pha ghi (trước đây cả lúc BamiBERT chạy CPU).
+  2. Bắt bài crawler sửa sau khi đã ready bằng cột mới `article_ner.source_updated_at` (migration 011) = đúng
+     `articles.updated_at` **đọc dưới khoá** lúc kiểm hash ở pha ghi; bài chờ khi giá trị hiện tại **khác** (so bằng,
+     không so `>`: crawler ghi cả lô trong một transaction nên `updated_at` là giờ bắt đầu lô, có thể sớm hơn lúc sync
+     commit — so `>` từng bỏ sót vĩnh viễn bài sửa đúng khe đó; test `tests/rag/test_sync_race_db.py`). Dòng cũ NULL →
+     tiêu chí cũ `a.updated_at > n.updated_at`. Bài sửa mà văn bản ghép không đổi chỉ được "chạm" (ghi
+     `source_updated_at`, `touched_articles`), không chạy NER lại. `prepare.import_ner` cũng ghi cột này (đọc `FOR UPDATE`).
+  3. `max_articles` (CLI `--max-articles N`, `make rag-sync ARGS="--max-articles 200"`); `pending_summary(conn, …)` đếm rẻ số
+     bài chờ (cùng tiêu chí quét). `sync_rag(...)` cũ và `POST /api/rag/sync` vẫn chạy như trước (không giới hạn).
+- **Thứ tự pha ghi khi Qwen/Modal lỗi**: corpus sắp đổi thì gỡ `published` của collection Qdrant trước, ghi DB, dựng lại
+  BM25 **ngay sau commit**, rồi mới `dense.sync_delta` (thành công thì publish lại). Modal lỗi giữa chừng: hybrid thấy
+  nhánh dense "chưa publish" → `allow_fallback` chạy BM25; không còn `HybridIntegrityError` vì BM25 trỏ chunk đã xoá hay
+  binding hai nhánh lệch. Lượt chat qua hàng đợi (`ChatWorker`, cả `ToolCallingPipeline` lẫn `RAGPipeline`) luôn gọi
+  `allow_fallback=True` → trả lời bằng BM25 (`retrieval_mode='bm25_only'`, `degraded`, web có nhãn cảnh báo) thay vì
+  "Chưa tìm kiếm được trong kho"; `/api/rag/ask` đồng bộ của admin vẫn theo tham số. `chat.readiness()` coi Qdrant chưa
+  publish/không nối được là **`warnings`** khi còn BM25 (khung chat vẫn mở, hiện dòng cảnh báo nhỏ), chỉ là problem khi
+  thiếu cả hai nhánh. Trang Cài đặt hệ thống hiện "Tìm kiếm ngữ nghĩa (Qdrant) đang tạm tắt…" khi collection chưa publish
+  (`rag_sync.dense_published`, hỏi Qdrant timeout 1 s). Nhờ vậy một chunk Modal luôn từ chối không làm chatbot hỏng hẳn,
+  chỉ mất nhánh dense tới khi chunk đó được xử lý.
+- **Thử lại lượt lỗi**: cùng một "đợt" (một lượt cào mới ở `after_crawl`, một chu kỳ ở `interval`) lượt lỗi được thử lại
+  sau 5 → 15 → 45 phút (`versions.reason = retry_failed`); lỗi lần 4 thì thôi (`retries_exhausted`), đợi đợt sau — một
+  chunk lỗi vĩnh viễn không bật GPU mãi. Dòng `rag_sync` còn `running` từ tiến trình API cũ chết giữa lượt được đổi thành
+  `failed` ("Máy chủ khởi động lại…") khi bộ lập lịch giữ khoá, rồi được thử lại như lượt lỗi.
+- **Nhiều tiến trình API**: tiến trình không giữ khoá bộ lập lịch vẫn chạy lượt "Đồng bộ ngay" được bấm ở nó (không nuốt
+  yêu cầu). `SYNC_STATE.running` luôn được trả về False trong `finally`, kể cả khi ghi `worker_runs` lỗi.
+- **Phát lại (`make ingest-replay`)**: chế độ replay không ghi `crawl_runs` nên `after_crawl` không bao giờ chạy; khi demo
+  phát lại thì chọn chế độ **Theo chu kỳ**.
+- **Kiểm**: `tests/rag/test_auto_sync.py`, `test_sync.py` (thứ tự pha, bài đổi giữa chừng), `test_sync_db.py` (Postgres tạm,
+  NER/Qwen/Qdrant giả), `tests/api/test_system_settings_api.py`. **Chưa chạy sync thật** sau khi đổi sang hai pha (không gọi
+  GPU/Modal trong lượt này). DB chính đo 22/11 còn **1.540 bài chưa NER/chunk**: chạy bù bằng `make rag-sync` (lâu: BamiBERT
+  CPU; tốn GPU Modal) hoặc để bộ lập lịch làm dần 200 bài/lượt.
+- **Cạm bẫy**: máy 7 GB RAM — đồng bộ nạp BamiBERT trong tiến trình API (RAM dùng thêm trên CPU **chưa đo**); ngưỡng RAM chặn khi máy đang thiếu.
+  API chạy nhiều tiến trình (uvicorn `--workers`) thì chỉ một tiến trình giữ bộ lập lịch, nhưng mỗi tiến trình vẫn có
+  `SYNC_STATE` riêng; `_preparation_lock` vẫn chặn ghi chồng.
+
 ## Cập nhật Delta Sync & Query NER (22/11/2026)
 
 1. **Checkpoint BamiBERT thống nhất (`bamibert-qft-s44`)**:

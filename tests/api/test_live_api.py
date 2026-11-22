@@ -121,3 +121,13 @@ def test_live_overview_is_cached(client, pg_conn):
     assert client.get("/api/live/overview").json()["totals"]["articles"] == 3
     _article(pg_conn, "qdnd", "https://qdnd.vn/moi", datetime.now(UTC), datetime.now(UTC))
     assert client.get("/api/live/overview").json()["totals"]["articles"] == 3     # còn trong 15 s đệm
+
+
+@pytest.mark.parametrize("sched,jobs", [(["mảng"], {"items": []}), ({"enabled": True}, "chuỗi"),
+                                        ({"enabled": True}, {"items": ["x", {"results": ["y"]}]})])
+def test_crawler_tra_du_lieu_la_khong_lam_hong(monkeypatch, sched, jobs):
+    """Bộ lập lịch RAG gọi crawler_status mỗi vòng: dữ liệu lạ không được ném lỗi (mỗi vòng sẽ thành failed)."""
+    from eventrank.serving import live_stats
+    monkeypatch.setattr(live_stats, "_http_json", lambda url, timeout: sched if "schedule" in url else jobs)
+    got = live_stats.crawler_status("http://crawler.test")
+    assert got is None or (got["jobs"] == [] or got["jobs"][0]["sources"] == [])

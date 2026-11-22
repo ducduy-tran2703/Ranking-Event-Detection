@@ -21,11 +21,12 @@ from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from apps.api import accounts, live, rag_chat, schemas
+from apps.api import accounts, live, rag_chat, schemas, system_settings
 from apps.api.event_reload import EventReloader
 from apps.api.rag import router as rag_router
 from eventrank.common.config import load_config
 from eventrank.lake.reader import Filters, SilverStore
+from eventrank.rag import auto_sync
 from eventrank.serving.db_store import DbEventStore, event_store_from_env
 from eventrank.serving.store import (
     DEFAULT_MAP_DATE,
@@ -106,10 +107,28 @@ Filt = Annotated[Filters, Depends(get_filters)]
 Events = Annotated[EventStore, Depends(get_events)]
 
 
+def start_rag_auto_sync(app: FastAPI) -> None:
+    """Bật bộ lập lịch đồng bộ RAG (eventrank.rag.auto_sync) nếu được phép; lỗi chỉ ghi log, API vẫn chạy."""
+    if not app.state.rag_auto_sync_enabled or not auto_sync.enabled_from_env():
+        ulog.info("đồng bộ RAG tự động: TẮT (RAG_AUTO_SYNC=0 hoặc app.state.rag_auto_sync_enabled=False)")
+        return
+    try:
+        if app.state.db_url is None:
+            from eventrank.common import db
+            db.database_url()                      # thiếu DATABASE_URL → không bật (không in giá trị)
+        app.state.rag_auto_sync = system_settings.build_auto_sync(app).start()
+        ulog.info("đồng bộ RAG tự động: BẬT (đọc cài đặt rag_sync mỗi %.0f s)", app.state.rag_auto_sync.poll_seconds)
+    except Exception as exc:  # noqa: BLE001 - thiếu DB/cấu hình chỉ tắt phần tự đồng bộ
+        ulog.warning("không bật được đồng bộ RAG tự động: %s", exc.__class__.__name__)
+
+
 def create_app(store: SilverStore | None = None, events: EventStore | None = None,
-               load_events: bool | None = None, db_url: str | None = None) -> FastAPI:
+               load_events: bool | None = None, db_url: str | None = None,
+               rag_auto_sync: bool | None = None) -> FastAPI:
     """`load_events`: tự nạp kết quả pipeline lúc khởi động (mặc định: chỉ khi không truyền `store`, tức chạy thật).
-    `db_url`: Postgres cho tài khoản (test truyền DB tạm); không truyền → DATABASE_URL, mở lười ở yêu cầu đầu tiên."""
+    `db_url`: Postgres cho tài khoản (test truyền DB tạm); không truyền → DATABASE_URL, mở lười ở yêu cầu đầu tiên.
+    `rag_auto_sync`: chạy bộ lập lịch đồng bộ RAG nền (mặc định: chỉ khi chạy thật, tức không truyền `store`; biến môi
+    trường `RAG_AUTO_SYNC=0` luôn tắt). Test không bao giờ bật nó."""
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if app.state.store is None:                      # test truyền store sẵn thì bỏ qua
@@ -132,9 +151,12 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
                                           else f"Không nạp được kết quả pipeline sự kiện (xem log server). "
                                                f"{NO_RUN_MESSAGE}")
         reloader = EventReloader.start_if_db(app)
+        start_rag_auto_sync(app)
         yield
         if reloader is not None:
             reloader.stop()
+        if app.state.rag_auto_sync is not None:
+            app.state.rag_auto_sync.stop()
         if app.state.rag_worker is not None:
             app.state.rag_worker.stop()
         if app.state.db_pool is not None:
@@ -149,6 +171,8 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
     app.state.db_url = db_url
     app.state.db_pool = None
     app.state.rag_worker = None             # worker hỏi đáp, tạo lười (apps/api/rag_chat.py)
+    app.state.rag_auto_sync_enabled = (store is None) if rag_auto_sync is None else rag_auto_sync
+    app.state.rag_auto_sync = None          # bộ lập lịch đồng bộ RAG (apps/api/system_settings.py)
 
     @app.exception_handler(ValueError)
     async def bad_request(_: Request, exc: ValueError) -> JSONResponse:
@@ -303,6 +327,7 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
     app.include_router(accounts.router)   # /api/auth, /api/me, /api/admin, báo sai — trước route SPA bắt-tất-cả
     app.include_router(rag_chat.router)   # /api/rag/status|conversations|messages — khung chat hỏi đáp
     app.include_router(live.router)       # /api/live/overview — số liệu trực tiếp từ Postgres + crawler
+    app.include_router(system_settings.router)   # /api/admin/system — trang Cài đặt hệ thống (chỉ admin)
 
     add_basic_auth(app)
 

@@ -42,14 +42,15 @@ def run(monkeypatch, pipe):
 def test_worker_truyen_nguoi_dung_va_cuoc_tro_chuyen_cho_pipeline_tool(monkeypatch):
     pipe = Pipe(True)
     assert run(monkeypatch, pipe)['result'] == {'status': 'smalltalk'}
-    assert pipe.kw == {'source': 'tuoitre', 'date_from': None, 'date_to': None, 'user_id': 7,
+    # allow_fallback=True: nhánh dense tạm tắt (sync lỗi giữa chừng) thì chat vẫn trả lời bằng BM25 (degraded).
+    assert pipe.kw == {'source': 'tuoitre', 'date_from': None, 'date_to': None, 'allow_fallback': True, 'user_id': 7,
                        'conversation_id': 3, 'message_id': 9}
 
 
 def test_worker_khong_truyen_ngu_canh_cho_pipeline_cu(monkeypatch):
     pipe = Pipe(False)
     run(monkeypatch, pipe)
-    assert pipe.kw == {'source': 'tuoitre', 'date_from': None, 'date_to': None}
+    assert pipe.kw == {'source': 'tuoitre', 'date_from': None, 'date_to': None, 'allow_fallback': True}
 
 
 def test_smalltalk_la_trang_thai_ket_qua_hop_le():

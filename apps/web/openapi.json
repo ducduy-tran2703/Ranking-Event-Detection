@@ -2679,6 +2679,212 @@
           }
         }
       }
+    },
+    "/api/admin/system/settings": {
+      "get": {
+        "tags": [
+          "Cài đặt hệ thống"
+        ],
+        "summary": "Get Settings",
+        "operationId": "get_settings_api_admin_system_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/system/settings/rag-sync": {
+      "put": {
+        "tags": [
+          "Cài đặt hệ thống"
+        ],
+        "summary": "Put Rag Sync",
+        "operationId": "put_rag_sync_api_admin_system_settings_rag_sync_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RagSyncSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RagSyncBlock"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/system/settings/event-worker": {
+      "put": {
+        "tags": [
+          "Cài đặt hệ thống"
+        ],
+        "summary": "Put Event Worker",
+        "operationId": "put_event_worker_api_admin_system_settings_event_worker_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventWorkerSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventWorkerBlock"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/system/crawler/schedule": {
+      "patch": {
+        "tags": [
+          "Cài đặt hệ thống"
+        ],
+        "summary": "Patch Crawler Schedule",
+        "operationId": "patch_crawler_schedule_api_admin_system_crawler_schedule_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrawlerScheduleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrawlerSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/system/crawler/run": {
+      "post": {
+        "tags": [
+          "Cài đặt hệ thống"
+        ],
+        "summary": "Run Crawler",
+        "operationId": "run_crawler_api_admin_system_crawler_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrawlerRunBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrawlerRunAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/system/rag-sync/run": {
+      "post": {
+        "tags": [
+          "Cài đặt hệ thống"
+        ],
+        "summary": "Run Rag Sync",
+        "operationId": "run_rag_sync_api_admin_system_rag_sync_run_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RagSyncRunAccepted"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3263,6 +3469,264 @@
           "new_password"
         ],
         "title": "ChangePasswordBody"
+      },
+      "CrawlerRunAccepted": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "sources",
+          "message"
+        ],
+        "title": "CrawlerRunAccepted"
+      },
+      "CrawlerRunBody": {
+        "properties": {
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "baochinhphu",
+                    "nhandan",
+                    "dantri",
+                    "qdnd",
+                    "tuoitre",
+                    "thanhnien",
+                    "vietnamnet",
+                    "vnexpress"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources",
+            "description": "bỏ trống = theo lịch cào"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CrawlerRunBody"
+      },
+      "CrawlerScheduleBody": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "interval_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  5,
+                  10,
+                  15,
+                  20,
+                  30,
+                  60
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Minutes"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "baochinhphu",
+                    "nhandan",
+                    "dantri",
+                    "qdnd",
+                    "tuoitre",
+                    "thanhnien",
+                    "vietnamnet",
+                    "vnexpress"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CrawlerScheduleBody"
+      },
+      "CrawlerSettings": {
+        "properties": {
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable",
+            "description": "dịch vụ crawler có trả lời không; False thì các trường khác rỗng"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "interval_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Minutes"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources",
+            "default": []
+          },
+          "all_sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "All Sources",
+            "default": [
+              "baochinhphu",
+              "nhandan",
+              "dantri",
+              "qdnd",
+              "tuoitre",
+              "thanhnien",
+              "vietnamnet",
+              "vnexpress"
+            ]
+          },
+          "interval_choices": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Interval Choices",
+            "default": [
+              5,
+              10,
+              15,
+              20,
+              30,
+              60
+            ]
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "active_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Job Id"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/LiveCrawlerJob"
+            },
+            "type": "array",
+            "title": "Jobs",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "reachable"
+        ],
+        "title": "CrawlerSettings"
       },
       "DateRange": {
         "properties": {
@@ -3925,6 +4389,111 @@
           "chuyen_muc_chinh"
         ],
         "title": "EventSummary"
+      },
+      "EventWorkerBlock": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/EventWorkerSettings"
+          },
+          "interval_choices": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Interval Choices",
+            "default": [
+              60,
+              120,
+              300,
+              600,
+              900,
+              1800,
+              3600
+            ]
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "yaml_interval_seconds": {
+            "type": "number",
+            "title": "Yaml Interval Seconds",
+            "description": "chu kỳ trong configs/pipeline.yaml (dùng khi chưa lưu cài đặt)"
+          },
+          "worker_alive": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Alive",
+            "description": "có tiến trình worker đang giữ khoá trên DB này"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "settings",
+          "yaml_interval_seconds"
+        ],
+        "title": "EventWorkerBlock"
+      },
+      "EventWorkerSettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "enum": [
+              60,
+              120,
+              300,
+              600,
+              900,
+              1800,
+              3600
+            ],
+            "title": "Interval Seconds",
+            "default": 300
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EventWorkerSettings"
       },
       "FeedbackBody": {
         "properties": {
@@ -6398,6 +6967,14 @@
             "type": "array",
             "title": "Problems"
           },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
           "snapshot": {
             "anyOf": [
               {
@@ -7148,6 +7725,292 @@
         ],
         "title": "RAGSyncStatus"
       },
+      "RagSchedulerStatus": {
+        "properties": {
+          "scheduler_running": {
+            "type": "boolean",
+            "title": "Scheduler Running",
+            "description": "luồng nền đang chạy trong tiến trình API này"
+          },
+          "leader": {
+            "type": "boolean",
+            "title": "Leader",
+            "description": "giữ khoá advisory: bộ lập lịch duy nhất của DB"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "last_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Check At"
+          },
+          "next_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Check At"
+          },
+          "last_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Decision",
+            "description": "mã lý do lần kiểm gần nhất (off, no_pending, waiting_crawl…)"
+          },
+          "last_decision_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Decision Error"
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "title": "Consecutive Failures",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheduler_running",
+          "leader"
+        ],
+        "title": "RagSchedulerStatus"
+      },
+      "RagSyncBlock": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/RagSyncSettings"
+          },
+          "interval_choices": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Interval Choices",
+            "default": [
+              15,
+              30,
+              60,
+              120,
+              240,
+              360,
+              720,
+              1440
+            ]
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By",
+            "description": "tên hiển thị của quản trị viên đổi lần cuối"
+          },
+          "env_enabled": {
+            "type": "boolean",
+            "title": "Env Enabled",
+            "description": "RAG_AUTO_SYNC không tắt bộ lập lịch"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          },
+          "pending_articles": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Articles",
+            "description": "bài chờ NER/chunk/index; None nếu không đếm được"
+          },
+          "without_ner": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Without Ner"
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/SystemRun"
+            },
+            "type": "array",
+            "title": "Recent Runs"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "dense_published": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dense Published",
+            "description": "collection Qdrant đang publish (False: chatbot chỉ dùng BM25 tới lượt đồng bộ thành công); None nếu không hỏi được Qdrant"
+          },
+          "scheduler": {
+            "$ref": "#/components/schemas/RagSchedulerStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "settings",
+          "env_enabled",
+          "running",
+          "recent_runs",
+          "scheduler"
+        ],
+        "title": "RagSyncBlock"
+      },
+      "RagSyncRunAccepted": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "already_running"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "RagSyncRunAccepted"
+      },
+      "RagSyncSettings": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "after_crawl",
+              "interval",
+              "off"
+            ],
+            "title": "Mode",
+            "default": "after_crawl"
+          },
+          "interval_minutes": {
+            "type": "integer",
+            "enum": [
+              15,
+              30,
+              60,
+              120,
+              240,
+              360,
+              720,
+              1440
+            ],
+            "title": "Interval Minutes",
+            "default": 60
+          },
+          "max_articles_per_run": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 10.0,
+            "title": "Max Articles Per Run",
+            "default": 200
+          },
+          "min_mem_available_mb": {
+            "type": "integer",
+            "maximum": 16384.0,
+            "minimum": 0.0,
+            "title": "Min Mem Available Mb",
+            "default": 1500
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RagSyncSettings",
+        "description": "Khối cài đặt `rag_sync` (bảng `system_settings`)."
+      },
       "RawSourceValue": {
         "properties": {
           "source_raw": {
@@ -7756,6 +8619,133 @@
           "value"
         ],
         "title": "SubscriptionBody"
+      },
+      "SystemRun": {
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "lý do bộ lập lịch chạy lượt này (after_crawl, retry_failed…)"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Stats"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "started_at",
+          "finished_at",
+          "seconds",
+          "stats",
+          "error"
+        ],
+        "title": "SystemRun"
+      },
+      "SystemSettings": {
+        "properties": {
+          "settings_available": {
+            "type": "boolean",
+            "title": "Settings Available",
+            "description": "DB đã áp migration 011 (system_settings)"
+          },
+          "crawler": {
+            "$ref": "#/components/schemas/CrawlerSettings"
+          },
+          "rag_sync": {
+            "$ref": "#/components/schemas/RagSyncBlock"
+          },
+          "event_worker": {
+            "$ref": "#/components/schemas/EventWorkerBlock"
+          }
+        },
+        "type": "object",
+        "required": [
+          "settings_available",
+          "crawler",
+          "rag_sync",
+          "event_worker"
+        ],
+        "title": "SystemSettings"
       },
       "TimelinePoint": {
         "properties": {

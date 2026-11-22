@@ -270,7 +270,10 @@ MODEL_ENV = ("RAG_EMBEDDING_URL", "RAG_LLM_URL", "MODAL_PROXY_TOKEN_ID", "MODAL_
 
 def readiness(conn: psycopg.Connection, config: dict[str, Any], *, qdrant_get: Callable[[str], Any] | None = None,
               env: dict[str, str] | None = None, root: Path | None = None) -> dict[str, Any]:
-    """Kiểm nhanh, KHÔNG gọi GPU: kho Postgres, BM25, Qdrant, biến dịch vụ model, tokenizer. Trả {available, problems, snapshot}."""
+    """Kiểm nhanh, KHÔNG gọi GPU: kho Postgres, BM25, Qdrant, biến dịch vụ model, tokenizer.
+
+    Trả {available, problems, warnings, snapshot}. Chat qua hàng đợi chạy được khi còn MỘT nhánh tìm kiếm: có BM25 mà
+    Qdrant chưa publish/không nối được → `warnings` (chỉ dùng BM25), không phải problem. Thiếu cả hai mới là problem."""
     from eventrank.rag.pipeline import corpus_snapshot
 
     env = os.environ if env is None else env
@@ -283,8 +286,10 @@ def readiness(conn: psycopg.Connection, config: dict[str, Any], *, qdrant_get: C
             problems.append("Kho RAG trong Postgres chưa có dữ liệu.")
     except psycopg.Error:
         problems.append("Chưa có bảng RAG trong Postgres (migration 007).")
-    if not (root / config["bm25"]["root"] / "CURRENT.json").is_file():
+    has_bm25 = (root / config["bm25"]["root"] / "CURRENT.json").is_file()
+    if not has_bm25:
         problems.append("Chưa có chỉ mục BM25.")
+    dense_problem = None
     try:
         if qdrant_get is None:
             import httpx
@@ -295,15 +300,20 @@ def readiness(conn: psycopg.Connection, config: dict[str, Any], *, qdrant_get: C
         info = qdrant_get(f"/collections/{config['dense']['collection']}")
         meta = ((info or {}).get("result") or {}).get("config", {}).get("metadata") or {}
         if not meta.get("published"):
-            problems.append("Qdrant chưa có bộ vector đã công bố.")
+            dense_problem = "Qdrant chưa có bộ vector đã công bố."
     except Exception:  # noqa: BLE001 - Qdrant tắt/không nối được
-        problems.append("Không kết nối được Qdrant.")
+        dense_problem = "Không kết nối được Qdrant."
+    warnings: list[str] = []
+    if dense_problem and has_bm25:
+        warnings.append(f"{dense_problem} Tìm kiếm ngữ nghĩa đang tạm tắt; chatbot chỉ dùng BM25 (từ khoá).")
+    elif dense_problem:
+        problems.append(dense_problem)
     if not all(env.get(k, "").strip() for k in MODEL_ENV):
         problems.append("Máy chủ chưa cấu hình dịch vụ mô hình (RAG_EMBEDDING_URL, RAG_LLM_URL, MODAL_PROXY_TOKEN_*).")
     tok = root / "data/rag/tokenizers"
     if not tok.is_dir() or not any(tok.iterdir()):
         problems.append("Máy chủ chưa có tokenizer của mô hình.")
-    return {"available": not problems, "problems": problems, "snapshot": snapshot}
+    return {"available": not problems, "problems": problems, "warnings": warnings, "snapshot": snapshot}
 
 
 # ---------------------------------------------------------------------- worker nền
@@ -388,8 +398,11 @@ class ChatWorker:
                 f = job.filters or {}
                 extra = ({"user_id": job.user_id, "conversation_id": job.conversation_id,
                           "message_id": job.message_id} if getattr(pipeline, "accepts_context", False) else {})
+                # allow_fallback=True: nhánh dense tạm tắt (sync gỡ "published" khi Qwen/Modal lỗi giữa chừng, Qdrant
+                # tắt) thì vẫn trả lời bằng BM25 (`retrieval_mode='bm25_only'`, `degraded`; web có nhãn cảnh báo) thay
+                # vì báo lỗi. `/api/rag/ask` đồng bộ của admin vẫn theo tham số của request.
                 box["result"] = pipeline.ask(job.question, source=f.get("source"), date_from=f.get("date_from"),
-                                             date_to=f.get("date_to"), **extra)
+                                             date_to=f.get("date_to"), allow_fallback=True, **extra)
         except Exception as exc:  # noqa: BLE001 - mọi lỗi → failed với câu an toàn; chi tiết ở log
             box["error"] = exc
         finally:

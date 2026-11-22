@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from apps.api import schemas
 from eventrank.common import db
+from eventrank.rag.auto_sync import SYNC_LOCK, SYNC_STATE
 from eventrank.rag.chunking import chunking_version
 from eventrank.rag.ner import SharedNER, ner_from_config
 from eventrank.rag.pipeline import RAGPipeline, RAGUnavailableError
@@ -26,14 +27,9 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/api/rag', tags=['RAG'])
 _REQUEST_SLOT = threading.BoundedSemaphore(1)
-_SYNC_LOCK = threading.Lock()
-_SYNC_STATE: dict = {
-    'running': False,
-    'last_started_at': None,
-    'last_finished_at': None,
-    'last_result': None,
-    'last_error': None,
-}
+# Trạng thái sync DÙNG CHUNG với bộ lập lịch tự động (eventrank.rag.auto_sync): sync tay và tự động không chạy chồng.
+_SYNC_LOCK = SYNC_LOCK
+_SYNC_STATE = SYNC_STATE
 _ROOT = Path(__file__).resolve().parents[2]
 _CONFIG = _ROOT / 'configs/rag.yaml'
 # Tài nguyên nặng dùng chung cả tiến trình: BamiBERT trên VRAM và tokenizer Gemma.
@@ -190,6 +186,7 @@ def trigger_sync(body: schemas.RAGSyncRequest):
                 message='Tất cả bài báo hợp lệ đã được index sẵn sàng.',
             )
         _SYNC_STATE['running'] = True
+        _SYNC_STATE['trigger'] = 'manual'
         _SYNC_STATE['last_started_at'] = datetime.now(UTC).isoformat()
         _SYNC_STATE['last_error'] = None
 

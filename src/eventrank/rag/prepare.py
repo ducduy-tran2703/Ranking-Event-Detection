@@ -26,12 +26,13 @@ from eventrank.rag.chunking import chunking_version, make_chunks
 from eventrank.rag.text import build_full_text, text_hash, validate_entities
 
 _LOCK = 0x72616770726570
+# Tham số thứ 6 = `articles.updated_at` của bản bài đã dùng (đọc dưới khoá), xem migration 011 `source_updated_at`.
 _NER_UPSERT = """
-INSERT INTO article_ner (article_id,canonical_text,text_hash,ner_version,entities)
-VALUES (%s,%s,%s,%s,%s)
+INSERT INTO article_ner (article_id,canonical_text,text_hash,ner_version,entities,source_updated_at)
+VALUES (%s,%s,%s,%s,%s,%s)
 ON CONFLICT (article_id) DO UPDATE SET canonical_text=EXCLUDED.canonical_text,
 text_hash=EXCLUDED.text_hash,ner_version=EXCLUDED.ner_version,entities=EXCLUDED.entities,
-updated_at=now()
+source_updated_at=EXCLUDED.source_updated_at,updated_at=now()
 """
 _CHUNK_INSERT = """
 INSERT INTO rag_chunks (chunk_id,article_id,chunk_index,text,start_char,end_char,chunking_version)
@@ -165,8 +166,10 @@ def _remove_pending_chunks(conn, article_ids):
 def _write_ner_batch(conn, batch, db_hashes, stats, dry_run):
     aids = [r[0] for r in batch]
     with conn.transaction():
-        current = dict(conn.execute("SELECT article_id,content_hash FROM articles "
-                                    "WHERE article_id=ANY(%s) ORDER BY article_id FOR UPDATE", (aids,)))
+        locked = {r[0]: r[1:] for r in conn.execute(
+            "SELECT article_id,content_hash,updated_at FROM articles "
+            "WHERE article_id=ANY(%s) ORDER BY article_id FOR UPDATE", (aids,))}
+        current = {aid: v[0] for aid, v in locked.items()}
         if any(current.get(aid) != db_hashes[aid] for aid in aids):
             raise ValueError("content_hash DB thay đổi trong lúc nhập; chạy lại preparation")
         existing = {r[0]: r[1:] for r in conn.execute(
@@ -181,7 +184,7 @@ def _write_ner_batch(conn, batch, db_hashes, stats, dry_run):
         if not dry_run:
             _remove_pending_chunks(conn, [r[0] for r in changed])
             with conn.cursor() as cur:
-                cur.executemany(_NER_UPSERT, [(*r[:4], Jsonb(r[4])) for r in fresh + changed])
+                cur.executemany(_NER_UPSERT, [(*r[:4], Jsonb(r[4]), locked[r[0]][1]) for r in fresh + changed])
 
 
 def import_ner(conn, silver_glob, ner_path, *, ner_version, dry_run=False, batch_size=200):

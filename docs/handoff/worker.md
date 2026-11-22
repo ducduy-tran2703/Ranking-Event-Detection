@@ -7,7 +7,8 @@
 | Cào 8 báo, nạp `articles` | Chạy được qua `make crawler`. 4 báo mới đã thử thật (12 bài); 4 báo cũ mới kiểm robots.txt thật |
 | Worker embedding → gom cụm → đặt tên → xu hướng | Đã chạy thật trên DB tạm, **chưa chạy trên DB chính** |
 | Web tự thấy dữ liệu mới | API tự nạp lại sau tối đa 60 giây khi `EVENTS_BACKEND=db` |
-| RAG cho bài mới | **Chưa làm**: repo không có code chạy NER, embedding chạy trên Modal |
+| RAG cho bài mới | **Tự đồng bộ** sau mỗi lượt cào (22/11, `feat/rag-auto-sync`): bộ lập lịch trong API chính, xem [rag.md](rag.md) mục "Đồng bộ tự động" |
+| Chỉnh lịch khi đang chạy | Trang **Quản trị → Cài đặt hệ thống** (`/admin/cai-dat`, migration 011): lịch cào, đồng bộ RAG, worker sự kiện |
 | Bù khoảng 20/09 → 09/11 | Không làm (đã chốt): chỉ chạy tiếp từ hiện tại |
 
 ## Chạy
@@ -26,6 +27,20 @@ Theo dõi: `make ingest-status`, `GET http://127.0.0.1:8002/crawl/jobs`, bảng 
 
 `make crawler` và `make worker` tự cài thư viện còn thiếu (`uv run --group embed`). Đừng chạy `make install` để cài cho chúng: lệnh đó là
 `uv sync` không kèm `--group embed`, sẽ gỡ PyTorch khỏi `.venv`.
+
+## Cài đặt động (trang Cài đặt hệ thống, 22/11/2026)
+
+- Khối `event_worker` trong `system_settings` (model `src/eventrank/serving/worker_settings.py`): `enabled` (mặc định bật) và
+  `interval_seconds` ∈ {60, 120, 300, 600, 900, 1800, 3600}. Chưa lưu lần nào → dùng `worker.interval_seconds` của
+  `configs/pipeline.yaml` nguyên giá trị như trước.
+- `make worker` (`--loop`) đọc lại cài đặt **mỗi vòng và mỗi 30 giây trong lúc chờ** (`loop_forever`): tạm dừng thì bỏ vòng (tiến
+  trình vẫn sống, log "TẠM DỪNG" một lần); bật lại thì chạy ngay; rút chu kỳ (3600 → 60 s) không phải đợi hết chu kỳ cũ.
+  `--interval` trên dòng lệnh thắng DB. `--once` luôn chạy (không xét `enabled`). Đọc DB lỗi → giữ cài đặt lần trước.
+- Migration `011_system_settings.sql` là **tuỳ chọn** với worker (`OPTIONAL_MIGRATIONS`): DB chưa áp 011 thì worker vẫn chạy,
+  lịch lấy từ YAML; các migration khác chưa áp vẫn bị từ chối như cũ.
+- Trang web thấy worker đang chạy hay không qua khoá advisory `0x6576656E74776B72` trong `pg_locks`.
+- Bộ lập lịch RAG ghi `worker_runs` step `rag_sync`: `live_stats` bỏ step này khỏi phần gom "vòng worker" của trang Dữ liệu
+  máy chủ; `DbEventStore.current_version` không tính nó (không nạp lại sự kiện vô ích).
 
 ## Luồng dữ liệu
 
@@ -79,11 +94,11 @@ có nhãn "Xem nhiều" để đánh giá.
 ## Kiểm tra
 
 ```bash
-uv run --group embed pytest -q tests/serving/test_worker.py tests/test_automation_sink.py tests/serving/test_db_store.py
+uv run --group embed pytest -q tests/serving/test_worker.py tests/serving/test_worker_settings.py tests/test_automation_sink.py tests/serving/test_db_store.py
 ```
 
 ## Còn dở
 
-1. RAG cho bài mới: chốt ai chạy NER, rồi đồng bộ chunk và index tăng dần.
+1. RAG cho bài mới: đã có bộ lập lịch tự động (xem trên); còn chạy bù 1.540 bài chưa NER/chunk trên DB chính.
 2. Bước `notify`: bảng và cột `notified_at` đã có, chưa có code gửi.
 3. Đo độ ổn định `event_id` trên nhiều ngày thật; nếu thông báo trùng nhiều, cân nhắc đặt `lock_min_size` (`configs/pipeline.yaml`).

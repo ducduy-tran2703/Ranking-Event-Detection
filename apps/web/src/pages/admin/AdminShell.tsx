@@ -15,6 +15,7 @@ export function AdminShell() {
         <NavLink to="/admin/nguoi-dung" className={cls}>Người dùng</NavLink>
         <NavLink to="/admin/khoa-api" className={cls}>Khoá API</NavLink>
         <NavLink to="/admin/kho" className={cls}>Kho dữ liệu</NavLink>
+        <NavLink to="/admin/cai-dat" className={cls}>Cài đặt hệ thống</NavLink>
       </nav>
       <Outlet />
     </div>

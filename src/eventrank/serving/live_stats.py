@@ -29,7 +29,8 @@ HOURS = 48                      # cột theo giờ: 48 giờ gần nhất, tính
 DAYS = 14                       # bảng nhiệt theo ngày đăng
 EVENT_WINDOW_DAYS = 7           # phân bố sự kiện: sự kiện có bài trong 7 ngày qua (bằng pending_max_age_days)
 RECENT_CRAWL_RUNS = 40
-RECENT_WORKER_RUNS = 120        # đủ cho ~30 vòng đầy đủ embed → recluster → name → trend
+RECENT_WORKER_RUNS = 120        # đủ cho ~30 vòng đầy đủ embed → recluster → name → trend (không gồm rag_sync:
+                                # bộ lập lịch RAG ghi cùng bảng nhưng không thuộc vòng worker sự kiện)
 WORKER_ROUNDS = 20
 TOP_EVENTS = 10
 CRAWLER_JOBS = 5
@@ -170,7 +171,7 @@ def _worker(conn: psycopg.Connection) -> dict[str, Any]:
     runs = _rows(conn, """
         SELECT run_id, step, status, started_at, finished_at, stats, left(error, 300) AS error,
                extract(epoch FROM finished_at - started_at)::float8 AS seconds
-        FROM worker_runs ORDER BY started_at DESC LIMIT %s""", (RECENT_WORKER_RUNS,))
+        FROM worker_runs WHERE step <> 'rag_sync' ORDER BY started_at DESC LIMIT %s""", (RECENT_WORKER_RUNS,))
     last = _rows(conn, """
         SELECT DISTINCT ON (step) step, status, started_at, finished_at
         FROM worker_runs ORDER BY step, started_at DESC""")
@@ -230,6 +231,31 @@ def _http_json(url: str, timeout: float) -> Any:
         return json.load(resp)
 
 
+def crawler_job_items(jobs: dict[str, Any]) -> list[dict[str, Any]]:
+    """`items` của `GET /crawl/jobs`, bỏ phần tử không phải object."""
+    items = jobs.get("items")
+    return [j for j in items if isinstance(j, dict)] if isinstance(items, list) else []
+
+
+def format_crawler_job(j: dict[str, Any]) -> dict[str, Any]:
+    """Một job của dịch vụ crawler (`GET /crawl/jobs`) → dạng gọn cho web (LiveCrawlerJob)."""
+    per = []
+    results = j.get("results")
+    for src, r in sorted(results.items() if isinstance(results, dict) else []):
+        if not isinstance(r, dict):
+            continue
+        dbr = r.get("db") if isinstance(r.get("db"), dict) else {}
+        per.append({"source": src, "status": r.get("status"), "phase": r.get("phase"),
+                    "discovered": r.get("discovered", 0), "processed": r.get("processed", 0),
+                    "clean": r.get("clean", 0), "rejected": r.get("rejected", 0), "failed": r.get("failed", 0),
+                    "inserted": dbr.get("inserted", 0), "updated": dbr.get("updated", 0),
+                    "errors": [str(e)[:240] for e in (r.get("errors") or [])[:3]],
+                    "n_errors": len(r.get("errors") or [])})
+    return {"id": j.get("id"), "trigger": j.get("trigger"), "status": j.get("status"),
+            "created_at": j.get("created_at"), "started_at": j.get("started_at"),
+            "finished_at": j.get("finished_at"), "sources": per}
+
+
 def crawler_status(base_url: str | None = None, timeout: float = 1.5) -> dict[str, Any] | None:
     """Lịch cào và vài job gần nhất từ dịch vụ crawler (:8002). Dịch vụ không chạy → None."""
     base = (base_url or os.environ.get("CRAWLER_URL") or "http://127.0.0.1:8002").rstrip("/")
@@ -238,23 +264,16 @@ def crawler_status(base_url: str | None = None, timeout: float = 1.5) -> dict[st
         jobs = _http_json(f"{base}/crawl/jobs?limit={CRAWLER_JOBS}", timeout)
     except (OSError, ValueError, urllib.error.URLError):
         return None
-    items = []
-    for j in jobs.get("items", []):
-        per = []
-        for src, r in sorted((j.get("results") or {}).items()):
-            dbr = r.get("db") or {}
-            per.append({"source": src, "status": r.get("status"), "phase": r.get("phase"),
-                        "discovered": r.get("discovered", 0), "processed": r.get("processed", 0),
-                        "clean": r.get("clean", 0), "rejected": r.get("rejected", 0), "failed": r.get("failed", 0),
-                        "inserted": dbr.get("inserted", 0), "updated": dbr.get("updated", 0),
-                        "errors": [str(e)[:240] for e in (r.get("errors") or [])[:3]],
-                        "n_errors": len(r.get("errors") or [])})
-        items.append({"id": j.get("id"), "trigger": j.get("trigger"), "status": j.get("status"),
-                      "created_at": j.get("created_at"), "started_at": j.get("started_at"),
-                      "finished_at": j.get("finished_at"), "sources": per})
-    return {"enabled": bool(sched.get("enabled")), "interval_minutes": sched.get("interval_minutes"),
-            "next_run_at": sched.get("next_run_at"), "active_job_id": sched.get("active_job_id"),
-            "jobs_total": jobs.get("total", len(items)), "jobs": items}
+    if not isinstance(sched, dict) or not isinstance(jobs, dict):       # crawler phiên bản khác/hỏng: coi như không có
+        return None
+    try:
+        items = [format_crawler_job(j) for j in crawler_job_items(jobs)]
+    except (AttributeError, TypeError, ValueError):
+        return None
+    interval, total, active = sched.get("interval_minutes"), jobs.get("total"), sched.get("active_job_id")
+    return {"enabled": bool(sched.get("enabled")), "interval_minutes": interval if isinstance(interval, int) else None,
+            "next_run_at": sched.get("next_run_at"), "active_job_id": active if isinstance(active, str) else None,
+            "jobs_total": total if isinstance(total, int) else len(items), "jobs": items}
 
 
 def live_overview(conn: psycopg.Connection, crawler: dict[str, Any] | None = None) -> dict[str, Any]:
