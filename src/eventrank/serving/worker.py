@@ -50,6 +50,7 @@ from eventrank.ingest import clock
 from eventrank.naming import predict as naming
 from eventrank.naming.dataset import _PREFIX
 from eventrank.serving import store as ES
+from eventrank.serving import worker_settings as WS
 from eventrank.serving.db_import import _copy, write_embeddings
 from eventrank.trending import score as trending
 
@@ -62,6 +63,9 @@ WORKER_DEFAULTS = {"interval_seconds": 300, "pending_max_age_days": 7, "lock_min
 _LOCK_KEY = 0x6576656E74776B72   # "eventwkr": chỉ một worker trên mỗi DB
 HOUR = timedelta(hours=1)
 NO_LOCK = 10**9                  # lock_min_size rỗng: không sự kiện nào đủ lớn để bị khoá
+# Migration worker chạy được khi CHƯA áp (chỉ thêm trang cài đặt): thiếu 011 thì lịch lấy từ pipeline.yaml như cũ.
+OPTIONAL_MIGRATIONS = {"011_system_settings.sql"}
+SETTINGS_POLL_SECONDS = 30.0     # đang chờ vòng sau: đọc lại cài đặt event_worker mỗi chừng này giây
 
 
 class WorkerError(RuntimeError):
@@ -512,6 +516,62 @@ def run_cycle(conn: psycopg.Connection, cfg: WorkerConfig, *, encoder=None, gene
     return {"embedded": embedded, "assigned": assigned, "named": named, "trend_marks": marks, "closed": closed}
 
 
+@dataclass
+class LoopSettings:
+    enabled: bool
+    interval: float
+
+
+def current_settings(conn: psycopg.Connection, cfg: WorkerConfig, fixed_interval: float | None = None,
+                     last: LoopSettings | None = None) -> LoopSettings:
+    """Cài đặt `event_worker` từ DB (trang Cài đặt hệ thống); chưa có dòng/bảng → pipeline.yaml như cũ.
+    `--interval` trên dòng lệnh thắng DB. Đọc DB lỗi (mất kết nối) → giữ cài đặt lần trước."""
+    yaml_seconds = float(cfg.worker["interval_seconds"])
+    try:
+        stored = WS.load(conn, WS.default_settings(yaml_seconds))
+    except psycopg.Error as e:
+        log.warning("không đọc được cài đặt event_worker (%s); giữ cài đặt cũ", e.__class__.__name__)
+        return last or LoopSettings(True, fixed_interval if fixed_interval is not None else yaml_seconds)
+    interval = float(stored.value.interval_seconds) if stored.from_db else yaml_seconds
+    return LoopSettings(stored.value.enabled, fixed_interval if fixed_interval is not None else interval)
+
+
+def loop_forever(conn: psycopg.Connection, cfg: WorkerConfig, *, fixed_interval: float | None = None,
+                 logf: Callable[[str], None] = print, run: Callable[..., dict[str, int]] | None = None,
+                 sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic,
+                 max_rounds: int | None = None) -> None:
+    """Vòng `--loop`: mỗi vòng đọc lại cài đặt; tắt thì bỏ vòng; trong lúc chờ đọc lại mỗi 30 s nên đổi chu kỳ trên
+    web có hiệu lực mà không phải khởi động lại. `max_rounds` chỉ dùng cho test."""
+    run = run or (lambda c, k: run_cycle(c, k, logf=logf))
+    settings = current_settings(conn, cfg, fixed_interval)
+    paused_logged = False
+    rounds = 0
+    while max_rounds is None or rounds < max_rounds:
+        rounds += 1
+        settings = current_settings(conn, cfg, fixed_interval, settings)
+        if settings.enabled:
+            paused_logged = False
+            try:
+                result = run(conn, cfg)
+                if any(result.values()):
+                    logf(json.dumps(result, ensure_ascii=False))
+            except (psycopg.Error, ValueError, RuntimeError, OSError) as e:
+                log.exception("vòng worker lỗi, thử lại sau %.0f s: %s", settings.interval, e.__class__.__name__)
+        elif not paused_logged:
+            logf("worker sự kiện đang TẠM DỪNG (trang Cài đặt hệ thống); vẫn đọc lại cài đặt định kỳ")
+            paused_logged = True
+        started = clock()
+        while True:
+            remaining = started + settings.interval - clock()
+            if remaining <= 0:
+                break
+            sleep(min(SETTINGS_POLL_SECONDS, remaining))
+            fresh = current_settings(conn, cfg, fixed_interval, settings)
+            if fresh.enabled and not settings.enabled:
+                break                      # vừa bật lại → chạy luôn, không đợi hết chu kỳ cũ
+            settings = fresh
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m eventrank.serving.worker", description=__doc__.split("\n")[0])
     mode = ap.add_mutually_exclusive_group()
@@ -525,25 +585,21 @@ def main(argv: list[str] | None = None) -> int:
     logf = lambda m: print(m, flush=True)
     try:
         with db.connect(env=a.db_env) as conn:
-            pending = [r["name"] for r in db.status(conn) if r["state"] != "applied"]
+            states = db.status(conn)
+            pending = [r["name"] for r in states if r["state"] != "applied"
+                       and not (r["state"] == "pending" and r["name"] in OPTIONAL_MIGRATIONS)]
             if pending:
                 raise WorkerError(f"migration chưa áp: {', '.join(pending)} — chạy `make db-migrate` trước")
+            if any(r["state"] == "pending" for r in states):
+                logf("chưa áp migration 011: lịch worker lấy từ pipeline.yaml (trang Cài đặt hệ thống chưa có hiệu lực)")
             if not conn.execute("SELECT pg_try_advisory_lock(%s)", (_LOCK_KEY,)).fetchone()[0]:
                 raise WorkerError("đã có một worker khác đang chạy trên DB này")
             cfg = load_config(a.config)
-            interval = a.interval if a.interval is not None else cfg.worker["interval_seconds"]
-            while True:
-                try:
-                    result = run_cycle(conn, cfg, logf=logf)
-                    if any(result.values()) or not a.loop:
-                        logf(json.dumps(result, ensure_ascii=False))
-                except (psycopg.Error, ValueError, RuntimeError, OSError) as e:
-                    if not a.loop:
-                        raise
-                    log.exception("vòng worker lỗi, thử lại sau %.0f s: %s", interval, e.__class__.__name__)
-                if not a.loop:
-                    return 0
-                time.sleep(interval)
+            if not a.loop:
+                logf(json.dumps(run_cycle(conn, cfg, logf=logf), ensure_ascii=False))
+                return 0
+            loop_forever(conn, cfg, fixed_interval=a.interval, logf=logf)
+            return 0
     except (db.DatabaseConfigError, WorkerError, ES.HideWindowError) as e:
         print(f"LỖI: {e}", file=sys.stderr)
         return 1
