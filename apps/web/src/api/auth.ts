@@ -1,16 +1,16 @@
-// Tài khoản: hợp đồng DỰ KIẾN theo thiết kế database (pbl/thiet-ke-database.html, migration 003_auth chưa làm):
+// Tài khoản: backend thật ở apps/api/accounts.py (migration 003–006, cần Postgres):
 //   POST /api/auth/register | login | logout | logout-all | verify-email | forgot-password | reset-password | change-password
 //   GET  /api/auth/me
-// Chưa có backend → mặc định chạy ADAPTER GIẢ LẬP (mockdb.ts, lưu trên trình duyệt này). Có backend thì đặt
-// VITE_AUTH_MOCK=0 khi chạy/đóng gói web, không phải sửa trang nào.
+// Mặc định gọi MÁY CHỦ THẬT. Chỉ làm frontend mà không có Postgres → đặt VITE_AUTH_MOCK=1 khi chạy/đóng gói web để
+// dùng ADAPTER GIẢ LẬP (mockdb.ts, lưu trên trình duyệt này), không phải sửa trang nào.
 import {
   checkPassword, delay, deviceLabel, hashPassword, load, meOf, newId, nowIso, randomToken, save,
   type MockUser, type Role,
 } from "./mockdb";
 
-const flag = String(import.meta.env.VITE_AUTH_MOCK ?? "1").trim().toLowerCase();
-/** true khi khu tài khoản/quản trị còn chạy giả lập (mặc định cho tới khi có /api/auth/*). */
-export const AUTH_MOCK = !["0", "false", "off", "no"].includes(flag);
+const flag = String(import.meta.env.VITE_AUTH_MOCK ?? "0").trim().toLowerCase();
+/** true khi khu tài khoản/quản trị chạy giả lập (chỉ khi đặt VITE_AUTH_MOCK=1). */
+export const AUTH_MOCK = ["1", "true", "on", "yes"].includes(flag);
 
 export type { Role };
 export interface User {

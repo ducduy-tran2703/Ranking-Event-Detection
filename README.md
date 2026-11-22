@@ -22,7 +22,7 @@ make dev                      # backend :8000 + web React :5173
 tài khoản, quản trị): cần một lần chạy pipeline trong `data/runs/` (`make pipeline`), rồi `make build && make prod` →
 http://127.0.0.1:8000/. Chọn lần chạy bằng `EVENTS_RUN_DIR`; tên sự kiện 14–15/09 mặc định bị ẩn
 (`EVENTS_HIDE_NAMES_WINDOW`). Bản đồ "Trực quan gom cụm": `uv run --group embed python -m eventrank.evaluation.event_map
---date 2026-09-10`. Tài khoản/quản trị đang **giả lập trên trình duyệt** (`VITE_AUTH_MOCK`, mặc định bật). Route, endpoint:
+--date 2026-09-10`. Tài khoản/quản trị chạy trên **Postgres** (migration 003–006, `make db-migrate`; admin đầu tiên: `uv run python -m eventrank.accounts create-user --email … --role admin`); chỉ làm frontend không có Postgres thì `VITE_AUTH_MOCK=1` để giả lập trên trình duyệt. Route, endpoint:
 docs/tong-hop.md mục 11.3.
 
 **Postgres + tầng Thu thập** (giai đoạn 1 của bản chạy liên tục): bảng bài báo/lần cào/đồng hồ, nạp Silver

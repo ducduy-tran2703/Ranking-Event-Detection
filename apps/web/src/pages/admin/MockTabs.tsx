@@ -13,7 +13,7 @@ import { eventHref } from "../../lib/routes";
 import { DEFAULT_SOURCES, sourceName } from "../../lib/sources";
 import { useTitle } from "../../lib/useTitle";
 
-const MOCK_LABEL = AUTH_MOCK ? "Giả lập · dữ liệu của trình duyệt này" : "Dữ liệu ví dụ";
+const MOCK_LABEL = AUTH_MOCK ? "Giả lập · dữ liệu của trình duyệt này" : null;
 const KIND_LABEL: Record<string, string> = {
   wrong_name: "Tên sai", stray_article: "Có bài lạc", duplicate: "Trùng sự kiện", other: "Lý do khác",
 };
@@ -26,7 +26,7 @@ function Panel({ id, title, children }: { id: string; title: string; children: R
       <h1 className="sr-only">Quản trị — {title}</h1>
       <div className="row-between" style={{ alignItems: "baseline", gap: 8 }}>
         <h2 id={id} style={{ fontSize: 16 }}>{title}</h2>
-        <span className="tag warn" data-testid="mock-label">{MOCK_LABEL}</span>
+        {MOCK_LABEL && <span className="tag warn" data-testid="mock-label">{MOCK_LABEL}</span>}
       </div>
       <div style={{ marginTop: 10 }}>{children}</div>
     </section>
@@ -37,7 +37,8 @@ function State({ q, empty, children }: { q: { isPending: boolean; error: unknown
   empty: ReactNode; children: ReactNode }) {
   if (q.isPending) return <Loading lines={3} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()}
-                                hint={AUTH_MOCK ? undefined : "Máy chủ chưa có API quản trị (/api/admin/*)."} />;
+                                hint={AUTH_MOCK ? undefined
+                                  : "Máy chủ cần Postgres (DATABASE_URL) đã chạy make db-migrate, và tài khoản có vai trò quản trị."} />;
   if (!q.data?.length) return <div className="empty">{empty}</div>;
   return <>{children}</>;
 }
