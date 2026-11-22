@@ -5,8 +5,10 @@ import json
 import re
 import time
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
 
+import psycopg
 import yaml
 
 from eventrank.common import db
@@ -15,6 +17,9 @@ from eventrank.rag.context import ContextBudgetError, select_context
 from eventrank.rag.generation import NO_EVIDENCE, CitationError, output_schema, validate_answer
 from eventrank.rag.hybrid import HybridError, HybridRetriever, _request
 from eventrank.rag.models import ModelClient, keep_alive, load_model_config
+from eventrank.rag.ner import SharedNER, ner_from_config
+from eventrank.rag.prepare import IndexBusyError, index_read_lock
+from eventrank.rag.query_ner import boost_candidates_with_ner, fetch_article_entities
 from eventrank.rag.token_budget import GemmaTokenCounter
 
 
@@ -51,11 +56,48 @@ def unsupported_reason(question, filters):
 
 
 class RAGPipeline:
-    def __init__(self, conn, config, *, retriever=None, model=None, counter=None, snapshot=None):
+    def __init__(self, conn, config, *, retriever=None, model=None, counter=None,
+                 snapshot=None, query_ner=None):
         self.conn, self.config = conn, config
         self.retriever, self.model, self.counter = retriever, model, counter
         self.snapshot = snapshot
+        self.query_ner = query_ner
         self._owns_generator = False
+
+    def _read_lock(self):
+        # Test/fixture không có Postgres thì không có lượt ghi nào để tránh.
+        return nullcontext() if self.conn is None else index_read_lock(self.conn)
+
+    def _apply_query_ner(self, question, candidates, trace):
+        """Soft boost theo thực thể; NER lỗi/thiếu chỉ tắt boost và ghi rõ vào trace."""
+        qner_cfg = self.config.get('query_ner', {})
+        if not qner_cfg.get('enabled', False):
+            return candidates
+        predictor = self.query_ner
+        if predictor is None:
+            ner_cfg = self.config.get('ner', {})
+            if not ner_cfg.get('model_dir') or not Path(ner_cfg['model_dir']).exists():
+                trace['query_ner'] = {'enabled': True, 'status': 'model_missing'}
+                return candidates
+            predictor = self.query_ner = SharedNER(lambda: ner_from_config(ner_cfg))
+        try:
+            q_entities = predictor.predict_texts([question])[0]
+            art_entities = fetch_article_entities(self.conn, [h['article_id'] for h in candidates])
+        except Exception as exc:  # noqa: BLE001 -- boost là tuỳ chọn; chỉ ghi tên lỗi
+            trace['query_ner'] = {'enabled': True, 'status': 'error', 'exception': type(exc).__name__}
+            return candidates
+        boosted = boost_candidates_with_ner(
+            candidates, q_entities, art_entities,
+            in_chunk_boost=float(qner_cfg.get('in_chunk_boost', 0.008)),
+            in_article_boost=float(qner_cfg.get('in_article_boost', 0.003)),
+            label_match_multiplier=float(qner_cfg.get('label_match_multiplier', 1.0)),
+            text_only_multiplier=float(qner_cfg.get('text_only_multiplier', 0.4)),
+        )
+        moved = [{key: row[key] for key in ('chunk_id', 'rrf_rank', 'rank', 'ner_boost')}
+                 for row in boosted if row.get('ner_boost', 0.0) > 0]
+        trace['query_ner'] = {'enabled': True, 'status': 'ok', 'entities': q_entities,
+                              'boosted_chunks': len(moved), 'boosted': moved}
+        return boosted
 
     def close(self):
         if self.retriever is not None and hasattr(self.retriever, 'close'):
@@ -107,16 +149,24 @@ class RAGPipeline:
             self.retriever = HybridRetriever(self.conn, self.config, model=self.model)
         settings = self.config.get('generation', {})
         try:
-            retrieved = self.retriever.search(question, limit=settings.get('candidate_limit', 60),
-                                              allow_fallback=allow_fallback, **filters)
-        except Exception as exc:  # noqa: BLE001 -- keep only safe retrieval trace
-            if isinstance(exc, HybridError):
-                trace['retrieval'] = exc.trace
-            raise RAGUnavailableError('retrieval', trace) from None
-        trace['retrieval'] = retrieved['trace']
-        mode, degraded = retrieved['mode'], retrieved['degraded']
-        if not retrieved['hits']:
-            return finish('insufficient_evidence', NO_EVIDENCE, reason='empty_retrieval')
+            # Giữ khoá đọc tới khi lấy xong evidence + entity: sync không được ghi xen giữa.
+            with self._read_lock():
+                try:
+                    retrieved = self.retriever.search(question, limit=settings.get('candidate_limit', 60),
+                                                      allow_fallback=allow_fallback, **filters)
+                except Exception as exc:  # noqa: BLE001 -- keep only safe retrieval trace
+                    if isinstance(exc, HybridError):
+                        trace['retrieval'] = exc.trace
+                    raise RAGUnavailableError('retrieval', trace) from None
+                trace['retrieval'] = retrieved['trace']
+                mode, degraded = retrieved['mode'], retrieved['degraded']
+                if not retrieved['hits']:
+                    return finish('insufficient_evidence', NO_EVIDENCE, reason='empty_retrieval')
+                candidates = self._apply_query_ner(question, retrieved['hits'], trace)
+        except IndexBusyError:
+            raise RAGUnavailableError('index_sync', trace) from None
+        except psycopg.Error:  # lấy/nhả khoá đọc lỗi; không lộ thông điệp driver
+            raise RAGUnavailableError('index_lock', trace) from None
         if self.counter is None:
             try:
                 self.counter = GemmaTokenCounter(spec)
@@ -125,7 +175,7 @@ class RAGPipeline:
         max_chunks = settings.get('max_context_chunks', 8)
         try:
             # Source diversity is meaningless once the request is restricted to one source.
-            selected = select_context(question, retrieved['hits'], self.counter, snapshot=snapshot,
+            selected = select_context(question, candidates, self.counter, snapshot=snapshot,
                                        window=spec['max_model_len'], max_output_tokens=reserve,
                                        max_chunks=max_chunks,
                                        per_article=settings.get('max_per_article', 2),

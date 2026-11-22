@@ -7,11 +7,29 @@ chunking:
 index_version: rag_v1
 bm25:
   root: data/rag/bm25
+  # Sync dựng snapshot mới mỗi lần; giữ CURRENT + bản liền trước, xoá bản cũ hơn.
+  keep_snapshots: 2
 dense:
   url: http://127.0.0.1:6333
   collection: rag_v1_qwen_text_v1
   batch_size: 32
-  concurrency: 1
+  concurrency: 4
+ner:
+  model_dir: data/models/bamibert-qft-s44/best
+  ner_version: bamibert-qft-s44-clean-20261122
+  max_length: 2048
+  window_overlap: 512
+  batch_size: 8
+  device: auto
+sync:
+  # Chờ các lượt /ask đang giữ khoá đọc (gồm cả cold start Qwen) trước khi ghi index.
+  lock_wait_seconds: 600
+query_ner:
+  enabled: true
+  in_chunk_boost: 0.008
+  in_article_boost: 0.003
+  label_match_multiplier: 1.0
+  text_only_multiplier: 0.4
 retrieval:
   branch_limit: 30
   rrf_k: 60
@@ -36,7 +54,7 @@ models:
     max_length: 2048
     batch_size: 8
     gpu: L4
-    max_containers: 1
+    max_containers: 4
     buffer_containers: 0
     instruction: Given a Vietnamese news question, retrieve relevant news passages that answer the question.
   llm:

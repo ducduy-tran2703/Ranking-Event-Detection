@@ -155,3 +155,80 @@ def test_no_context_fits_does_not_generate(qa_pipeline):
     p.counter.count = lambda messages: 8192
     result = p.ask(QA['question'])
     assert result['status'] == 'insufficient_evidence' and 'generate' not in calls
+
+
+# ---------------------------------------------------------------- Query NER lỗi/thiếu không làm hỏng câu hỏi
+def test_query_ner_loi_van_tra_loi_va_ghi_trace(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.config['query_ner'] = {'enabled': True}
+
+    class Broken:
+        def predict_texts(self, texts):
+            raise RuntimeError('CUDA out of memory at C:/private')
+
+    p.query_ner = Broken()
+    result = p.ask(QA['question'])
+    assert result['status'] == 'answered'
+    assert result['trace']['query_ner'] == {'enabled': True, 'status': 'error', 'exception': 'RuntimeError'}
+
+
+def test_query_ner_thieu_checkpoint_ghi_ro_trong_trace(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.config['query_ner'] = {'enabled': True}
+    p.config['ner'] = {'model_dir': 'data/models/khong-ton-tai'}
+    result = p.ask(QA['question'])
+    assert result['status'] == 'answered'
+    assert result['trace']['query_ner'] == {'enabled': True, 'status': 'model_missing'}
+
+
+def test_query_ner_thanh_cong_ghi_hang_truoc_sau_boost(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    p.config['query_ner'] = {'enabled': True}
+    p.query_ner = SimpleNamespace(predict_texts=lambda texts: [[]])
+    result = p.ask(QA['question'])
+    q = result['trace']['query_ner']
+    assert q['status'] == 'ok' and q['entities'] == [] and q['boosted'] == []
+
+
+# ---------------------------------------------------------------- không đọc index khi sync đang ghi
+class _LockConn:
+    def __init__(self, events, free):
+        self.events, self.free = events, free
+
+    def execute(self, sql, params=None):
+        if 'pg_try_advisory_lock_shared' in sql:
+            self.events.append('lock_shared')
+            return SimpleNamespace(fetchone=lambda: (self.free,))
+        if 'pg_advisory_unlock_shared' in sql:
+            self.events.append('unlock_shared')
+            return SimpleNamespace(fetchone=lambda: (True,))
+        raise AssertionError(sql)
+
+
+def test_sync_dang_chay_thi_tra_index_sync_khong_truy_xuat(qa_pipeline):
+    p, calls = qa_pipeline
+    events = []
+    p.conn = _LockConn(events, free=False)
+    with pytest.raises(pipeline.RAGUnavailableError) as err:
+        p.ask(QA['question'])
+    assert err.value.phase == 'index_sync'
+    assert calls == [] and events == ['lock_shared']
+
+
+def test_khoa_doc_duoc_nha_truoc_khi_goi_gemma(qa_pipeline):
+    p, _ = qa_pipeline
+    p.model.config['llm']['max_model_len'] = 20000
+    events = []
+    p.conn = _LockConn(events, free=True)
+    original = p.model.chat
+
+    def chat(*a, **kw):
+        events.append('generate')
+        return original(*a, **kw)
+
+    p.model.chat = chat
+    assert p.ask(QA['question'])['status'] == 'answered'
+    assert events == ['lock_shared', 'unlock_shared', 'generate']

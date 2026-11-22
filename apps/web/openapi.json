@@ -46,6 +46,68 @@
         }
       }
     },
+    "/api/rag/sync": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Trigger Sync",
+        "operationId": "trigger_sync_api_rag_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RAGSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGSyncAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/sync/status": {
+      "get": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Sync Status",
+        "operationId": "sync_status_api_rag_sync_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGSyncStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -5231,6 +5293,125 @@
           "quotes"
         ],
         "title": "RAGSource"
+      },
+      "RAGSyncAccepted": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "requested": {
+            "type": "integer",
+            "title": "Requested"
+          },
+          "queued_articles": {
+            "type": "integer",
+            "title": "Queued Articles"
+          },
+          "already_ready": {
+            "type": "integer",
+            "title": "Already Ready"
+          },
+          "missing_article_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Article Ids"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "requested",
+          "queued_articles",
+          "already_ready",
+          "missing_article_ids",
+          "message"
+        ],
+        "title": "RAGSyncAccepted"
+      },
+      "RAGSyncRequest": {
+        "properties": {
+          "article_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Ids"
+          }
+        },
+        "type": "object",
+        "title": "RAGSyncRequest"
+      },
+      "RAGSyncStatus": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "last_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Started At"
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running"
+        ],
+        "title": "RAGSyncStatus"
       },
       "RawSourceValue": {
         "properties": {
