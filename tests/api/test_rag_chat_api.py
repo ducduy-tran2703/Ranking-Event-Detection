@@ -357,3 +357,45 @@ def test_loi_dang_dong_bo_chi_muc_co_cau_bao_rieng():
     msg = C.error_for(RAGUnavailableError('index_sync'))
     assert msg != C.GENERIC_ERROR and 'đồng bộ' in msg
     assert C.error_for(RAGUnavailableError('index_lock')) == C.PHASE_MESSAGES['snapshot']
+
+
+# ---------------------------------------------------------------- hồ sơ cá nhân hoá (migration 010)
+def test_ho_so_xem_sua_xac_nhan_xoa(env, pg_conn):
+    app, _ = env
+    c = client(app, pg_conn)
+    assert c.get("/api/rag/profile").json()["persona"] is None
+    r = send(c, "PUT", "/api/rag/profile", {"address_user": "chị Lan", "tone": "trang_trong",
+                                             "interests": ["Kinh tế"]})
+    assert r.status_code == 200 and r.json()["address_user"] == "chị Lan" and r.json()["interests"] == ["Kinh tế"]
+    assert send(c, "PUT", "/api/rag/profile", {"interests": ["Chứng khoán ảo"]}).status_code == 422
+    uid = pg_conn.execute("SELECT user_id FROM users WHERE email = 'ban@example.com'").fetchone()[0]
+    pg_conn.execute("UPDATE rag_user_profiles SET pending = '{\"persona\": \"ke_toan\"}' WHERE user_id = %s", (uid,))
+    assert c.get("/api/rag/profile").json()["pending"] == {"persona": "ke_toan"}
+    r = send(c, "POST", "/api/rag/profile/confirm", {"accept": True})
+    assert r.json()["persona"] == "ke_toan" and r.json()["pending"] == {}
+    assert send(c, "DELETE", "/api/rag/profile").status_code == 204
+    assert c.get("/api/rag/profile").json()["address_user"] is None
+
+
+def test_ho_so_can_dang_nhap(env):
+    app, _ = env
+    assert TestClient(app).get("/api/rag/profile").status_code == 401
+
+
+def test_luot_chat_tool_calling_luu_nguon_du_lieu_va_smalltalk(env, pg_conn):
+    app, fake = env
+    c = client(app, pg_conn)
+    fake.behaviour = {"status": "answered", "answer": "Có 37 bài. [1]", "retrieval_mode": None, "degraded": False,
+                      "snapshot": {}, "trace": {}, "sources": [
+                          {"citation_id": 1, "kind": "data", "tool": "count_articles", "title": "Đếm bài trong kho",
+                           "text": "Kho dữ liệu có 37 bài báo.", "quotes": ["có 37 bài báo"]}]}
+    msg = send(c, "POST", "/api/rag/messages", {"question": "Có bao nhiêu bài?"}).json()
+    run_worker(app)
+    body = c.get(f"/api/rag/messages/{msg['message_id']}").json()
+    assert body["status"] == "answered" and body["sources"][0]["kind"] == "data"
+    assert body["sources"][0]["url"] is None and body["sources"][0]["event_id"] is None
+    fake.behaviour = {"status": "smalltalk", "answer": "Chào bạn!", "sources": [], "retrieval_mode": None,
+                      "degraded": False, "snapshot": {}, "trace": {}}
+    msg = send(c, "POST", "/api/rag/messages", {"question": "Xin chào", "conversation_id": msg["conversation_id"]}).json()
+    run_worker(app)
+    assert c.get(f"/api/rag/messages/{msg['message_id']}").json()["status"] == "smalltalk"

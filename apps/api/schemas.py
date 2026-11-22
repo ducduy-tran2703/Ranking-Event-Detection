@@ -35,21 +35,26 @@ class RAGSnapshot(BaseModel):
 
 
 class RAGSource(BaseModel):
+    """Nguồn đã kiểm. kind='chunk': đoạn bài báo (URL/offset từ DB). kind='data': câu dữ liệu tool SQL
+    sinh tất định (số bài, phạm vi kho, sự kiện) — không có URL; `text` là câu gốc được trích."""
     citation_id: int
-    chunk_id: str
-    article_id: str
+    kind: Literal['chunk', 'data'] = 'chunk'
+    chunk_id: str | None = None
+    article_id: str | None = None
     title: str
-    url: str
-    source: str
-    published_at: datetime
-    start_char: int
-    end_char: int
-    chunking_version: str
+    url: str | None = None
+    source: str | None = None
+    published_at: datetime | None = None
+    start_char: int | None = None
+    end_char: int | None = None
+    chunking_version: str | None = None
+    tool: str | None = None
+    text: str | None = None
     quotes: list[str]
 
 
 class RAGAnswer(BaseModel):
-    status: Literal['answered', 'insufficient_evidence', 'unsupported_query', 'invalid_generation']
+    status: Literal['answered', 'insufficient_evidence', 'unsupported_query', 'invalid_generation', 'smalltalk']
     answer: str
     sources: list[RAGSource]
     retrieval_mode: Literal['hybrid', 'bm25_only', 'dense_only'] | None
@@ -60,7 +65,7 @@ class RAGAnswer(BaseModel):
 
 # ---------------------------------------------------------------------- khung chat hỏi đáp (migration 008)
 RAGChatStatusValue = Literal['queued', 'running', 'answered', 'insufficient_evidence', 'unsupported_query',
-                             'invalid_generation', 'failed', 'cancelled']
+                             'invalid_generation', 'smalltalk', 'failed', 'cancelled']
 
 
 class RAGChatAsk(BaseModel):
@@ -681,3 +686,38 @@ class ApiTokenBody(BaseModel):
 
 class ApiTokenCreated(BaseModel):
     token: str                 # khoá ĐẦY ĐỦ, chỉ trả một lần
+
+
+# ---------------------------------------------------------------- hồ sơ cá nhân hoá chatbot (migration 010)
+RAGPersona = Literal['pho_thong', 'doanh_nhan', 'ke_toan', 'nha_dau_tu', 'sinh_vien', 'giao_vien',
+                     'can_bo_cong_chuc', 'nha_bao', 'lap_trinh_vien', 'khac']
+RAGTone = Literal['than_thien', 'trang_trong', 'ngan_gon']
+RAGLength = Literal['ngan', 'vua', 'chi_tiet']
+
+
+class RAGProfile(BaseModel):
+    persona: RAGPersona | None
+    occupation_text: str | None
+    address_user: str | None
+    address_self: str | None
+    tone: RAGTone | None
+    answer_length: RAGLength | None
+    interests: list[str]
+    pending: dict[str, Any]          # thay đổi nghề/nhóm chatbot suy ra, chờ người dùng xác nhận
+
+
+class RAGProfileUpdate(BaseModel):
+    """Người dùng tự sửa hồ sơ; trường không gửi giữ nguyên, gửi null để xoá."""
+    model_config = ConfigDict(extra='forbid')
+    persona: RAGPersona | None = None
+    occupation_text: str | None = Field(default=None, min_length=1, max_length=60)
+    address_user: str | None = Field(default=None, min_length=1, max_length=30)
+    address_self: str | None = Field(default=None, min_length=1, max_length=30)
+    tone: RAGTone | None = None
+    answer_length: RAGLength | None = None
+    interests: list[str] | None = Field(default=None, max_length=10)
+
+
+class RAGProfileConfirm(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    accept: bool

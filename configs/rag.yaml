@@ -33,6 +33,18 @@ query_ner:
 retrieval:
   branch_limit: 30
   rrf_k: 60
+# Chatbot tool calling (agent.py). Bật sau khi deploy Modal với models.llm.tool_calling=true.
+tool_calling:
+  enabled: false
+  max_rounds: 3
+  max_calls_per_round: 4
+  round_max_tokens: 512
+  history_turns: 3
+  history_answer_chars: 500
+  max_context_chunks: 10
+# Danh sách chuyên mục cho hồ sơ người dùng; nên khớp events.category_std / category_map.category_std.
+profile:
+  categories: [Chính trị, Pháp luật, Thể thao, Giáo dục, Thế giới, Kinh tế, Du lịch, Khoa học – Công nghệ, Sức khỏe, Văn hóa]
 generation:
   candidate_limit: 60
   max_context_chunks: 8
@@ -64,3 +76,5 @@ models:
     max_model_len: 8192
     max_output_tokens: 1024
     gpu_memory_utilization: 0.85
+    # vLLM 0.33.0: --enable-auto-tool-choice --tool-call-parser gemma4 (template của model đã hỗ trợ tool).
+    tool_calling: true

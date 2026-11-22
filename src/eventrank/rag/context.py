@@ -32,14 +32,21 @@ def normalized(text):
     return ' '.join(unicodedata.normalize('NFC', text).split())
 
 
-def messages_for(question, evidence, snapshot):
+_EVIDENCE_KEYS = ('id', 'chunk_id', 'article_id', 'title', 'url', 'source', 'published_at', 'text')
+
+
+def _evidence_payload(row):
+    if row.get('kind') == 'data':  # câu dữ liệu từ tool SQL: không có bài/URL
+        return {'id': row['id'], 'kind': 'data', 'title': row['title'], 'text': row['text']}
+    return {key: row[key] for key in _EVIDENCE_KEYS}
+
+
+def messages_for(question, evidence, snapshot, *, system=SYSTEM, prefix=()):
     payload = {'question': question, 'snapshot': snapshot,
-               'evidence': [{key: row[key] for key in ('id', 'chunk_id', 'article_id', 'title',
-                                                      'url', 'source', 'published_at', 'text')}
-                            for row in evidence]}
+               'evidence': [_evidence_payload(row) for row in evidence]}
     # Escape potential chat-control tokens while retaining JSON-equivalent source text.
     content = json.dumps(payload, ensure_ascii=False).replace('<', r'\u003c').replace('>', r'\u003e')
-    return [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content}]
+    return [{'role': 'system', 'content': system}, *prefix, {'role': 'user', 'content': content}]
 
 
 @dataclass
@@ -51,14 +58,14 @@ class ContextSelection:
 
 
 def select_context(question, candidates, counter, *, snapshot, window, max_output_tokens,
-                   max_chunks=8, per_article=2, per_source=3):
+                   max_chunks=8, per_article=2, per_source=3, system=SYSTEM, prefix=()):
     if any(type(v) is not int or v < 1 for v in (window, max_output_tokens, max_chunks, per_article, per_source)):
         raise ValueError('Context limits must be positive integers')
     if max_output_tokens >= window:
         raise ValueError('Output reserve must be smaller than context window')
     selected, dropped, spans, hashes, ids = [], [], {}, set(), set()
     articles, sources = Counter(), Counter()
-    messages = messages_for(question, [], snapshot)
+    messages = messages_for(question, [], snapshot, system=system, prefix=prefix)
     tokens = counter.count(messages)
     if tokens + max_output_tokens > window:
         raise ContextBudgetError('Question and system instructions exceed the model context budget')
@@ -73,9 +80,9 @@ def select_context(question, candidates, counter, *, snapshot, window, max_outpu
             reason = 'duplicate_text'
         elif any(row['start_char'] < end and start < row['end_char'] for start, end in spans.get(article, [])):
             reason = 'overlap'
-        elif articles[article] >= per_article:
+        elif row.get('kind') != 'data' and articles[article] >= per_article:
             reason = 'article_limit'
-        elif sources[source] >= per_source:
+        elif row.get('kind') != 'data' and sources[source] >= per_source:
             reason = 'source_limit'
         elif len(selected) >= max_chunks:
             reason = 'chunk_limit'
@@ -83,7 +90,7 @@ def select_context(question, candidates, counter, *, snapshot, window, max_outpu
             dropped.append({'chunk_id': cid, 'reason': reason})
             continue
         row['id'] = len(selected) + 1
-        trial = messages_for(question, [*selected, row], snapshot)
+        trial = messages_for(question, [*selected, row], snapshot, system=system, prefix=prefix)
         trial_tokens = counter.count(trial)
         if trial_tokens + max_output_tokens > window:
             dropped.append({'chunk_id': cid, 'reason': 'token_budget'})

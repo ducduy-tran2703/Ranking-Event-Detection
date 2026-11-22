@@ -457,14 +457,24 @@ function Sources({ sources, mid }: { sources: RagSource[]; mid: number }) {
           <li key={s.citation_id} id={citeId(mid, s.citation_id)} className="chat-source">
             <span className="chat-source-n" aria-hidden="true">{s.citation_id}</span>
             <div className="chat-source-body">
-              <a href={s.url} target="_blank" rel="noopener noreferrer" className="chat-source-title">
-                {s.title} <IconLink size={13} />
-              </a>
-              <div className="inline small muted">
-                <SourceChip source={s.source} />
-                <span>{fmtDateTime(s.published_at)}</span>
-                {s.event_id && <Link to={eventHref(s.event_id)}>Sự kiện: {s.event_name}</Link>}
-              </div>
+              {s.kind === "data" || !s.url ? (
+                // Số liệu do công cụ truy vấn kho sinh ra (đếm bài, phạm vi kho…): không có bài/URL.
+                <>
+                  <span className="chat-source-title">{s.title}</span>
+                  <div className="inline small muted"><span>Dữ liệu trong kho</span></div>
+                </>
+              ) : (
+                <>
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="chat-source-title">
+                    {s.title} <IconLink size={13} />
+                  </a>
+                  <div className="inline small muted">
+                    {s.source && <SourceChip source={s.source} />}
+                    <span>{fmtDateTime(s.published_at)}</span>
+                    {s.event_id && <Link to={eventHref(s.event_id)}>Sự kiện: {s.event_name}</Link>}
+                  </div>
+                </>
+              )}
               {s.quotes.map((q) => <blockquote key={q} className="chat-quote">“{q}”</blockquote>)}
             </div>
           </li>

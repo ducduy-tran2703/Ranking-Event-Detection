@@ -57,6 +57,11 @@ services trên Modal và dense Qdrant đủ 96.230 point. Dense search/resume v�
 Lượt tiếp theo kiểm thử hỏi đáp theo bàn giao; không embedding lại corpus đã ready.
 Mốc này không cập nhật lại các mục ML khác ở bảng cũ.
 
+**RAG tool calling (22/11/2026, nhánh `feat/rag-tool-calling`):** chatbot gọi tool (tìm tin, đếm bài, sự kiện
+nổi bật, hồ sơ người dùng), nhớ 3 lượt hội thoại, cá nhân hoá theo hồ sơ (migration 010). Tắt mặc định
+(`tool_calling.enabled`). Đọc [`docs/handoff/rag-tool-calling.md`](docs/handoff/rag-tool-calling.md) và
+[`docs/handoff/rag-tool-calling-issues.md`](docs/handoff/rag-tool-calling-issues.md) (lỗi còn gặp, sửa trước tiên).
+
 ## Lệnh thường dùng
 
 ```bash

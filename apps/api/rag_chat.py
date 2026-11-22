@@ -21,6 +21,7 @@ from apps.api.accounts import Conn, User, optional_user
 from eventrank.accounts.auth import CurrentUser
 from eventrank.common import db
 from eventrank.rag import chat as C
+from eventrank.rag import profile as P
 
 router = APIRouter(prefix="/api/rag", tags=["RAG chat"])
 _worker_lock = threading.Lock()
@@ -37,7 +38,7 @@ def worker(request: Request) -> C.ChatWorker:
                     url = getattr(st, "db_url", None) or db.database_url()
                 except db.DatabaseConfigError as exc:
                     raise HTTPException(503, "Hỏi đáp cần Postgres (DATABASE_URL).") from exc
-                factory = getattr(st, "rag_pipeline_factory", None) or C.default_pipeline_factory
+                factory = getattr(st, "rag_pipeline_factory", None) or _shared_factory
                 st.rag_worker = C.ChatWorker(url, factory, cancel_poll=getattr(st, "rag_cancel_poll", 1.0))
     w = st.rag_worker
     if getattr(st, "rag_autostart", True):
@@ -46,6 +47,15 @@ def worker(request: Request) -> C.ChatWorker:
 
 
 Worker = Annotated[C.ChatWorker, Depends(worker)]
+
+
+def _shared_factory(conn):
+    """Pipeline cho mỗi lượt chat, dùng chung BamiBERT (VRAM) và tokenizer Gemma của tiến trình API."""
+    from apps.api import rag as R
+
+    config = yaml.safe_load(C.CONFIG_PATH.read_text("utf-8"))
+    ner = R.shared_ner(config) if R._ner_checkpoint_exists(config.get("ner", {})) else None
+    return C.build_pipeline(conn, config, query_ner=ner, counter=R.shared_counter())
 
 
 def _run(fn, *args, **kw):
@@ -112,3 +122,41 @@ def cancel(message_id: Id, conn: Conn, user: User) -> dict[str, Any]:
 @router.get("/messages/{message_id}", response_model=schemas.RAGChatMessage)
 def message(message_id: Id, conn: Conn, user: User, _: Worker) -> dict[str, Any]:
     return _run(C.get_message, conn, user.user_id, message_id)
+
+
+# ---------------------------------------------------------------------- hồ sơ cá nhân hoá (migration 010)
+def _categories() -> list[str]:
+    return list(yaml.safe_load(C.CONFIG_PATH.read_text("utf-8")).get("profile", {}).get("categories", []))
+
+
+@router.get("/profile", response_model=schemas.RAGProfile)
+def get_profile(conn: Conn, user: User) -> dict[str, Any]:
+    return P.get_profile(conn, user.user_id)
+
+
+@router.put("/profile", response_model=schemas.RAGProfile)
+def put_profile(body: schemas.RAGProfileUpdate, conn: Conn, user: User) -> dict[str, Any]:
+    """Người dùng tự sửa hồ sơ (không cần xác nhận). Chuyên mục phải nằm trong danh sách cấu hình."""
+    fields = body.model_dump(exclude_unset=True)
+    if fields.get("interests") is not None:
+        known = {" ".join(c.casefold().split()): c for c in _categories()}
+        wrong = [c for c in fields["interests"] if " ".join(c.casefold().split()) not in known]
+        if wrong:
+            raise HTTPException(422, f"Chuyên mục không có trong danh sách: {', '.join(wrong)}")
+        fields["interests"] = list(dict.fromkeys(known[" ".join(c.casefold().split())] for c in fields["interests"]))
+    elif "interests" in fields:
+        fields["interests"] = []
+    P.save_fields(conn, user.user_id, fields)
+    return P.get_profile(conn, user.user_id)
+
+
+@router.post("/profile/confirm", response_model=schemas.RAGProfile)
+def confirm_profile(body: schemas.RAGProfileConfirm, conn: Conn, user: User) -> dict[str, Any]:
+    """Áp (accept=true) hoặc bỏ (false) thay đổi nghề/nhóm người dùng mà chatbot đã suy ra."""
+    return P.confirm_pending(conn, user.user_id, body.accept)
+
+
+@router.delete("/profile", status_code=204)
+def delete_profile(conn: Conn, user: User) -> None:
+    P.delete_profile(conn, user.user_id)
+

@@ -1070,6 +1070,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rag/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["get_profile_api_rag_profile_get"];
+        /**
+         * Put Profile
+         * @description Người dùng tự sửa hồ sơ (không cần xác nhận). Chuyên mục phải nằm trong danh sách cấu hình.
+         */
+        put: operations["put_profile_api_rag_profile_put"];
+        post?: never;
+        /** Delete Profile */
+        delete: operations["delete_profile_api_rag_profile_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rag/profile/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Profile
+         * @description Áp (accept=true) hoặc bỏ (false) thay đổi nghề/nhóm người dùng mà chatbot đã suy ra.
+         */
+        post: operations["confirm_profile_api_rag_profile_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1767,7 +1809,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation";
+            status: "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation" | "smalltalk";
             /** Answer */
             answer: string;
             /** Sources */
@@ -1820,7 +1862,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "running" | "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation" | "failed" | "cancelled";
+            status: "queued" | "running" | "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation" | "smalltalk" | "failed" | "cancelled";
             /** Answer */
             answer: string | null;
             /** Sources */
@@ -1849,27 +1891,34 @@ export interface components {
         RAGChatSource: {
             /** Citation Id */
             citation_id: number;
+            /**
+             * Kind
+             * @default chunk
+             * @enum {string}
+             */
+            kind: "chunk" | "data";
             /** Chunk Id */
-            chunk_id: string;
+            chunk_id?: string | null;
             /** Article Id */
-            article_id: string;
+            article_id?: string | null;
             /** Title */
             title: string;
             /** Url */
-            url: string;
+            url?: string | null;
             /** Source */
-            source: string;
-            /**
-             * Published At
-             * Format: date-time
-             */
-            published_at: string;
+            source?: string | null;
+            /** Published At */
+            published_at?: string | null;
             /** Start Char */
-            start_char: number;
+            start_char?: number | null;
             /** End Char */
-            end_char: number;
+            end_char?: number | null;
             /** Chunking Version */
-            chunking_version: string;
+            chunking_version?: string | null;
+            /** Tool */
+            tool?: string | null;
+            /** Text */
+            text?: string | null;
             /** Quotes */
             quotes: string[];
             /** Event Id */
@@ -1916,13 +1965,59 @@ export interface components {
             /** N Messages */
             n_messages: number;
             /** Last Status */
-            last_status: ("queued" | "running" | "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation" | "failed" | "cancelled") | null;
+            last_status: ("queued" | "running" | "answered" | "insufficient_evidence" | "unsupported_query" | "invalid_generation" | "smalltalk" | "failed" | "cancelled") | null;
         };
         /** RAGConversationDetail */
         RAGConversationDetail: {
             conversation: components["schemas"]["RAGConversation"];
             /** Messages */
             messages: components["schemas"]["RAGChatMessage"][];
+        };
+        /** RAGProfile */
+        RAGProfile: {
+            /** Persona */
+            persona: ("pho_thong" | "doanh_nhan" | "ke_toan" | "nha_dau_tu" | "sinh_vien" | "giao_vien" | "can_bo_cong_chuc" | "nha_bao" | "lap_trinh_vien" | "khac") | null;
+            /** Occupation Text */
+            occupation_text: string | null;
+            /** Address User */
+            address_user: string | null;
+            /** Address Self */
+            address_self: string | null;
+            /** Tone */
+            tone: ("than_thien" | "trang_trong" | "ngan_gon") | null;
+            /** Answer Length */
+            answer_length: ("ngan" | "vua" | "chi_tiet") | null;
+            /** Interests */
+            interests: string[];
+            /** Pending */
+            pending: {
+                [key: string]: unknown;
+            };
+        };
+        /** RAGProfileConfirm */
+        RAGProfileConfirm: {
+            /** Accept */
+            accept: boolean;
+        };
+        /**
+         * RAGProfileUpdate
+         * @description Người dùng tự sửa hồ sơ; trường không gửi giữ nguyên, gửi null để xoá.
+         */
+        RAGProfileUpdate: {
+            /** Persona */
+            persona?: ("pho_thong" | "doanh_nhan" | "ke_toan" | "nha_dau_tu" | "sinh_vien" | "giao_vien" | "can_bo_cong_chuc" | "nha_bao" | "lap_trinh_vien" | "khac") | null;
+            /** Occupation Text */
+            occupation_text?: string | null;
+            /** Address User */
+            address_user?: string | null;
+            /** Address Self */
+            address_self?: string | null;
+            /** Tone */
+            tone?: ("than_thien" | "trang_trong" | "ngan_gon") | null;
+            /** Answer Length */
+            answer_length?: ("ngan" | "vua" | "chi_tiet") | null;
+            /** Interests */
+            interests?: string[] | null;
         };
         /** RAGQuestion */
         RAGQuestion: {
@@ -1956,31 +2051,42 @@ export interface components {
             /** Sources */
             sources: string[];
         };
-        /** RAGSource */
+        /**
+         * RAGSource
+         * @description Nguồn đã kiểm. kind='chunk': đoạn bài báo (URL/offset từ DB). kind='data': câu dữ liệu tool SQL
+         *     sinh tất định (số bài, phạm vi kho, sự kiện) — không có URL; `text` là câu gốc được trích.
+         */
         RAGSource: {
             /** Citation Id */
             citation_id: number;
+            /**
+             * Kind
+             * @default chunk
+             * @enum {string}
+             */
+            kind: "chunk" | "data";
             /** Chunk Id */
-            chunk_id: string;
+            chunk_id?: string | null;
             /** Article Id */
-            article_id: string;
+            article_id?: string | null;
             /** Title */
             title: string;
             /** Url */
-            url: string;
+            url?: string | null;
             /** Source */
-            source: string;
-            /**
-             * Published At
-             * Format: date-time
-             */
-            published_at: string;
+            source?: string | null;
+            /** Published At */
+            published_at?: string | null;
             /** Start Char */
-            start_char: number;
+            start_char?: number | null;
             /** End Char */
-            end_char: number;
+            end_char?: number | null;
             /** Chunking Version */
-            chunking_version: string;
+            chunking_version?: string | null;
+            /** Tool */
+            tool?: string | null;
+            /** Text */
+            text?: string | null;
             /** Quotes */
             quotes: string[];
         };
@@ -4096,6 +4202,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RAGChatMessage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_profile_api_rag_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RAGProfile"];
+                };
+            };
+        };
+    };
+    put_profile_api_rag_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RAGProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RAGProfile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_profile_api_rag_profile_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirm_profile_api_rag_profile_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RAGProfileConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RAGProfile"];
                 };
             };
             /** @description Validation Error */

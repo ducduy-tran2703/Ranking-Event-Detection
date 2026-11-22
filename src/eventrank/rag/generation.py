@@ -118,7 +118,11 @@ def validate_answer(content, evidence):
     sources = []
     for cid in sorted(used):
         row = lookup[cid]
-        sources.append({'citation_id': cid, **{key: row[key] for key in (
+        if row.get('kind') == 'data':  # số liệu từ tool SQL: nguồn là kho dữ liệu, không có URL
+            sources.append({'citation_id': cid, 'kind': 'data', 'tool': row['tool'], 'title': row['title'],
+                            'text': row['text'], 'quotes': used[cid]})
+            continue
+        sources.append({'citation_id': cid, 'kind': 'chunk', **{key: row[key] for key in (
             'chunk_id', 'article_id', 'title', 'url', 'source', 'published_at',
             'start_char', 'end_char', 'chunking_version')}, 'quotes': used[cid]})
     return {'status': 'answered', 'answer': '\n\n'.join(statements), 'sources': sources, 'dropped': dropped}

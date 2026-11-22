@@ -75,6 +75,7 @@ Chat mới cần xác nhận lại khi máy/corpus thay đổi.
 | 7. Reranker | Chưa chốt/chưa triển khai | Bổ sung sau baseline, có thể bật/tắt để so sánh |
 | 8. Cập nhật dữ liệu/index | **Đã triển khai delta sync + API** | `sync.py`, `ner.py`, `dense.sync_delta`, `POST /api/rag/sync`; đã kiểm E2E 1 bài mẫu |
 | 9. Đánh giá + API/demo | API đã có; đánh giá chưa có | `POST /api/rag/ask`, Swagger; chưa có tập đánh giá relevance/grounding |
+| 10. Tool calling + cá nhân hoá | **Đã triển khai trên nhánh `feat/rag-tool-calling`, tắt mặc định; E2E thật chạy được, còn lỗi** | `agent.py`, `tools.py`, `profile.py`, migration 010; vLLM `--tool-call-parser gemma4`; xem [bàn giao](handoff/rag-tool-calling.md), [lỗi còn gặp](handoff/rag-tool-calling-issues.md); chưa có tập đánh giá |
 
 Chuẩn bị tập đánh giá ở bước 9 có thể làm song song từ đầu, **trước khi tune** bước 4–7.
 
