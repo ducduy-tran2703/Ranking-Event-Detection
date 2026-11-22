@@ -216,20 +216,33 @@ def test_lech_xu_huong_thi_rollback_va_ghi_that_bai(pg_conn, run):
 
 def test_replace_khong_xoa_lan_sang_bang_ngoai_tro_vao_events(pg_conn, run, tmp_path):
     """Khi đã có bảng người dùng trỏ vào events (bookmark…), nạp run khác phải bị chặn, không xoá lan."""
-    import psycopg
     d, eid, _ = run
     _import(pg_conn, d)
     pg_conn.execute("CREATE TABLE bookmark_thu (event_id text REFERENCES events (event_id))")
     pg_conn.execute("INSERT INTO bookmark_thu VALUES (%s)", (eid[PUBLIC],))
-    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+    with pytest.raises(db_import.RunImportError, match="bookmark_thu.event_id"):
         _import(pg_conn, d)
     assert _count(pg_conn, "events") == 4 and _count(pg_conn, "bookmark_thu") == 1
 
 
-def test_nap_lai_khong_xoa_bookmark_nguoi_dung(pg_conn, run):
-    """Migration 004 có FK thật: bảng rỗng cho nạp lại, bookmark có dữ liệu thì rollback."""
-    import psycopg
+def test_nap_lai_duoc_khi_bang_nguoi_dung_khong_tro_vao_su_kien_nao(pg_conn, run):
+    """Bảng 004/005 (theo dõi, thông báo…) có FK vào events: nạp lại vẫn chạy khi không dòng nào trỏ vào một sự kiện
+    (thông báo hệ thống có event_id NULL), và bị chặn ngay khi có người theo dõi."""
+    from eventrank.accounts import cli
+    d, eid, _ = run
+    _import(pg_conn, d)
+    uid = cli.create_user(pg_conn, "ban@example.com", "Bạn", "mat-khau-dai-123")
+    pg_conn.execute("INSERT INTO notifications (user_id, kind, body) VALUES (%s, 'system', 'Chào mừng')", (uid,))
+    _import(pg_conn, d)
+    assert _count(pg_conn, "events") == 4 and _count(pg_conn, "notifications") == 1
+    pg_conn.execute("INSERT INTO event_follows (user_id, event_id) VALUES (%s, %s)", (uid, eid[PUBLIC]))
+    with pytest.raises(db_import.RunImportError, match="event_follows.event_id"):
+        _import(pg_conn, d)
+    assert _count(pg_conn, "event_follows") == 1 and _count(pg_conn, "events") == 4
 
+
+def test_nap_lai_khong_xoa_bookmark_nguoi_dung(pg_conn, run):
+    """Migration 004 có FK thật: có bookmark trỏ vào sự kiện thì từ chối thay lớp, không mất dòng nào."""
     d, eid, _ = run
     _import(pg_conn, d)
     uid = pg_conn.execute(
@@ -240,7 +253,7 @@ def test_nap_lai_khong_xoa_bookmark_nguoi_dung(pg_conn, run):
                     (uid, eid[PUBLIC]))
     before = {tb: _count(pg_conn, tb) for tb in
               ("events", "event_articles", "event_names", "trend_scores")}
-    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+    with pytest.raises(db_import.RunImportError, match="event_bookmarks.event_id"):
         _import(pg_conn, d)
     assert {tb: _count(pg_conn, tb) for tb in before} == before
     assert pg_conn.execute("SELECT user_id,event_id FROM event_bookmarks").fetchall() == [

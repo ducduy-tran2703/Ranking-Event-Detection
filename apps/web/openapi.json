@@ -1290,10 +1290,1445 @@
           }
         }
       }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register",
+        "description": "Tạo tài khoản + thư xác minh và đăng nhập luôn. Email đã có tài khoản: cùng phản hồi 204, không đăng nhập.",
+        "operationId": "register_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountUser"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Auth Me",
+        "operationId": "auth_me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/auth/logout-all": {
+      "post": {
+        "summary": "Logout All",
+        "operationId": "logout_all_api_auth_logout_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "summary": "Verify Email",
+        "operationId": "verify_email_api_auth_verify_email_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "summary": "Forgot Password",
+        "description": "Luôn 204 — không cho biết email có tài khoản hay không.",
+        "operationId": "forgot_password_api_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "summary": "Reset Password",
+        "description": "Đặt mật khẩu mới → đăng xuất mọi thiết bị (kể cả trình duyệt này).",
+        "operationId": "reset_password_api_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "summary": "Change Password",
+        "description": "Giữ phiên hiện tại, thu hồi các phiên khác.",
+        "operationId": "change_password_api_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/notifications": {
+      "get": {
+        "summary": "My Notifications",
+        "operationId": "my_notifications_api_me_notifications_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Notification"
+                  },
+                  "type": "array",
+                  "title": "Response My Notifications Api Me Notifications Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/notifications/read": {
+      "post": {
+        "summary": "My Notifications Read",
+        "operationId": "my_notifications_read_api_me_notifications_read_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/me/follows": {
+      "get": {
+        "summary": "My Follows",
+        "operationId": "my_follows_api_me_follows_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FollowItem"
+                  },
+                  "type": "array",
+                  "title": "Response My Follows Api Me Follows Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "My Follow",
+        "operationId": "my_follow_api_me_follows_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventRef"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/follows/{event_id}": {
+      "put": {
+        "summary": "My Follow Update",
+        "operationId": "my_follow_update_api_me_follows__event_id__put",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "My Unfollow",
+        "operationId": "my_unfollow_api_me_follows__event_id__delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/bookmarks": {
+      "get": {
+        "summary": "My Bookmarks",
+        "operationId": "my_bookmarks_api_me_bookmarks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BookmarkItem"
+                  },
+                  "type": "array",
+                  "title": "Response My Bookmarks Api Me Bookmarks Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "My Bookmark",
+        "operationId": "my_bookmark_api_me_bookmarks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/bookmarks/{event_id}": {
+      "delete": {
+        "summary": "My Unbookmark",
+        "operationId": "my_unbookmark_api_me_bookmarks__event_id__delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/subscriptions": {
+      "get": {
+        "summary": "My Subscriptions",
+        "operationId": "my_subscriptions_api_me_subscriptions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Subscription"
+                  },
+                  "type": "array",
+                  "title": "Response My Subscriptions Api Me Subscriptions Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "My Subscribe",
+        "operationId": "my_subscribe_api_me_subscriptions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/subscriptions/{sub_id}": {
+      "delete": {
+        "summary": "My Unsubscribe",
+        "operationId": "my_unsubscribe_api_me_subscriptions__sub_id__delete",
+        "parameters": [
+          {
+            "name": "sub_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Sub Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/settings": {
+      "get": {
+        "summary": "My Settings",
+        "operationId": "my_settings_api_me_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "My Settings Update",
+        "operationId": "my_settings_update_api_me_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/sessions": {
+      "get": {
+        "summary": "My Sessions",
+        "operationId": "my_sessions_api_me_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionInfo"
+                  },
+                  "type": "array",
+                  "title": "Response My Sessions Api Me Sessions Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/sessions/{session_id}": {
+      "delete": {
+        "summary": "My Revoke Session",
+        "operationId": "my_revoke_session_api_me_sessions__session_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "delete": {
+        "summary": "My Delete",
+        "operationId": "my_delete_api_me_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/events/{event_id}/feedback": {
+      "post": {
+        "summary": "Event Feedback",
+        "description": "Báo sai — khách gửi được. Đang đăng nhập và gửi đúng CSRF thì gắn tên người gửi.",
+        "operationId": "event_feedback_api_events__event_id__feedback_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "summary": "Admin Users",
+        "operationId": "admin_users_api_admin_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUser"
+                  },
+                  "type": "array",
+                  "title": "Response Admin Users Api Admin Users Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{user_id}": {
+      "put": {
+        "summary": "Admin Set Role",
+        "operationId": "admin_set_role_api_admin_users__user_id__put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{user_id}/unlock": {
+      "post": {
+        "summary": "Admin Unlock",
+        "operationId": "admin_unlock_api_admin_users__user_id__unlock_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/feedback": {
+      "get": {
+        "summary": "Admin Feedback",
+        "operationId": "admin_feedback_api_admin_feedback_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeedbackItem"
+                  },
+                  "type": "array",
+                  "title": "Response Admin Feedback Api Admin Feedback Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/feedback/{report_id}": {
+      "put": {
+        "summary": "Admin Resolve Feedback",
+        "operationId": "admin_resolve_feedback_api_admin_feedback__report_id__put",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/outbox": {
+      "get": {
+        "summary": "Admin Outbox",
+        "description": "Thư hệ thống của bản demo (chưa gửi thật) — có token để quản trị viên chuyển link cho người dùng.",
+        "operationId": "admin_outbox_api_admin_outbox_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Mail"
+                  },
+                  "type": "array",
+                  "title": "Response Admin Outbox Api Admin Outbox Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/api-tokens": {
+      "get": {
+        "summary": "Admin Tokens",
+        "operationId": "admin_tokens_api_admin_api_tokens_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiTokenInfo"
+                  },
+                  "type": "array",
+                  "title": "Response Admin Tokens Api Admin Api Tokens Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Admin Create Token",
+        "operationId": "admin_create_token_api_admin_api_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiTokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokenCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/api-tokens/{token_id}": {
+      "delete": {
+        "summary": "Admin Revoke Token",
+        "operationId": "admin_revoke_token_api_admin_api_tokens__token_id__delete",
+        "parameters": [
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/status": {
+      "get": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Status",
+        "description": "Công khai: web dùng để hiện/ẩn khung chat. Đăng nhập thì kèm hạn mức của người đó.",
+        "operationId": "status_api_rag_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGChatStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/conversations": {
+      "get": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Conversations",
+        "operationId": "conversations_api_rag_conversations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RAGConversation"
+                  },
+                  "type": "array",
+                  "title": "Response Conversations Api Rag Conversations Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/conversations/{conversation_id}": {
+      "get": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Conversation",
+        "operationId": "conversation_api_rag_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGConversationDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Delete Conversation",
+        "operationId": "delete_conversation_api_rag_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/messages": {
+      "post": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Ask",
+        "description": "Xếp câu hỏi vào hàng đợi: 409 khi câu trước còn đang chờ, 429 khi hết lượt trong 24 giờ.",
+        "operationId": "ask_api_rag_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RAGChatAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGChatMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/messages/{message_id}/cancel": {
+      "post": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Cancel",
+        "description": "Dừng lượt đang chờ/đang chạy: 409 khi đã có kết quả. Người dùng hỏi tiếp được ngay.",
+        "operationId": "cancel_api_rag_messages__message_id__cancel_post",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGChatMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/messages/{message_id}": {
+      "get": {
+        "tags": [
+          "RAG chat"
+        ],
+        "summary": "Message",
+        "operationId": "message_api_rag_messages__message_id__get",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGChatMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccountUser": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "editor",
+              "admin"
+            ],
+            "title": "Role"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "email_verified",
+          "created_at"
+        ],
+        "title": "AccountUser"
+      },
+      "AdminUser": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "editor",
+              "admin"
+            ],
+            "title": "Role"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "locked_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked Until"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "role",
+          "email_verified",
+          "created_at",
+          "locked_until"
+        ],
+        "title": "AdminUser"
+      },
+      "ApiTokenBody": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Label"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Source",
+            "default": ""
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "ingest:write",
+              "read"
+            ],
+            "title": "Scope",
+            "default": "ingest:write"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "ApiTokenBody"
+      },
+      "ApiTokenCreated": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "ApiTokenCreated"
+      },
+      "ApiTokenInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "revoked": {
+            "type": "boolean",
+            "title": "Revoked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "source",
+          "prefix",
+          "created_at",
+          "revoked"
+        ],
+        "title": "ApiTokenInfo"
+      },
       "ArticleDetail": {
         "properties": {
           "article_id": {
@@ -1554,6 +2989,77 @@
         ],
         "title": "ArticleSummary"
       },
+      "BookmarkBody": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+            "title": "Event Id"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id"
+        ],
+        "title": "BookmarkBody"
+      },
+      "BookmarkItem": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "ten": {
+            "type": "string",
+            "title": "Ten"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          },
+          "chuyen_muc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chuyen Muc"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "ten",
+          "size",
+          "n_sources",
+          "chuyen_muc",
+          "note",
+          "at"
+        ],
+        "title": "BookmarkItem"
+      },
       "CategoryCount": {
         "properties": {
           "source": {
@@ -1601,6 +3107,26 @@
           "n"
         ],
         "title": "CategoryN"
+      },
+      "ChangePasswordBody": {
+        "properties": {
+          "old_password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Old Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "old_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordBody"
       },
       "DateRange": {
         "properties": {
@@ -1704,6 +3230,20 @@
           "source_list"
         ],
         "title": "DuplicateTitle"
+      },
+      "EmailBody": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "EmailBody"
       },
       "EventArticle": {
         "properties": {
@@ -2069,6 +3609,20 @@
         ],
         "title": "EventPoint"
       },
+      "EventRef": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^E\\d{8}-[0-9a-f]{8}$",
+            "title": "Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id"
+        ],
+        "title": "EventRef"
+      },
       "EventStats": {
         "properties": {
           "n_su_kien": {
@@ -2236,6 +3790,114 @@
         ],
         "title": "EventSummary"
       },
+      "FeedbackBody": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "wrong_name",
+              "stray_article",
+              "duplicate",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Note",
+            "default": ""
+          },
+          "event_name": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Event Name",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "FeedbackBody"
+      },
+      "FeedbackItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "event_name": {
+            "type": "string",
+            "title": "Event Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "wrong_name",
+              "stray_article",
+              "duplicate",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "who": {
+            "type": "string",
+            "title": "Who"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved",
+              "rejected"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "event_name",
+          "kind",
+          "note",
+          "who",
+          "at",
+          "status"
+        ],
+        "title": "FeedbackItem"
+      },
+      "FeedbackUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "rejected"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "FeedbackUpdate"
+      },
       "FileInfo": {
         "properties": {
           "key": {
@@ -2259,6 +3921,70 @@
           "last_modified"
         ],
         "title": "FileInfo"
+      },
+      "FollowItem": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "ten": {
+            "type": "string",
+            "title": "Ten"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "n_sources": {
+            "type": "integer",
+            "title": "N Sources"
+          },
+          "chuyen_muc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chuyen Muc"
+          },
+          "notify": {
+            "type": "boolean",
+            "title": "Notify"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "ten",
+          "size",
+          "n_sources",
+          "chuyen_muc",
+          "notify",
+          "at"
+        ],
+        "title": "FollowItem"
+      },
+      "FollowUpdate": {
+        "properties": {
+          "notify": {
+            "type": "boolean",
+            "title": "Notify"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notify"
+        ],
+        "title": "FollowUpdate"
       },
       "Freshness": {
         "properties": {
@@ -2456,6 +4182,87 @@
         ],
         "title": "IssueCounts"
       },
+      "LoginBody": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Password"
+          },
+          "remember": {
+            "type": "boolean",
+            "title": "Remember",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginBody"
+      },
+      "Mail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "to": {
+            "type": "string",
+            "title": "To"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "verify",
+              "reset"
+            ],
+            "title": "Kind"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "used": {
+            "type": "boolean",
+            "title": "Used"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "to",
+          "kind",
+          "token",
+          "used",
+          "expires_at"
+        ],
+        "title": "Mail"
+      },
       "MapDates": {
         "properties": {
           "dates": {
@@ -2594,6 +4401,52 @@
           "date_range"
         ],
         "title": "Meta"
+      },
+      "Notification": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "event_id",
+          "at",
+          "read"
+        ],
+        "title": "Notification"
       },
       "Overview": {
         "properties": {
@@ -2771,6 +4624,498 @@
           "trace"
         ],
         "title": "RAGAnswer"
+      },
+      "RAGChatAsk": {
+        "properties": {
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date From"
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "RAGChatAsk",
+        "description": "Một câu hỏi gửi vào hàng đợi. `conversation_id` rỗng → tạo cuộc trò chuyện mới."
+      },
+      "RAGChatFilters": {
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "date_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date From"
+          },
+          "date_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date To"
+          }
+        },
+        "type": "object",
+        "title": "RAGChatFilters"
+      },
+      "RAGChatMessage": {
+        "properties": {
+          "message_id": {
+            "type": "integer",
+            "title": "Message Id"
+          },
+          "conversation_id": {
+            "type": "integer",
+            "title": "Conversation Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/RAGChatFilters"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "answered",
+              "insufficient_evidence",
+              "unsupported_query",
+              "invalid_generation",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/RAGChatSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "retrieval_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "hybrid",
+                  "bm25_only",
+                  "dense_only"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Mode"
+          },
+          "degraded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degraded"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "queue_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id",
+          "conversation_id",
+          "question",
+          "filters",
+          "status",
+          "answer",
+          "sources",
+          "retrieval_mode",
+          "degraded",
+          "error",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "seconds",
+          "queue_position"
+        ],
+        "title": "RAGChatMessage"
+      },
+      "RAGChatSource": {
+        "properties": {
+          "citation_id": {
+            "type": "integer",
+            "title": "Citation Id"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "article_id": {
+            "type": "string",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Published At"
+          },
+          "start_char": {
+            "type": "integer",
+            "title": "Start Char"
+          },
+          "end_char": {
+            "type": "integer",
+            "title": "End Char"
+          },
+          "chunking_version": {
+            "type": "string",
+            "title": "Chunking Version"
+          },
+          "quotes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quotes"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "event_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "citation_id",
+          "chunk_id",
+          "article_id",
+          "title",
+          "url",
+          "source",
+          "published_at",
+          "start_char",
+          "end_char",
+          "chunking_version",
+          "quotes"
+        ],
+        "title": "RAGChatSource"
+      },
+      "RAGChatStatus": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RAGSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "daily_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Limit"
+          },
+          "used_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Today"
+          },
+          "single_turn": {
+            "type": "boolean",
+            "title": "Single Turn",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "problems",
+          "snapshot",
+          "daily_limit",
+          "used_today"
+        ],
+        "title": "RAGChatStatus",
+        "description": "Trạng thái hỏi đáp cho web: có dùng được không (kiểm nhanh, không gọi GPU) và hạn mức của người đang đăng nhập."
+      },
+      "RAGConversation": {
+        "properties": {
+          "conversation_id": {
+            "type": "integer",
+            "title": "Conversation Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "n_messages": {
+            "type": "integer",
+            "title": "N Messages"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running",
+                  "answered",
+                  "insufficient_evidence",
+                  "unsupported_query",
+                  "invalid_generation",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "title",
+          "created_at",
+          "updated_at",
+          "n_messages",
+          "last_status"
+        ],
+        "title": "RAGConversation"
+      },
+      "RAGConversationDetail": {
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/RAGConversation"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/RAGChatMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation",
+          "messages"
+        ],
+        "title": "RAGConversationDetail"
       },
       "RAGQuestion": {
         "properties": {
@@ -3110,6 +5455,32 @@
         ],
         "title": "RawSourceValue"
       },
+      "RegisterBody": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Display Name"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_name",
+          "email",
+          "password"
+        ],
+        "title": "RegisterBody"
+      },
       "ReloadResult": {
         "properties": {
           "rows": {
@@ -3133,6 +5504,44 @@
           "loaded_at"
         ],
         "title": "ReloadResult"
+      },
+      "ResetPasswordBody": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Token"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "password"
+        ],
+        "title": "ResetPasswordBody"
+      },
+      "RoleBody": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "editor",
+              "admin"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "RoleBody"
       },
       "RunInfo": {
         "properties": {
@@ -3271,6 +5680,155 @@
         ],
         "title": "RunInfo"
       },
+      "SessionInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "device": {
+            "type": "string",
+            "title": "Device"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "device",
+          "created_at",
+          "last_seen",
+          "current"
+        ],
+        "title": "SessionInfo"
+      },
+      "Settings": {
+        "properties": {
+          "push": {
+            "type": "boolean",
+            "title": "Push"
+          },
+          "digest": {
+            "type": "string",
+            "enum": [
+              "off",
+              "daily",
+              "weekly"
+            ],
+            "title": "Digest"
+          },
+          "quiet_from": {
+            "type": "string",
+            "title": "Quiet From"
+          },
+          "quiet_to": {
+            "type": "string",
+            "title": "Quiet To"
+          },
+          "hidden_sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hidden Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "push",
+          "digest",
+          "quiet_from",
+          "quiet_to",
+          "hidden_sources"
+        ],
+        "title": "Settings"
+      },
+      "SettingsPatch": {
+        "properties": {
+          "push": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Push"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "daily",
+                  "weekly"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "quiet_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet From"
+          },
+          "quiet_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet To"
+          },
+          "hidden_sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden Sources"
+          }
+        },
+        "type": "object",
+        "title": "SettingsPatch"
+      },
       "SizeBin": {
         "properties": {
           "nhan": {
@@ -3404,6 +5962,66 @@
         ],
         "title": "SourcesBin"
       },
+      "Subscription": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "keyword",
+              "category",
+              "source",
+              "entity"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "at"
+        ],
+        "title": "Subscription"
+      },
+      "SubscriptionBody": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "keyword",
+              "category",
+              "source",
+              "entity"
+            ],
+            "title": "Kind"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "SubscriptionBody"
+      },
       "TimelinePoint": {
         "properties": {
           "bucket": {
@@ -3449,6 +6067,20 @@
           "n"
         ],
         "title": "TitleWordsBin"
+      },
+      "TokenBody": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "TokenBody"
       },
       "TrendItem": {
         "properties": {

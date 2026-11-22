@@ -9,6 +9,7 @@ const NAV = [
   { to: "/", label: "Xu hướng", end: true },
   { to: "/events", label: "Sự kiện" },
   { to: "/chuyen-muc", label: "Chuyên mục" },
+  { to: "/hoi-dap", label: "Hỏi đáp" },
   { to: "/du-lieu", label: "Dữ liệu & mô hình" },
 ];
 

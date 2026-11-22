@@ -39,6 +39,7 @@ from typing import Any
 
 import numpy as np
 import psycopg
+from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from eventrank.common import db
@@ -75,6 +76,24 @@ def _current_run(conn: psycopg.Connection) -> str | None:
     row = conn.execute("SELECT versions->>'run_id' FROM worker_runs WHERE step = 'import' AND status = 'ok' "
                        "ORDER BY run_id DESC LIMIT 1").fetchone()
     return row[0] if row else "(không rõ)"
+
+
+def _external_refs(conn: psycopg.Connection) -> list[tuple[str, str]]:
+    """(bảng, cột) NGOÀI EVENT_TABLES có khoá ngoại trỏ vào một bảng của EVENT_TABLES (vd. event_follows.event_id)."""
+    return conn.execute(
+        "SELECT DISTINCT r.relname::text, a.attname::text FROM pg_constraint c "
+        "JOIN pg_class r ON r.oid = c.conrelid JOIN pg_class f ON f.oid = c.confrelid "
+        "JOIN pg_namespace n ON n.oid = r.relnamespace CROSS JOIN LATERAL unnest(c.conkey) AS k(attnum) "
+        "JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum "
+        "WHERE c.contype = 'f' AND f.relname = ANY(%s) AND NOT r.relname = ANY(%s) AND n.nspname = current_schema() "
+        "ORDER BY 1, 2", (list(EVENT_TABLES), list(EVENT_TABLES))).fetchall()
+
+
+def _referencing(conn: psycopg.Connection, refs: list[tuple[str, str]]) -> list[str]:
+    """Các "bảng.cột" trong `refs` đang có dòng trỏ vào sự kiện (cột khác NULL)."""
+    return [f"{t}.{c}" for t, c in refs if conn.execute(
+        sql.SQL("SELECT EXISTS (SELECT 1 FROM {} WHERE {} IS NOT NULL)").format(sql.Identifier(t), sql.Identifier(c))
+    ).fetchone()[0]]
 
 
 def _fallback_reasons(run_dir: Path, keep: set[str]) -> dict[str, str]:
@@ -143,6 +162,11 @@ def import_run(conn: psycopg.Connection, run_dir: str | Path, *, replace: bool =
     cur_run = _current_run(conn)
     if cur_run not in (None, es.run_id) and not replace:
         raise RunImportError(f"DB đang chứa sự kiện của run {cur_run}; thêm --replace để thay bằng {es.run_id}")
+    external = _external_refs(conn)
+    if cur_run is not None and (busy := _referencing(conn, external)):
+        raise RunImportError(f"không thay được lớp sự kiện: {', '.join(busy)} đang trỏ vào sự kiện hiện tại (dữ liệu "
+                             "người dùng: lưu, theo dõi, báo sai, thông báo…). Thay cả lớp sẽ làm mất chúng — sự kiện "
+                             "phải được worker cập nhật tăng dần (giai đoạn 2).")
 
     # vector (nếu có): để tính similarity lúc gán và ghi article_embeddings
     emb_path = None
@@ -170,11 +194,14 @@ def import_run(conn: psycopg.Connection, run_dir: str | Path, *, replace: bool =
     try:
         with conn.transaction():
             if cur_run is not None:
-                # DELETE theo thứ tự con → cha: FK từ bảng bookmark/thông báo RỖNG không chặn
-                # nạp lại (TRUNCATE vẫn chặn). Có dòng tham chiếu → lỗi FK, rollback toàn bộ;
-                # không CASCADE, không xoá dữ liệu người dùng. Tên bảng là hằng số nội bộ.
-                for table in EVENT_TABLES:
-                    conn.execute(f"DELETE FROM {table}")
+                # KHÔNG CASCADE. Không bảng ngoài nào trỏ vào → TRUNCATE cả lớp (nhanh). Có (bảng 004/005 đã áp, đã
+                # kiểm ở trên là không dòng nào trỏ vào sự kiện) → TRUNCATE các bảng con, DELETE events (kiểm FK qua
+                # chỉ mục trên cột event_id của các bảng đó).
+                if external:
+                    conn.execute(f"TRUNCATE {', '.join(t for t in EVENT_TABLES if t != 'events')}")
+                    conn.execute("DELETE FROM events")
+                else:
+                    conn.execute(f"TRUNCATE {', '.join(EVENT_TABLES)}")     # tên bảng cố định
                 conn.execute("DELETE FROM trend_baselines WHERE trend_version = %s", (versions["trend_version"],))
             stats.update(_write_events(conn, es, versions, vec, data_end, run_id, run_dir))
             stats["trend_scores"] = _copy(

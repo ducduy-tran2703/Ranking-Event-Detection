@@ -6,7 +6,7 @@ Frontend React sinh kiểu TypeScript tự động từ các lớp này (qua /op
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -56,6 +56,80 @@ class RAGAnswer(BaseModel):
     degraded: bool
     snapshot: RAGSnapshot
     trace: dict[str, Any]
+
+
+# ---------------------------------------------------------------------- khung chat hỏi đáp (migration 008)
+RAGChatStatusValue = Literal['queued', 'running', 'answered', 'insufficient_evidence', 'unsupported_query',
+                             'invalid_generation', 'failed', 'cancelled']
+
+
+class RAGChatAsk(BaseModel):
+    """Một câu hỏi gửi vào hàng đợi. `conversation_id` rỗng → tạo cuộc trò chuyện mới."""
+    model_config = ConfigDict(extra='forbid')
+    conversation_id: int | None = Field(default=None, ge=1)
+    question: str = Field(min_length=1, max_length=2048)
+    source: str | None = Field(default=None, min_length=1, max_length=64)
+    date_from: date | None = None
+    date_to: date | None = None
+
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError('date_from phải <= date_to')
+        return self
+
+
+class RAGChatFilters(BaseModel):
+    source: str | None = None
+    date_from: str | None = None
+    date_to: str | None = None
+
+
+class RAGChatSource(RAGSource):
+    event_id: str | None = None
+    event_name: str | None = None
+
+
+class RAGChatMessage(BaseModel):
+    message_id: int
+    conversation_id: int
+    question: str
+    filters: RAGChatFilters
+    status: RAGChatStatusValue
+    answer: str | None
+    sources: list[RAGChatSource]
+    retrieval_mode: Literal['hybrid', 'bm25_only', 'dense_only'] | None
+    degraded: bool | None
+    error: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    seconds: float | None
+    queue_position: int | None
+
+
+class RAGConversation(BaseModel):
+    conversation_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    n_messages: int
+    last_status: RAGChatStatusValue | None
+
+
+class RAGConversationDetail(BaseModel):
+    conversation: RAGConversation
+    messages: list[RAGChatMessage]
+
+
+class RAGChatStatus(BaseModel):
+    """Trạng thái hỏi đáp cho web: có dùng được không (kiểm nhanh, không gọi GPU) và hạn mức của người đang đăng nhập."""
+    available: bool
+    problems: list[str]
+    snapshot: RAGSnapshot | None
+    daily_limit: int | None
+    used_today: int | None
+    single_turn: bool = True
 
 
 class Health(BaseModel):
@@ -429,3 +503,181 @@ class RAGSyncStatus(BaseModel):
     last_finished_at: str | None = None
     last_result: dict | None = None
     last_error: str | None = None
+
+
+# ---------------------------------------------------------------------- tài khoản (/api/auth, /api/me, /api/admin)
+# Khớp lớp giả lập của web: apps/web/src/api/{auth,me,admin}.ts + mockdb.ts. Nghiệp vụ: src/eventrank/accounts/.
+Role = Literal["user", "editor", "admin"]
+
+
+class AccountUser(BaseModel):
+    id: str
+    email: str
+    display_name: str
+    role: Role
+    email_verified: bool
+    created_at: datetime
+
+
+class RegisterBody(BaseModel):
+    display_name: str = Field(max_length=200)
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=256)
+    # `role` web gửi ở bản xem trước bị BỎ QUA: đăng ký luôn là `user` (admin tạo bằng CLI eventrank.accounts)
+
+
+class LoginBody(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=256)
+    remember: bool = False
+
+
+class TokenBody(BaseModel):
+    token: str = Field(max_length=200)
+
+
+class EmailBody(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class ResetPasswordBody(BaseModel):
+    token: str = Field(max_length=200)
+    password: str = Field(max_length=256)
+
+
+class ChangePasswordBody(BaseModel):
+    old_password: str = Field(max_length=256)
+    new_password: str = Field(max_length=256)
+
+
+class EventSnapshot(BaseModel):
+    event_id: str
+    ten: str
+    size: int
+    n_sources: int
+    chuyen_muc: str | None
+
+
+class FollowItem(EventSnapshot):
+    notify: bool
+    at: datetime
+
+
+class BookmarkItem(EventSnapshot):
+    note: str
+    at: datetime
+
+
+class EventRef(BaseModel):
+    event_id: str = Field(pattern=r"^E\d{8}-[0-9a-f]{8}$")
+
+
+class BookmarkBody(EventRef):
+    note: str = Field(default="", max_length=500)
+
+
+class FollowUpdate(BaseModel):
+    notify: bool
+
+
+class Notification(BaseModel):
+    id: str
+    kind: str                  # nhãn hiển thị: "Hệ thống", "Sự kiện mới", …
+    text: str
+    event_id: str | None
+    at: datetime
+    read: bool
+
+
+class Subscription(BaseModel):
+    id: str
+    kind: Literal["keyword", "category", "source", "entity"]
+    value: str
+    at: datetime
+
+
+class SubscriptionBody(BaseModel):
+    kind: Literal["keyword", "category", "source", "entity"]
+    value: str = Field(max_length=200)
+
+
+class Settings(BaseModel):
+    push: bool
+    digest: Literal["off", "daily", "weekly"]
+    quiet_from: str            # "HH:MM", giờ Việt Nam
+    quiet_to: str
+    hidden_sources: list[str]
+
+
+class SettingsPatch(BaseModel):
+    push: bool | None = None
+    digest: Literal["off", "daily", "weekly"] | None = None
+    quiet_from: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    quiet_to: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    hidden_sources: list[Annotated[str, Field(max_length=40)]] | None = Field(default=None, max_length=50)
+
+
+class SessionInfo(BaseModel):
+    id: str
+    device: str
+    created_at: datetime
+    last_seen: datetime
+    current: bool
+
+
+class FeedbackBody(BaseModel):
+    kind: Literal["wrong_name", "stray_article", "duplicate", "other"]
+    note: str = Field(default="", max_length=1000)
+    event_name: str = Field(default="", max_length=300)   # web gửi kèm; máy chủ dùng tên đang hiển thị trong DB
+
+
+class AdminUser(AccountUser):
+    locked_until: datetime | None
+
+
+class RoleBody(BaseModel):
+    role: Role
+
+
+class FeedbackItem(BaseModel):
+    id: str
+    event_id: str
+    event_name: str
+    kind: Literal["wrong_name", "stray_article", "duplicate", "other"]
+    note: str
+    who: str
+    at: datetime
+    status: Literal["open", "resolved", "rejected"]
+
+
+class FeedbackUpdate(BaseModel):
+    status: Literal["resolved", "rejected"]
+
+
+class Mail(BaseModel):
+    id: str
+    at: datetime
+    to: str
+    kind: Literal["verify", "reset"]
+    token: str
+    used: bool
+    expires_at: datetime | None
+
+
+class ApiTokenInfo(BaseModel):
+    id: str
+    label: str
+    source: str
+    prefix: str
+    created_at: datetime
+    revoked: bool
+
+
+class ApiTokenBody(BaseModel):
+    label: str = Field(max_length=80)
+    source: str = Field(default="", max_length=40)
+    scope: Literal["ingest:write", "read"] = "ingest:write"
+
+
+class ApiTokenCreated(BaseModel):
+    token: str                 # khoá ĐẦY ĐỦ, chỉ trả một lần

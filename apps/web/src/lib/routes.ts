@@ -19,3 +19,9 @@ export const loginHref = (next?: string) =>
   next && next !== "/login" ? `/login?next=${encodeURIComponent(next)}` : "/login";
 
 export const eventHref = (id: string) => `/events/${encodeURIComponent(id)}`;
+
+/** Trang Hỏi đáp; tham số chỉ để điền sẵn câu hỏi/khoảng ngày (trang tự xoá khỏi địa chỉ sau khi đọc). */
+export function chatHref(prefill?: { q?: string; from?: string; to?: string; source?: string }) {
+  const qs = new URLSearchParams(Object.entries(prefill ?? {}).filter(([, v]) => !!v) as [string, string][]).toString();
+  return qs ? `/hoi-dap?${qs}` : "/hoi-dap";
+}
