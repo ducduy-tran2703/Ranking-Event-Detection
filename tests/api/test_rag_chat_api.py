@@ -351,3 +351,9 @@ def test_khong_dung_duoc_luot_da_xong_hoac_cua_nguoi_khac(env, pg_conn):
     run_worker(app)
     r = send(a, "POST", f"/api/rag/messages/{msg['message_id']}/cancel")
     assert r.status_code == 409 and "đã có kết quả" in r.json()["detail"]
+
+
+def test_loi_dang_dong_bo_chi_muc_co_cau_bao_rieng():
+    msg = C.error_for(RAGUnavailableError('index_sync'))
+    assert msg != C.GENERIC_ERROR and 'đồng bộ' in msg
+    assert C.error_for(RAGUnavailableError('index_lock')) == C.PHASE_MESSAGES['snapshot']

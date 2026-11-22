@@ -36,6 +36,9 @@ CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs/rag.yaml"
 # Câu báo lỗi cho người dùng theo pha của RAGUnavailableError (pipeline.py).
 PHASE_MESSAGES = {
     "snapshot": "Không đọc được kho dữ liệu RAG trong Postgres.",
+    "index_sync": "Kho tin đang được đồng bộ bài mới. Hãy hỏi lại sau ít phút.",
+    # Lấy/nhả khoá đọc chỉ mục lỗi = không nói chuyện được với Postgres.
+    "index_lock": "Không đọc được kho dữ liệu RAG trong Postgres.",
     "retrieval": "Chưa tìm kiếm được trong kho: Qdrant, chỉ mục BM25 hoặc dịch vụ embedding chưa sẵn sàng.",
     "generation": "Mô hình ngôn ngữ chưa phản hồi (có thể đang khởi động quá lâu). Hãy thử lại sau ít phút.",
     "tokenizer": "Máy chủ chưa có tokenizer của mô hình (quản trị viên cần chạy `make rag-tokenizer`).",
