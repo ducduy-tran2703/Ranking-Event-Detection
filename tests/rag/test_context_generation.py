@@ -18,8 +18,9 @@ class Counter:
     def __init__(self):
         self.version = {'fixture': True}
 
-    def count(self, messages):
-        return sum(len(m['content']) for m in messages)
+    def count(self, messages, tools=None):
+        # Đếm ký tự thay cho token; lượt chỉ gọi tool có content None.
+        return sum(len(m.get('content') or '') for m in messages) + len(str(tools or ''))
 
 
 def select(rows=None, **kwargs):
@@ -182,3 +183,69 @@ def test_refusal_never_presents_unrelated_sources_as_answer_citations():
 def test_malformed_json_is_not_returned_as_unchecked_answer():
     with pytest.raises(generation.CitationError):
         generation.validate_answer('Dĩ nhiên thắng 4-0 [999]', select().evidence)
+
+
+# ---------------------------------------------------------------- bằng chứng dạng dữ liệu (tool SQL)
+def data_row(n, text):
+    return {'id': n, 'kind': 'data', 'tool': 'count_articles', 'title': 'Đếm bài trong kho', 'text': text,
+            'chunk_id': f'data-{n}', 'article_id': f'data-{n}', 'source': 'kho_du_lieu', 'url': None,
+            'published_at': None, 'start_char': 0, 'end_char': len(text), 'chunking_version': 'data'}
+
+
+def test_bang_chung_du_lieu_khong_bi_gioi_han_theo_nguon():
+    rows = [data_row(n, f'Kho dữ liệu có {n} bài báo.') for n in range(1, 5)]
+    selected = select(rows, max_chunks=8, per_article=2, per_source=1)
+    assert len(selected.evidence) == 4
+
+
+def test_system_va_lich_su_hoi_thoai_dua_vao_prompt():
+    prefix = [{'role': 'user', 'content': 'Câu trước'}, {'role': 'assistant', 'content': 'Đáp trước'}]
+    selected = select(system='HỆ THỐNG RIÊNG', prefix=prefix)
+    assert selected.messages[0] == {'role': 'system', 'content': 'HỆ THỐNG RIÊNG'}
+    assert selected.messages[1:3] == prefix and selected.messages[3]['role'] == 'user'
+
+
+def test_mac_dinh_giu_nguyen_prompt_cu():
+    legacy = select()
+    assert legacy.messages[0]['content'] == context.SYSTEM and len(legacy.messages) == 2
+    assert '"kind"' not in legacy.messages[1]['content']
+
+
+def test_kiem_so_lieu_bang_quote_nguyen_van_va_nguon_du_lieu():
+    row = data_row(1, 'Kho dữ liệu có 37 bài báo của báo vnexpress, đăng từ 2026-09-01 đến 2026-09-30.')
+    ok = {'status': 'answered', 'claims': [{'text': 'Có 37 bài của VnExpress trong tháng 9.',
+                                            'evidence': [{'id': 1, 'quote': 'có 37 bài báo của báo vnexpress'}]}]}
+    out = generation.validate_answer(json.dumps(ok), [row])
+    assert out['sources'] == [{'citation_id': 1, 'kind': 'data', 'tool': 'count_articles',
+                               'title': 'Đếm bài trong kho', 'text': row['text'],
+                               'quotes': ['có 37 bài báo của báo vnexpress']}]
+    wrong = {'status': 'answered', 'claims': [{'text': 'Có 73 bài.', 'evidence': [{'id': 1, 'quote': 'có 73 bài báo'}]}]}
+    with pytest.raises(generation.CitationError):
+        generation.validate_answer(json.dumps(wrong), [row])
+
+
+def test_nguon_bai_bao_co_kind_chunk():
+    out = generation.validate_answer(json.dumps(QA['valid_generation']), [{**records()[0], 'id': 1}])
+    assert out['sources'][0]['kind'] == 'chunk' and out['sources'][0]['url']
+
+
+def test_y_chi_co_loi_chao_thi_code_liet_ke_quote_da_kiem():
+    # E2E 22/11 lượt 4: "Chị Lan ơi, vào ngày 10/9/2026, có các sự kiện nổi bật sau: [1][2]" — tên sự kiện chỉ có
+    # trong nguồn. Quote đều đúng nguyên văn nên validator cũ không bắt được.
+    rows = [data_row(1, 'Tô Lâm gặp cộng đồng người Việt tại Pháp: 92 bài của 6 báo, đăng từ 2026-09-10 đến 2026-09-10.'),
+            data_row(2, 'Bão Yagi đổ bộ Quảng Ninh: 40 bài của 5 báo, đăng từ 2026-09-10 đến 2026-09-10.')]
+    body = {'status': 'answered', 'claims': [{'text': 'Chị Lan ơi, vào ngày 10/9/2026, có các sự kiện nổi bật sau:',
+                                              'evidence': [{'id': 1, 'quote': 'Tô Lâm gặp cộng đồng người Việt tại Pháp'},
+                                                           {'id': 2, 'quote': 'Bão Yagi đổ bộ Quảng Ninh: 40 bài'}]}]}
+    out = generation.validate_answer(json.dumps(body, ensure_ascii=False), rows)
+    assert out['answer'] == ('Chị Lan ơi, vào ngày 10/9/2026, có các sự kiện nổi bật sau:\n'
+                             '- Tô Lâm gặp cộng đồng người Việt tại Pháp [1]\n'
+                             '- Bão Yagi đổ bộ Quảng Ninh: 40 bài [2]')
+
+
+def test_y_co_noi_dung_thi_giu_nguyen_cach_trinh_bay():
+    row = data_row(1, 'Kho dữ liệu có 37 bài báo của báo vnexpress, đăng từ 2026-09-01 đến 2026-09-30.')
+    body = {'status': 'answered', 'claims': [{'text': 'Chị Lan ơi, VnExpress có 37 bài trong tháng 9.',
+                                              'evidence': [{'id': 1, 'quote': 'có 37 bài báo của báo vnexpress'}]}]}
+    out = generation.validate_answer(json.dumps(body, ensure_ascii=False), [row])
+    assert out['answer'] == 'Chị Lan ơi, VnExpress có 37 bài trong tháng 9. [1]'

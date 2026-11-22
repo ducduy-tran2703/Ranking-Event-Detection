@@ -4,7 +4,8 @@ Vì sao có hàng đợi: lần gọi đầu Modal phải khởi động GPU (đ
 thời gian chờ của Cloudflare Tunnel/trình duyệt. API chỉ ghi lượt hỏi (`queued`) rồi trả ngay; một worker nền trong
 tiến trình API lấy từng lượt, chạy `RAGPipeline.ask` và ghi kết quả; web hỏi lại trạng thái định kỳ.
 
-- Mỗi câu được trả lời ĐỘC LẬP (pipeline single-turn) — lịch sử chỉ để người dùng xem lại.
+- Mặc định (`tool_calling.enabled`) chatbot gọi tool và nhớ `history_turns` lượt trước của cuộc trò chuyện;
+  tắt công tắc thì quay về pipeline single-turn (lịch sử chỉ để người dùng xem lại).
 - Mỗi người tối đa một lượt đang chờ; tối đa `RAG_DAILY_LIMIT` lượt/24 giờ (mặc định 30; admin không giới hạn).
 - Lỗi lưu cho người dùng là câu cố định theo pha, không chứa URL dịch vụ, khoá hay đường dẫn máy.
 - Worker chỉ chạy MỘT lượt mỗi lúc (dịch vụ Gemma trên Modal phục vụ 1 chuỗi một lúc: --max-num-seqs 1).
@@ -29,13 +30,16 @@ log = logging.getLogger(__name__)
 
 DEFAULT_DAILY_LIMIT = 30
 TITLE_MAX = 80
-RESULT_STATUSES = ("answered", "insufficient_evidence", "unsupported_query", "invalid_generation")
+RESULT_STATUSES = ("answered", "insufficient_evidence", "unsupported_query", "invalid_generation", "smalltalk")
 PENDING = ("queued", "running")
 CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs/rag.yaml"
 
 # Câu báo lỗi cho người dùng theo pha của RAGUnavailableError (pipeline.py).
 PHASE_MESSAGES = {
     "snapshot": "Không đọc được kho dữ liệu RAG trong Postgres.",
+    "index_sync": "Kho tin đang được đồng bộ bài mới. Hãy hỏi lại sau ít phút.",
+    # Lấy/nhả khoá đọc chỉ mục lỗi = không nói chuyện được với Postgres.
+    "index_lock": "Không đọc được kho dữ liệu RAG trong Postgres.",
     "retrieval": "Chưa tìm kiếm được trong kho: Qdrant, chỉ mục BM25 hoặc dịch vụ embedding chưa sẵn sàng.",
     "generation": "Mô hình ngôn ngữ chưa phản hồi (có thể đang khởi động quá lâu). Hãy thử lại sau ít phút.",
     "tokenizer": "Máy chủ chưa có tokenizer của mô hình (quản trị viên cần chạy `make rag-tokenizer`).",
@@ -186,6 +190,8 @@ class Job:
     message_id: int
     question: str
     filters: dict[str, Any]
+    user_id: int | None = None
+    conversation_id: int | None = None
 
 
 def recover_stale(conn: psycopg.Connection) -> int:
@@ -199,7 +205,7 @@ def claim_next(conn: psycopg.Connection) -> Job | None:
         row = conn.execute(
             "UPDATE rag_messages SET status = 'running', started_at = now() WHERE message_id = ("
             "  SELECT message_id FROM rag_messages WHERE status = 'queued' ORDER BY message_id "
-            "  FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING message_id, question, filters").fetchone()
+            "  FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING message_id, question, filters, user_id, conversation_id").fetchone()
     return Job(*row) if row else None
 
 
@@ -217,8 +223,12 @@ def finish(conn: psycopg.Connection, message_id: int, result: dict[str, Any]) ->
     if status not in RESULT_STATUSES:
         raise ValueError(f"trạng thái pipeline lạ: {status!r}")
     sources = [dict(s) for s in result.get("sources") or []]
-    events = _events_for(conn, [str(s["article_id"]) for s in sources])
+    # Nguồn dạng dữ liệu (số đếm, phạm vi kho từ tool SQL) không có bài/URL nên không có sự kiện.
+    events = _events_for(conn, [str(s["article_id"]) for s in sources if s.get("article_id")])
     for s in sources:
+        if not s.get("article_id"):
+            s["event_id"], s["event_name"] = None, None
+            continue
         ev = events.get(str(s["article_id"]).strip())
         s["event_id"], s["event_name"] = ev if ev else (None, None)
         if not isinstance(s.get("published_at"), str):
@@ -300,12 +310,24 @@ def readiness(conn: psycopg.Connection, config: dict[str, Any], *, qdrant_get: C
 PipelineFactory = Callable[[psycopg.Connection], Any]
 
 
+def build_pipeline(conn: psycopg.Connection, config: dict[str, Any], *, query_ner=None, counter=None):
+    """Pipeline tool calling khi `tool_calling.enabled`, ngược lại pipeline snapshot cũ.
+
+    `query_ner`/`counter` cho phép API truyền bản BamiBERT/tokenizer dùng chung, không nạp lại mỗi lượt chat.
+    """
+    if config.get("tool_calling", {}).get("enabled"):
+        from eventrank.rag.agent import ToolCallingPipeline
+
+        return ToolCallingPipeline(conn, config, query_ner=query_ner, counter=counter)
+    from eventrank.rag.pipeline import RAGPipeline
+
+    return RAGPipeline(conn, config, query_ner=query_ner, counter=counter)
+
+
 def default_pipeline_factory(conn: psycopg.Connection):
     import yaml
 
-    from eventrank.rag.pipeline import RAGPipeline
-
-    return RAGPipeline(conn, yaml.safe_load(CONFIG_PATH.read_text("utf-8")))
+    return build_pipeline(conn, yaml.safe_load(CONFIG_PATH.read_text("utf-8")))
 
 
 class ChatWorker:
@@ -364,8 +386,10 @@ class ChatWorker:
             with db.connect(self.url) as conn:
                 pipeline = self.factory(conn)
                 f = job.filters or {}
+                extra = ({"user_id": job.user_id, "conversation_id": job.conversation_id,
+                          "message_id": job.message_id} if getattr(pipeline, "accepts_context", False) else {})
                 box["result"] = pipeline.ask(job.question, source=f.get("source"), date_from=f.get("date_from"),
-                                             date_to=f.get("date_to"))
+                                             date_to=f.get("date_to"), **extra)
         except Exception as exc:  # noqa: BLE001 - mọi lỗi → failed với câu an toàn; chi tiết ở log
             box["error"] = exc
         finally:

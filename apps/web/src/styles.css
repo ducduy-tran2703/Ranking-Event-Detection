@@ -732,7 +732,7 @@ tbody tr:hover { background: #f8fbfe; }
 .chat-bubble.bot.pending svg { vertical-align: -3px; margin-right: 4px; }
 .chat-bubble.bot.info { background: var(--soft); border-color: var(--sky-4); box-shadow: none; }
 .chat-bubble.bot.warn { background: var(--warn-bg); border-color: #fcd34d; color: var(--warn); box-shadow: none; align-items: flex-start; }
-.chat-answer p { color: var(--text); }
+.chat-answer p { color: var(--text); white-space: pre-line; }
 .chat-answer p + p { margin-top: 10px; }
 .chat-cite { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; margin: 0 2px;
              border-radius: 6px; border: 1px solid var(--sky-4); background: var(--soft-2); color: var(--accent-dark);

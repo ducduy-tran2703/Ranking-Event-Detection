@@ -455,6 +455,19 @@ Dừng hỏi (migration `009_rag_chat_cancel.sql`, thêm trạng thái `cancelle
 con, thấy lượt bị dừng thì bỏ luồng đó và nhận lượt kế tiếp. Lời gọi Modal đang dở không huỷ được (vẫn tính GPU tới khi
 xong), kết quả về muộn bị bỏ (chỉ ghi khi lượt còn `running`); tối đa 2 luồng bị bỏ còn chạy cùng lúc.
 
+**Tool calling + cá nhân hoá (migration `010_rag_user_profiles.sql`, 22/11/2026).** Khi `tool_calling.enabled`
+(configs/rag.yaml, **mặc định bật**), worker chat chạy `src/eventrank/rag/agent.py`: Gemma (vLLM `--tool-call-parser gemma4`) gọi tool
+chỉ-đọc `search_news`, `corpus_info`, `count_articles`, `top_events`, `event_articles`, `update_user_profile`
+(`src/eventrank/rag/tools.py`), đọc 3 lượt trước của cuộc trò chuyện, rồi trả lời ở lượt cuối có kiểm quote.
+
+| Bảng | Khoá / quan hệ | Ghi chú |
+|---|---|---|
+| `rag_user_profiles` | `user_id` PK, FK → `users` (CASCADE); `source_message_id` FK → `rag_messages` (SET NULL) | `persona` (10 nhóm cố định), `occupation_text` (≤ 60), `address_user`/`address_self` (≤ 30), `tone`, `answer_length`, `interests` text[] (≤ 10, theo `profile.categories`), `pending` jsonb (đổi nghề/nhóm chờ người dùng xác nhận) |
+
+`rag_messages.status` thêm `smalltalk` (chào hỏi/xác nhận hồ sơ, không nguồn, không chữ số/URL). `sources` có thêm
+`kind`: `chunk` (đoạn bài, như cũ) hoặc `data` (câu dữ liệu tool SQL sinh, có `tool`, `text`; không URL/bài).
+Không lưu tuổi, giới tính, địa chỉ. API: `GET/PUT/DELETE /api/rag/profile`, `POST /api/rag/profile/confirm`.
+
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
 **Luồng crawl local `automation/` (09/11/2026):** đã đăng ký thêm Tuổi Trẻ

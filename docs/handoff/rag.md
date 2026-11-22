@@ -44,6 +44,31 @@ Mốc 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid
    - Kiểm: `tests/rag tests/common tests/api` **234 passed, 30 skipped** (DB test thiếu `TEST_DATABASE_URL`);
      Ruff đạt. **Chưa kiểm khoá advisory trên Postgres thật** (Postgres :5433 không chạy lúc sửa).
 
+## Tool calling + cá nhân hoá (nhánh `feat/rag-tool-calling`, 22/11/2026)
+
+> **Tài liệu chính:** hợp đồng API, điều kiện bật, kết quả E2E ở [rag-tool-calling.md](rag-tool-calling.md);
+> lỗi còn gặp + hướng sửa ở [rag-tool-calling-issues.md](rag-tool-calling-issues.md). Mục dưới là ghi chú gốc.
+
+- **vLLM:** bản 0.33.0 đang ghim đã có parser `gemma4`; chat template của chính model (Google, 09/07/2026) đã hỗ trợ
+  tool nên KHÔNG dùng `--chat-template` của vLLM (để `GemmaTokenCounter` đếm đúng template server). Bật bằng
+  `models.llm.tool_calling: true` → `--enable-auto-tool-choice --tool-call-parser gemma4`. Đã deploy Modal 22/11.
+- **Code:** `agent.py` (vòng tool ≤ 3, lượt cuối ép JSON + kiểm quote), `tools.py` (6 tool chỉ đọc, SQL viết sẵn,
+  Pydantic), `profile.py` + migration 010, `chat.build_pipeline`, API `/api/rag/profile`. Bật cho chat bằng
+  `tool_calling.enabled: true` (**bật mặc định** từ 22/11 sau khi sửa lỗi E2E).
+- **Thử thật với Gemma (22/11, smoke, không phải đánh giá):** chọn tool lượt đầu đúng 9/10 câu viết sẵn đáp án
+  (đếm bài, top sự kiện, tìm tin, "hôm nay" → corpus_info, đổi xưng hô, tên riêng); `prompt_tokens` server = bộ đếm
+  client ở cả 10 câu (989–1.432 token, schema tools chiếm ~1.000). Trọn vòng với dữ liệu mẫu: câu đếm bài và câu tỷ
+  số U23 đều `answered`, quote qua kiểm; "Xin chào" → `smalltalk`. Cold start 216 s, sau đó 0,5–2 s/lượt tool,
+  4–10 s/câu trọn vòng. Script/kết quả: scratchpad của phiên (không theo Git).
+- **Hạn chế đã thấy:** câu "Mình là kế toán, có thông tư thuế nào mới không?" model chỉ gọi `corpus_info`, không gọi
+  `update_user_profile` (mỗi vòng thường chỉ 1 tool) → câu vừa giới thiệu bản thân vừa hỏi tin có thể bỏ sót hồ sơ.
+  Khi không gọi tool, `content` có thể lộ chuỗi `<|channel>thought…` (không dùng làm câu trả lời; cân nhắc thêm
+  `--reasoning-parser gemma4`). Trọng số/ngưỡng chưa có tập đánh giá chọn tool.
+- **Cạm bẫy môi trường:** `uv sync`/`uv run` không `--no-sync` thay PyTorch CUDA bằng bản CPU trong `uv.lock`
+  (đã gặp 22/11, đã cài lại `torch==2.6.0+cu124`).
+- **Kiểm:** `tests/rag tests/common tests/api` 300 passed, 69 skipped (test DB của migration 010 và API hồ sơ chưa
+  chạy vì Postgres tắt); Ruff đạt; `tsc --noEmit` đạt.
+
 ## Bàn giao Snapshot RAG sang máy khác (07/11/2026)
 
 Để chạy RAG trên máy mới **không cần embed lại 96.230 vector** trên GPU Modal:

@@ -56,7 +56,11 @@ def llm_command(spec):
         "--host", "0.0.0.0", "--port", "8000", "--max-model-len", str(spec["max_model_len"]),
         "--max-num-seqs", "1", "--gpu-memory-utilization", str(spec["gpu_memory_utilization"]),
         "--generation-config", "vllm", "--limit-mm-per-prompt", '{"image":0,"audio":0,"video":0}',
-    ]
+    ] + (
+        # Parser gemma4 có sẵn từ vLLM 0.33.0. Giữ chat template của model (đã hỗ trợ tool) để
+        # GemmaTokenCounter phía client đếm đúng cùng template với server.
+        ["--enable-auto-tool-choice", "--tool-call-parser", "gemma4"] if spec.get("tool_calling") else []
+    )
 
 
 def _check_vectors(vectors, count, dimension):
@@ -186,7 +190,8 @@ class ModelClient:
         _check_vectors(vectors, len(texts), spec["dimension"])
         return vectors
 
-    def chat(self, messages, *, max_tokens=None, response_schema=None, temperature=0.2):
+    def chat(self, messages, *, max_tokens=None, response_schema=None, temperature=0.2,
+             tools=None, tool_choice=None):
         spec = self.config["llm"]
         max_tokens = spec["max_output_tokens"] if max_tokens is None else max_tokens
         if not 1 <= max_tokens <= spec["max_output_tokens"]:
@@ -199,6 +204,13 @@ class ModelClient:
             "add_special_tokens": False, "add_generation_prompt": True,
             "chat_template_kwargs": {"enable_thinking": False},
         }
+        if tools is not None and response_schema is not None:
+            # Lượt gọi tool và lượt trả lời JSON cuối là hai request riêng (tài liệu vLLM không bảo đảm kết hợp).
+            raise ValueError('tools and response_schema cannot be combined in one request')
+        if tools is not None:
+            payload['tools'] = tools
+            if tool_choice is not None:
+                payload['tool_choice'] = tool_choice
         if response_schema is not None:
             if not isinstance(response_schema, dict):
                 raise ValueError('response_schema must be a JSON schema dictionary')
@@ -206,8 +218,35 @@ class ModelClient:
                 'name': 'grounded_news_answer', 'strict': True, 'schema': response_schema}}
         body = self._post(self.llm_url, "/v1/chat/completions", payload)
         choice = body["choices"][0]
-        return {"content": choice["message"].get("content", ""),
-                "finish_reason": choice["finish_reason"], "usage": body.get("usage", {})}
+        message = choice["message"]
+        content = _THOUGHT.sub("", message.get("content") or "", count=1)
+        return {"content": content, "finish_reason": choice["finish_reason"],
+                "usage": body.get("usage", {}), "tool_calls": _parse_tool_calls(message.get("tool_calls"))}
+
+
+# Template Gemma 4 có thể mở đầu câu trả lời bằng kênh suy nghĩ (rỗng khi enable_thinking=False). Lọc ở client
+# thay vì bật --reasoning-parser: không đổi hành vi server với structured output của pipeline snapshot.
+_THOUGHT = re.compile(r"\A\s*<\|channel>thought.*?<channel\|>\s*", re.DOTALL)
+
+
+def _parse_tool_calls(raw):
+    """OpenAI tool_calls → [{id, name, arguments: dict, error}]; đối số hỏng không ném lỗi, để vòng tool báo lại model."""
+    calls = []
+    for item in raw or []:
+        function = item.get("function") or {}
+        arguments, error = {}, None
+        try:
+            parsed = json.loads(function.get("arguments") or "{}")
+        except (TypeError, ValueError):
+            error = "invalid_json_arguments"
+        else:
+            if isinstance(parsed, dict):
+                arguments = parsed
+            else:
+                error = "arguments_not_object"
+        calls.append({"id": str(item.get("id") or ""), "name": str(function.get("name") or ""),
+                      "arguments": arguments, "error": error})
+    return calls
 
 
 class EmbedRequest(BaseModel):
