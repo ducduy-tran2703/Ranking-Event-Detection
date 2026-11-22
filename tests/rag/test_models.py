@@ -152,3 +152,100 @@ def test_chat_requests_schema_and_deterministic_generation():
         client.chat([{'role': 'user', 'content': 'test'}], response_schema=schema, temperature=0.0)
     finally:
         client.close()
+
+
+# ---------------------------------------------------------------- tool calling (vLLM parser gemma4)
+def test_llm_bat_tool_parser_gemma4_khi_cau_hinh_bat():
+    cfg = load_model_config(env={})
+    spec = {**cfg["llm"], "tool_calling": True}
+    args = llm_command(spec)
+    assert "--enable-auto-tool-choice" in args
+    assert args[args.index("--tool-call-parser") + 1] == "gemma4"
+    # Giữ chat template của model: bộ đếm token phía client dùng đúng template đó.
+    assert "--chat-template" not in args
+    assert "--tool-call-parser" not in llm_command({**cfg["llm"], "tool_calling": False})
+
+
+_TOOLS = [{"type": "function", "function": {"name": "corpus_info", "description": "Phạm vi kho.",
+                                            "parameters": {"type": "object", "properties": {}}}}]
+
+
+def _tool_client(response, seen):
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json=response)
+
+    return ModelClient(llm_url='https://example.modal.run', proxy_id='test', proxy_secret='test',
+                       transport=httpx.MockTransport(handler))
+
+
+def test_chat_gui_tools_va_tra_tool_calls_da_parse():
+    seen = []
+    response = {"choices": [{"finish_reason": "tool_calls", "message": {"content": None, "tool_calls": [
+        {"id": "call_1", "type": "function",
+         "function": {"name": "count_articles", "arguments": "{\"source\": \"vnexpress\"}"}}]}}],
+        "usage": {"prompt_tokens": 10}}
+    client = _tool_client(response, seen)
+    try:
+        out = client.chat([{"role": "user", "content": "x"}], tools=_TOOLS, tool_choice="auto", temperature=0.0)
+    finally:
+        client.close()
+    assert seen[0]["tools"] == _TOOLS and seen[0]["tool_choice"] == "auto"
+    assert "response_format" not in seen[0]
+    assert out["content"] == "" and out["finish_reason"] == "tool_calls"
+    assert out["tool_calls"] == [{"id": "call_1", "name": "count_articles", "arguments": {"source": "vnexpress"},
+                                  "error": None}]
+
+
+def test_chat_tool_call_doi_so_hong_khong_nem_loi_ma_ghi_error():
+    seen = []
+    response = {"choices": [{"finish_reason": "tool_calls", "message": {"content": "", "tool_calls": [
+        {"id": "c", "type": "function", "function": {"name": "x", "arguments": "{khong phai json"}},
+        {"id": "d", "type": "function", "function": {"name": "y", "arguments": "[1, 2]"}}]}}]}
+    client = _tool_client(response, seen)
+    try:
+        out = client.chat([{"role": "user", "content": "x"}], tools=_TOOLS)
+    finally:
+        client.close()
+    assert [c["error"] for c in out["tool_calls"]] == ["invalid_json_arguments", "arguments_not_object"]
+    assert all(c["arguments"] == {} for c in out["tool_calls"])
+
+
+def test_chat_khong_tools_van_tra_tool_calls_rong():
+    seen = []
+    client = _tool_client({"choices": [{"finish_reason": "stop", "message": {"content": "ok"}}]}, seen)
+    try:
+        out = client.chat([{"role": "user", "content": "x"}])
+    finally:
+        client.close()
+    assert out["tool_calls"] == [] and "tools" not in seen[0]
+
+
+def test_chat_khong_cho_vua_tools_vua_response_schema():
+    client = _tool_client({}, [])
+    try:
+        with pytest.raises(ValueError):
+            client.chat([{"role": "user", "content": "x"}], tools=_TOOLS, response_schema={"type": "object"})
+    finally:
+        client.close()
+
+
+def test_bo_kenh_suy_nghi_rong_cua_gemma_khoi_noi_dung():
+    # Gặp thật 22/11: khi không gọi tool, content mở đầu bằng kênh suy nghĩ rỗng của template Gemma 4.
+    seen = []
+    raw = '<|channel>thought\n<channel|>Tôi xin lỗi, nhưng tôi không tìm thấy bài báo nào.'
+    client = _tool_client({"choices": [{"finish_reason": "stop", "message": {"content": raw}}]}, seen)
+    try:
+        out = client.chat([{"role": "user", "content": "x"}], tools=_TOOLS)
+    finally:
+        client.close()
+    assert out["content"] == 'Tôi xin lỗi, nhưng tôi không tìm thấy bài báo nào.'
+
+
+def test_giu_nguyen_noi_dung_khong_co_kenh_suy_nghi():
+    seen = []
+    client = _tool_client({"choices": [{"finish_reason": "stop", "message": {"content": '{"a": "<|x>"}'}}]}, seen)
+    try:
+        assert client.chat([{"role": "user", "content": "x"}])["content"] == '{"a": "<|x>"}'
+    finally:
+        client.close()

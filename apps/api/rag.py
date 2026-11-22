@@ -66,6 +66,21 @@ def shared_ner(config=None):
         return _NER
 
 
+def shared_counter():
+    """Tokenizer Gemma dùng chung (chỉ đọc cache local, không tải mạng); None nếu chưa chuẩn bị."""
+    global _COUNTER
+    with _SHARED_INIT:
+        if _COUNTER is None:
+            try:
+                from eventrank.rag.models import load_model_config
+                from eventrank.rag.token_budget import GemmaTokenCounter
+
+                _COUNTER = GemmaTokenCounter(load_model_config()['llm'])
+            except Exception:  # noqa: BLE001 -- pipeline tự báo lỗi tokenizer rõ ràng khi cần
+                return None
+        return _COUNTER
+
+
 def preload_models():
     """Nạp BamiBERT vào VRAM lúc khởi động; lỗi chỉ ghi log, API vẫn chạy (không có NER boost)."""
     try:

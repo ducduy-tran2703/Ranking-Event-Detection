@@ -44,6 +44,31 @@ Mốc 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid
    - Kiểm: `tests/rag tests/common tests/api` **234 passed, 30 skipped** (DB test thiếu `TEST_DATABASE_URL`);
      Ruff đạt. **Chưa kiểm khoá advisory trên Postgres thật** (Postgres :5433 không chạy lúc sửa).
 
+## Tool calling + cá nhân hoá (nhánh `feat/rag-tool-calling`, 22/11/2026)
+
+> **Tài liệu chính:** hợp đồng API, điều kiện bật, kết quả E2E ở [rag-tool-calling.md](rag-tool-calling.md);
+> lỗi còn gặp + hướng sửa ở [rag-tool-calling-issues.md](rag-tool-calling-issues.md). Mục dưới là ghi chú gốc.
+
+- **vLLM:** bản 0.33.0 đang ghim đã có parser `gemma4`; chat template của chính model (Google, 09/07/2026) đã hỗ trợ
+  tool nên KHÔNG dùng `--chat-template` của vLLM (để `GemmaTokenCounter` đếm đúng template server). Bật bằng
+  `models.llm.tool_calling: true` → `--enable-auto-tool-choice --tool-call-parser gemma4`. Đã deploy Modal 22/11.
+- **Code:** `agent.py` (vòng tool ≤ 3, lượt cuối ép JSON + kiểm quote), `tools.py` (6 tool chỉ đọc, SQL viết sẵn,
+  Pydantic), `profile.py` + migration 010, `chat.build_pipeline`, API `/api/rag/profile`. Bật cho chat bằng
+  `tool_calling.enabled: true` (**bật mặc định** từ 22/11 sau khi sửa lỗi E2E).
+- **Thử thật với Gemma (22/11, smoke, không phải đánh giá):** chọn tool lượt đầu đúng 9/10 câu viết sẵn đáp án
+  (đếm bài, top sự kiện, tìm tin, "hôm nay" → corpus_info, đổi xưng hô, tên riêng); `prompt_tokens` server = bộ đếm
+  client ở cả 10 câu (989–1.432 token, schema tools chiếm ~1.000). Trọn vòng với dữ liệu mẫu: câu đếm bài và câu tỷ
+  số U23 đều `answered`, quote qua kiểm; "Xin chào" → `smalltalk`. Cold start 216 s, sau đó 0,5–2 s/lượt tool,
+  4–10 s/câu trọn vòng. Script/kết quả: scratchpad của phiên (không theo Git).
+- **Hạn chế đã thấy:** câu "Mình là kế toán, có thông tư thuế nào mới không?" model chỉ gọi `corpus_info`, không gọi
+  `update_user_profile` (mỗi vòng thường chỉ 1 tool) → câu vừa giới thiệu bản thân vừa hỏi tin có thể bỏ sót hồ sơ.
+  Khi không gọi tool, `content` có thể lộ chuỗi `<|channel>thought…` (không dùng làm câu trả lời; cân nhắc thêm
+  `--reasoning-parser gemma4`). Trọng số/ngưỡng chưa có tập đánh giá chọn tool.
+- **Cạm bẫy môi trường:** `uv sync`/`uv run` không `--no-sync` thay PyTorch CUDA bằng bản CPU trong `uv.lock`
+  (đã gặp 22/11, đã cài lại `torch==2.6.0+cu124`).
+- **Kiểm:** `tests/rag tests/common tests/api` 300 passed, 69 skipped (test DB của migration 010 và API hồ sơ chưa
+  chạy vì Postgres tắt); Ruff đạt; `tsc --noEmit` đạt.
+
 ## Bàn giao Snapshot RAG sang máy khác (07/11/2026)
 
 Để chạy RAG trên máy mới **không cần embed lại 96.230 vector** trên GPU Modal:
@@ -58,6 +83,21 @@ Mốc 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid
 4. **Script upload R2:** `infra/upload_rag_snapshot.py` (prefix `rag_NguyenDinhHieu/v1/`).
 5. **Model inference:** Nhận file `.env.client` từ người bàn giao, đặt ở gốc repo để kết nối model Qwen/Gemma.
    Chi tiết các bước khôi phục xem tại `data/rag/README_HANDOFF.md`.
+
+## Khung chat Hỏi đáp trên web (07/11)
+
+Trang `/hoi-dap` cho người đã đăng nhập; mô tả bảng 008 và luồng hàng đợi ở `docs/tong-hop.md` (đoạn "Khung chat
+Hỏi đáp trên web"). Chạy: `make db-migrate` (008) rồi `make dev` hoặc `make build && make prod`. API cần các biến
+inference (`RAG_EMBEDDING_URL`, `RAG_LLM_URL`, `MODAL_PROXY_TOKEN_*`) **trong `.env`** — code chỉ nạp `.env`, nên
+người nhận `.env.client` chép 4 biến đó sang `.env`.
+
+- Test: `tests/api/test_rag_chat_api.py` (pipeline giả, Postgres tạm; 23 test, gồm dừng hỏi — migration 009).
+- Kiểm thật 07/11 (cổng 8010, tài khoản thử đã xoá): `POST /api/rag/messages` trả 202 sau 0,02 s; câu thứ hai khi câu
+  đầu chưa xong → 409; trang /status `available=true`. Lượt thật bị `failed` sau 900 s ở pha retrieval: BM25 trả 30
+  hit nhưng dịch vụ embedding Qwen trên Modal không phản hồi trong hạn 900 s của ModelClient (app vẫn deploy — gọi
+  không token trả 401). Trước đó cùng ngày CLI `pipeline ask` chạy được (409 s). Chủ Modal cần xem
+  `modal app logs eventrank-rag-models` (GPU L4 khan, container lỗi khởi động hay hết credit).
+- Chưa có: trang quản trị xem lượt hỏi/trace, streaming, hỏi nối tiếp có ngữ cảnh, hàng đợi nhiều tiến trình API.
 
 ## Hỏi đáp CLI/API trên snapshot (06/11)
 

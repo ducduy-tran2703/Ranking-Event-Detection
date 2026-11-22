@@ -30,11 +30,11 @@ export function useLogin() {
 }
 
 export function useRegister() {
-  const qc = useQueryClient();
   const reset = useAuthReset();
   return useMutation({
     mutationFn: (v: { display_name: string; email: string; password: string; role?: Role }) => authApi.register(v),
-    onSuccess: async () => reset(await qc.fetchQuery({ queryKey: ME, queryFn: () => authApi.me() })),
+    // Hỏi lại máy chủ trực tiếp: qc.fetchQuery sẽ trả bản đệm "chưa đăng nhập" (staleTime mặc định 60 s ở main.tsx).
+    onSuccess: async () => reset(await authApi.me()),
   });
 }
 

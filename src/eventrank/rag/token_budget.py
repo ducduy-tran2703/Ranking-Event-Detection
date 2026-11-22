@@ -19,6 +19,24 @@ def _load(model, revision, cache, local_only):
                                          local_files_only=local_only, trust_remote_code=False)
 
 
+def _render(message):
+    if isinstance(message.get('content'), str):
+        message = {**message, 'content': [{'type': 'text', 'text': message['content']}]}
+    if message.get('tool_calls'):
+        # Template Gemma đòi arguments là object; vLLM cũng parse chuỗi JSON trước khi render.
+        calls = []
+        for call in message['tool_calls']:
+            args = call['function'].get('arguments')
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args or '{}')
+                except ValueError:
+                    args = {}
+            calls.append({**call, 'function': {**call['function'], 'arguments': args}})
+        message = {**message, 'tool_calls': calls}
+    return message
+
+
 class GemmaTokenCounter:
     def __init__(self, spec=None, *, allow_download=False, cache_dir=DEFAULT_CACHE):
         self.spec = spec or load_model_config()['llm']
@@ -30,14 +48,15 @@ class GemmaTokenCounter:
                         'content_format': 'openai_text_blocks',
                         'chat_template_sha256': hashlib.sha256(template.encode()).hexdigest()}
 
-    def count(self, messages):
+    def count(self, messages, *, tools=None):
         # Gemma's vLLM multimodal renderer uses typed text blocks, including for
         # text-only requests. Its template adds a space after system text in this
         # format. Verified against returned prompt_text/prompt_token_ids.
-        rendered = [{**message, 'content': [{'type': 'text', 'text': message['content']}]}
-                    if isinstance(message['content'], str) else message for message in messages]
+        # Lượt assistant chỉ gọi tool có content None: giữ nguyên như request gửi vLLM.
+        rendered = [_render(message) for message in messages]
+        extra = {'tools': tools} if tools is not None else {}
         ids = self.tokenizer.apply_chat_template(rendered, tokenize=True, add_generation_prompt=True,
-                                                 return_dict=False, enable_thinking=False)
+                                                 return_dict=False, enable_thinking=False, **extra)
         return len(ids)
 
 

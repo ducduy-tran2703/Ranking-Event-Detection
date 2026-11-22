@@ -432,6 +432,40 @@ context selection và pipeline hỏi đáp CLI/API đã có, đã smoke thật v
 Chưa có đánh giá chất lượng retrieval/grounding hay worker delta. Trạng thái và tiêu chí
 trong [kế hoạch RAG](plan-rag.md), lệnh kiểm thử trong [bàn giao](handoff/rag.md).
 
+**Khung chat Hỏi đáp trên web (migration `008_rag_chat.sql`, 07/11/2026).** Trang `/hoi-dap` (web React,
+`pages/ChatPage.tsx`) gọi `apps/api/rag_chat.py`; nghiệp vụ + hàng đợi ở `src/eventrank/rag/chat.py`.
+
+| Bảng | Khoá / quan hệ | Ghi chú |
+|---|---|---|
+| `rag_conversations` | `conversation_id` PK, `user_id` FK → `users` (CASCADE) | `title` = câu hỏi đầu (≤ 80 ký tự) |
+| `rag_messages` | `message_id` PK, `conversation_id` FK (CASCADE), `user_id` FK (CASCADE) | Một dòng = một lượt hỏi/đáp = một job: `status` queued → running → answered / insufficient_evidence / unsupported_query / invalid_generation / failed; `sources` jsonb (citation đã kiểm + `event_id`), `trace` (không trả cho người dùng), `error` (câu an toàn) |
+
+Vì lần gọi đầu Modal phải khởi động GPU (đo 07/11: 409 s một câu), API không trả lời trong request:
+`POST /api/rag/messages` trả 202 + lượt `queued`; một luồng nền trong tiến trình API chạy `RAGPipeline.ask`
+từng lượt (Gemma phục vụ 1 chuỗi một lúc); web hỏi lại `GET /api/rag/messages/{id}` mỗi 2,5 s.
+Bắt đăng nhập + CSRF; mỗi người một lượt đang chờ (409); `RAG_DAILY_LIMIT` lượt/24 giờ (mặc định 30, 429; admin
+không giới hạn). Mỗi câu trả lời độc lập (single-turn). `GET /api/rag/status` (công khai) kiểm nhanh không gọi GPU:
+kho Postgres, BM25, Qdrant đã publish, biến dịch vụ model, tokenizer. `POST /api/rag/ask` đồng bộ trên app chính nay
+chỉ cho admin; app riêng `apps.api.rag:app` (:8001) giữ nguyên. Lượt `running` khi API tắt giữa chừng → `failed`
+lúc worker khởi động lại.
+Dừng hỏi (migration `009_rag_chat_cancel.sql`, thêm trạng thái `cancelled`): `POST /api/rag/messages/{id}/cancel`
+(nút "Dừng" trên web). Lượt chờ/đang chạy → `cancelled`, người dùng hỏi tiếp được ngay; worker chạy mỗi lượt trong luồng
+con, thấy lượt bị dừng thì bỏ luồng đó và nhận lượt kế tiếp. Lời gọi Modal đang dở không huỷ được (vẫn tính GPU tới khi
+xong), kết quả về muộn bị bỏ (chỉ ghi khi lượt còn `running`); tối đa 2 luồng bị bỏ còn chạy cùng lúc.
+
+**Tool calling + cá nhân hoá (migration `010_rag_user_profiles.sql`, 22/11/2026).** Khi `tool_calling.enabled`
+(configs/rag.yaml, **mặc định bật**), worker chat chạy `src/eventrank/rag/agent.py`: Gemma (vLLM `--tool-call-parser gemma4`) gọi tool
+chỉ-đọc `search_news`, `corpus_info`, `count_articles`, `top_events`, `event_articles`, `update_user_profile`
+(`src/eventrank/rag/tools.py`), đọc 3 lượt trước của cuộc trò chuyện, rồi trả lời ở lượt cuối có kiểm quote.
+
+| Bảng | Khoá / quan hệ | Ghi chú |
+|---|---|---|
+| `rag_user_profiles` | `user_id` PK, FK → `users` (CASCADE); `source_message_id` FK → `rag_messages` (SET NULL) | `persona` (10 nhóm cố định), `occupation_text` (≤ 60), `address_user`/`address_self` (≤ 30), `tone`, `answer_length`, `interests` text[] (≤ 10, theo `profile.categories`), `pending` jsonb (đổi nghề/nhóm chờ người dùng xác nhận) |
+
+`rag_messages.status` thêm `smalltalk` (chào hỏi/xác nhận hồ sơ, không nguồn, không chữ số/URL). `sources` có thêm
+`kind`: `chunk` (đoạn bài, như cũ) hoặc `data` (câu dữ liệu tool SQL sinh, có `tool`, `text`; không URL/bài).
+Không lưu tuổi, giới tính, địa chỉ. API: `GET/PUT/DELETE /api/rag/profile`, `POST /api/rag/profile/confirm`.
+
 ### 5.3 Hợp đồng dữ liệu lớp Silver
 
 **Luồng crawl local `automation/` (09/11/2026):** đã đăng ký thêm Tuổi Trẻ

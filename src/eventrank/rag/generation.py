@@ -40,6 +40,20 @@ def _quote_in_text(quote, text):
     return True
 
 
+_MIN_SHARED_WORDS = 2
+
+
+def _is_hollow(text, quotes):
+    """Ý không chung nổi `_MIN_SHARED_WORDS` từ với BẤT KỲ quote nào nó dẫn = chỉ là lời chào/lời dẫn.
+
+    Bằng chứng: E2E 22/11 lượt 4 (lần 4 và 5 giống hệt) Gemma trả một ý "Chị Lan ơi, vào ngày 10/9/2026, có các
+    sự kiện nổi bật sau:" dẫn 5 quote đúng nguyên văn; ý đó chung 0 từ với mỗi quote. Ý trả lời thật
+    ("VnExpress có 37 bài trong tháng 9" ↔ "có 37 bài báo của báo vnexpress") chung ≥ 3 từ.
+    """
+    words = set(_matchable(text).split())
+    return bool(quotes) and all(len(words & set(_matchable(q).split())) < _MIN_SHARED_WORDS for q in quotes)
+
+
 class CitationError(ValueError):
     pass
 
@@ -112,13 +126,29 @@ def validate_answer(content, evidence):
         text = _CITATION.sub('', text).strip()
         if not text:
             raise CitationError('empty_claim')
+        kept = [(ref.id, normalized(ref.quote)) for ref in claim.evidence
+                if ref.id in refs and normalized(ref.quote) in used.get(ref.id, [])]
+        if _is_hollow(text, [q for _, q in kept]):
+            # Ý chỉ là lời dẫn ("Chị Lan ơi, có các sự kiện sau:"): code liệt kê quote đã kiểm để câu trả lời
+            # có nội dung. Không thêm chữ nào ngoài quote nguyên văn.
+            lines, seen = [], set()
+            for cid, quote in kept:
+                if (cid, quote) not in seen:
+                    seen.add((cid, quote))
+                    lines.append(f'- {quote} [{cid}]')
+            statements.append(text + '\n' + '\n'.join(lines))
+            continue
         statements.append(text + ' ' + ''.join(f'[{cid}]' for cid in refs))
     if not statements:
         raise CitationError('quote_not_in_evidence')
     sources = []
     for cid in sorted(used):
         row = lookup[cid]
-        sources.append({'citation_id': cid, **{key: row[key] for key in (
+        if row.get('kind') == 'data':  # số liệu từ tool SQL: nguồn là kho dữ liệu, không có URL
+            sources.append({'citation_id': cid, 'kind': 'data', 'tool': row['tool'], 'title': row['title'],
+                            'text': row['text'], 'quotes': used[cid]})
+            continue
+        sources.append({'citation_id': cid, 'kind': 'chunk', **{key: row[key] for key in (
             'chunk_id', 'article_id', 'title', 'url', 'source', 'published_at',
             'start_char', 'end_char', 'chunking_version')}, 'quotes': used[cid]})
     return {'status': 'answered', 'answer': '\n\n'.join(statements), 'sources': sources, 'dropped': dropped}

@@ -11,6 +11,7 @@ const HomePage = page(() => import("./pages/HomePage"), "HomePage");
 const EventsPage = page(() => import("./pages/EventsPage"), "EventsPage");
 const EventDetailPage = page(() => import("./pages/EventDetailPage"), "EventDetailPage");
 const CategoriesHubPage = page(() => import("./pages/CategoriesHubPage"), "CategoriesHubPage");
+const ChatPage = page(() => import("./pages/ChatPage"), "ChatPage");
 const NotFoundPage = page(() => import("./pages/NotFoundPage"), "NotFoundPage");
 const DataQualityPage = page(() => import("./pages/data/DataQualityPage"), "DataQualityPage");
 const ModelsPage = page(() => import("./pages/data/ModelsPage"), "ModelsPage");
@@ -52,6 +53,8 @@ export function App() {
         <Route path="events" element={<EventsPage />} />
         <Route path="events/:eventId" element={<EventDetailPage />} />
         <Route path="chuyen-muc" element={<CategoriesHubPage />} />
+        <Route path="hoi-dap" element={<ChatPage />} />
+        <Route path="hoi-dap/:conversationId" element={<ChatPage />} />
         <Route path="du-lieu" element={<Navigate to="/du-lieu/chat-luong" replace />} />
         <Route path="du-lieu/chat-luong" element={<DataQualityPage />} />
         <Route path="du-lieu/mo-hinh" element={<ModelsPage />} />

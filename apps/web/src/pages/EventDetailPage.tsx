@@ -12,8 +12,8 @@ import { HourBars } from "../components/HourBars";
 import { IconBell, IconBookmark, IconFlag, IconLink } from "../components/Icons";
 import { useToast } from "../components/Layouts";
 import { Loading } from "../components/Status";
-import { fmtInt, fmtShort } from "../lib/format";
-import { loginHref } from "../lib/routes";
+import { fmtInt, fmtShort, vnClock } from "../lib/format";
+import { chatHref, loginHref } from "../lib/routes";
 import { sourceMeta } from "../lib/sources";
 import { useTitle } from "../lib/useTitle";
 
@@ -134,6 +134,8 @@ function EventBody({ data }: { data: EventDetail }) {
               <Link to={login} className="btn-ghost"><IconBookmark /> Lưu</Link>
             )}
             <button type="button" className="btn-ghost" onClick={onCopy}><IconLink /> Sao chép liên kết</button>
+            <Link to={chatHref({ q: `Diễn biến chính của sự kiện “${data.ten}” là gì?`, from: vnClock(data.first_seen).date,
+                                to: vnClock(data.last_seen).date })} className="btn-ghost">Hỏi về sự kiện này</Link>
             <button type="button" className="btn-ghost danger" aria-expanded={reportOpen} aria-controls="bao-sai"
                     onClick={() => setReportOpen(!reportOpen)}><IconFlag /> Báo sai</button>
           </div>

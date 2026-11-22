@@ -297,7 +297,12 @@ def test_cleanup_an_danh_tai_khoan_da_xoa_qua_30_ngay(pg_conn):
     pg_conn.execute("UPDATE users SET deleted_at = now() - interval '31 days' WHERE user_id = %s", (uid,))
     pg_conn.execute("INSERT INTO login_attempts (email_tried, succeeded, reason, at) VALUES "
                     "('cu@example.com', false, 'bad_password', now() - interval '40 days')")
+    cid = pg_conn.execute("INSERT INTO rag_conversations (user_id, title) VALUES (%s, 'Câu hỏi cũ') "
+                          "RETURNING conversation_id", (uid,)).fetchone()[0]
+    pg_conn.execute("INSERT INTO rag_messages (conversation_id, user_id, question) VALUES (%s, %s, 'Câu hỏi cũ?')",
+                    (cid, uid))
     out = cli.cleanup(pg_conn)
+    assert pg_conn.execute("SELECT count(*) FROM rag_messages WHERE user_id = %s", (uid,)).fetchone()[0] == 0
     assert out["users (ẩn danh)"] == 1 and out["login_attempts"] == 1
     email, name, pw = pg_conn.execute("SELECT email, display_name, password_hash FROM users WHERE user_id = %s",
                                       (uid,)).fetchone()

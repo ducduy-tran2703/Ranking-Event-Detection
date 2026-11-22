@@ -35,27 +35,107 @@ class RAGSnapshot(BaseModel):
 
 
 class RAGSource(BaseModel):
+    """Nguồn đã kiểm. kind='chunk': đoạn bài báo (URL/offset từ DB). kind='data': câu dữ liệu tool SQL
+    sinh tất định (số bài, phạm vi kho, sự kiện) — không có URL; `text` là câu gốc được trích."""
     citation_id: int
-    chunk_id: str
-    article_id: str
+    kind: Literal['chunk', 'data'] = 'chunk'
+    chunk_id: str | None = None
+    article_id: str | None = None
     title: str
-    url: str
-    source: str
-    published_at: datetime
-    start_char: int
-    end_char: int
-    chunking_version: str
+    url: str | None = None
+    source: str | None = None
+    published_at: datetime | None = None
+    start_char: int | None = None
+    end_char: int | None = None
+    chunking_version: str | None = None
+    tool: str | None = None
+    text: str | None = None
     quotes: list[str]
 
 
 class RAGAnswer(BaseModel):
-    status: Literal['answered', 'insufficient_evidence', 'unsupported_query', 'invalid_generation']
+    status: Literal['answered', 'insufficient_evidence', 'unsupported_query', 'invalid_generation', 'smalltalk']
     answer: str
     sources: list[RAGSource]
     retrieval_mode: Literal['hybrid', 'bm25_only', 'dense_only'] | None
     degraded: bool
     snapshot: RAGSnapshot
     trace: dict[str, Any]
+
+
+# ---------------------------------------------------------------------- khung chat hỏi đáp (migration 008)
+RAGChatStatusValue = Literal['queued', 'running', 'answered', 'insufficient_evidence', 'unsupported_query',
+                             'invalid_generation', 'smalltalk', 'failed', 'cancelled']
+
+
+class RAGChatAsk(BaseModel):
+    """Một câu hỏi gửi vào hàng đợi. `conversation_id` rỗng → tạo cuộc trò chuyện mới."""
+    model_config = ConfigDict(extra='forbid')
+    conversation_id: int | None = Field(default=None, ge=1)
+    question: str = Field(min_length=1, max_length=2048)
+    source: str | None = Field(default=None, min_length=1, max_length=64)
+    date_from: date | None = None
+    date_to: date | None = None
+
+    @model_validator(mode='after')
+    def ordered_dates(self):
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError('date_from phải <= date_to')
+        return self
+
+
+class RAGChatFilters(BaseModel):
+    source: str | None = None
+    date_from: str | None = None
+    date_to: str | None = None
+
+
+class RAGChatSource(RAGSource):
+    event_id: str | None = None
+    event_name: str | None = None
+
+
+class RAGChatMessage(BaseModel):
+    message_id: int
+    conversation_id: int
+    question: str
+    filters: RAGChatFilters
+    status: RAGChatStatusValue
+    answer: str | None
+    sources: list[RAGChatSource]
+    retrieval_mode: Literal['hybrid', 'bm25_only', 'dense_only'] | None
+    degraded: bool | None
+    error: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    seconds: float | None
+    queue_position: int | None
+
+
+class RAGConversation(BaseModel):
+    conversation_id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    n_messages: int
+    last_status: RAGChatStatusValue | None
+
+
+class RAGConversationDetail(BaseModel):
+    conversation: RAGConversation
+    messages: list[RAGChatMessage]
+
+
+class RAGChatStatus(BaseModel):
+    """Trạng thái hỏi đáp cho web: có dùng được không (kiểm nhanh, không gọi GPU) và hạn mức của người đang đăng nhập."""
+    available: bool
+    problems: list[str]
+    snapshot: RAGSnapshot | None
+    daily_limit: int | None
+    used_today: int | None
+    # False khi bật tool calling (configs/rag.yaml → tool_calling.enabled): chatbot nhớ vài lượt trước.
+    single_turn: bool = True
 
 
 class Health(BaseModel):
@@ -409,6 +489,28 @@ class MapDates(BaseModel):
     mac_dinh: str | None
 
 
+# ---------------------------------------------------------------- RAG đồng bộ tăng dần
+class RAGSyncRequest(BaseModel):
+    article_ids: list[str] | None = None
+
+
+class RAGSyncAccepted(BaseModel):
+    status: str              # "accepted" | "already_running" | "up_to_date"
+    requested: int
+    queued_articles: int
+    already_ready: int
+    missing_article_ids: list[str]
+    message: str
+
+
+class RAGSyncStatus(BaseModel):
+    running: bool
+    last_started_at: str | None = None
+    last_finished_at: str | None = None
+    last_result: dict | None = None
+    last_error: str | None = None
+
+
 # ---------------------------------------------------------------------- tài khoản (/api/auth, /api/me, /api/admin)
 # Khớp lớp giả lập của web: apps/web/src/api/{auth,me,admin}.ts + mockdb.ts. Nghiệp vụ: src/eventrank/accounts/.
 Role = Literal["user", "editor", "admin"]
@@ -587,23 +689,36 @@ class ApiTokenCreated(BaseModel):
     token: str                 # khoá ĐẦY ĐỦ, chỉ trả một lần
 
 
-# ---------------------------------------------------------------- RAG đồng bộ tăng dần
-class RAGSyncRequest(BaseModel):
-    article_ids: list[str] | None = None
+# ---------------------------------------------------------------- hồ sơ cá nhân hoá chatbot (migration 010)
+RAGPersona = Literal['pho_thong', 'doanh_nhan', 'ke_toan', 'nha_dau_tu', 'sinh_vien', 'giao_vien',
+                     'can_bo_cong_chuc', 'nha_bao', 'lap_trinh_vien', 'khac']
+RAGTone = Literal['than_thien', 'trang_trong', 'ngan_gon']
+RAGLength = Literal['ngan', 'vua', 'chi_tiet']
 
 
-class RAGSyncAccepted(BaseModel):
-    status: str              # "accepted" | "already_running" | "up_to_date"
-    requested: int
-    queued_articles: int
-    already_ready: int
-    missing_article_ids: list[str]
-    message: str
+class RAGProfile(BaseModel):
+    persona: RAGPersona | None
+    occupation_text: str | None
+    address_user: str | None
+    address_self: str | None
+    tone: RAGTone | None
+    answer_length: RAGLength | None
+    interests: list[str]
+    pending: dict[str, Any]          # thay đổi nghề/nhóm chatbot suy ra, chờ người dùng xác nhận
 
 
-class RAGSyncStatus(BaseModel):
-    running: bool
-    last_started_at: str | None = None
-    last_finished_at: str | None = None
-    last_result: dict | None = None
-    last_error: str | None = None
+class RAGProfileUpdate(BaseModel):
+    """Người dùng tự sửa hồ sơ; trường không gửi giữ nguyên, gửi null để xoá."""
+    model_config = ConfigDict(extra='forbid')
+    persona: RAGPersona | None = None
+    occupation_text: str | None = Field(default=None, min_length=1, max_length=60)
+    address_user: str | None = Field(default=None, min_length=1, max_length=30)
+    address_self: str | None = Field(default=None, min_length=1, max_length=30)
+    tone: RAGTone | None = None
+    answer_length: RAGLength | None = None
+    interests: list[str] | None = Field(default=None, max_length=10)
+
+
+class RAGProfileConfirm(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    accept: bool

@@ -41,6 +41,7 @@ PURGE_USER = [
     "DELETE FROM event_follows WHERE user_id = %(u)s",
     "DELETE FROM topic_subscriptions WHERE user_id = %(u)s",
     "DELETE FROM notifications WHERE user_id = %(u)s",
+    "DELETE FROM rag_conversations WHERE user_id = %(u)s",       # lịch sử hỏi đáp (008); rag_messages xoá theo
     "DELETE FROM user_sessions WHERE user_id = %(u)s",
     "DELETE FROM auth_tokens WHERE user_id = %(u)s",
     "DELETE FROM user_settings WHERE user_id = %(u)s",
