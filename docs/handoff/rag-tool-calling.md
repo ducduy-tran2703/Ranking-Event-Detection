@@ -14,8 +14,9 @@ Luồng RAG gốc (BM25, Qdrant, Modal, sync): [rag.md](rag.md).
   (server-to-server) thì phải thêm endpoint nội bộ + token dịch vụ — **chưa có**.
 - Tool calling chỉ chạy qua hàng đợi chat. `POST /api/rag/ask` (đồng bộ, app chính chỉ cho admin; app riêng :8001)
   vẫn là pipeline snapshot cũ.
-- Công tắc: `configs/rag.yaml` → `tool_calling.enabled`. **Hiện để `false`** (chat chạy pipeline cũ, single-turn).
-  Đặt `true` rồi khởi động lại API là chat chuyển sang tool calling + hội thoại nhiều lượt + hồ sơ.
+- Công tắc: `configs/rag.yaml` → `tool_calling.enabled`. **Mặc định `true`** (từ 22/11/2026): chat chạy tool calling
+  + hội thoại nhiều lượt + hồ sơ. Đặt `false` rồi khởi động lại API để quay về pipeline snapshot single-turn.
+  `GET /api/rag/status` trả `single_turn` theo công tắc này.
 
 ## 2. Điều kiện để bật
 
@@ -115,6 +116,9 @@ Code: `src/eventrank/rag/agent.py`, `tools.py`, `profile.py`, `chat.py`; API `ap
 - E2E thật (Postgres 28.725 bài, Qdrant, Gemma Modal, BamiBERT GPU), cuộc trò chuyện 7 lượt, chạy 5 lần.
   Đúng ổn định: câu thông tư thuế (nguồn thật), đếm bài VnExpress tháng 9 (2.086), lưu xưng hô "chị Lan",
   chào hỏi; câu vừa giới thiệu nghề vừa hỏi tin gọi đủ 2 tool 6/6. Lỗi còn lại xem file lỗi.
+- **Sau khi sửa lỗi 1/2/3/7 (22/11, lượt 2):** cùng kịch bản 7 lượt chạy 2 lần, **7/7 lượt đúng cả hai lần**
+  (tỷ số U23 2-0 sau câu tin nổi bật 10/9; tin nổi bật liệt kê từng sự kiện). Test: 399 passed (gồm Postgres tạm).
+  Chi tiết: [rag-tool-calling-issues.md](rag-tool-calling-issues.md) mục "Đã sửa ở lượt 2".
 - Thời gian: lượt đầu khi GPU nguội ~300 s; khi GPU đang chạy 3–35 s/lượt.
   Đây là smoke chức năng, **chưa phải đánh giá chất lượng** (chưa có tập câu hỏi, baseline, CI).
 

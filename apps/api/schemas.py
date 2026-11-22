@@ -134,6 +134,7 @@ class RAGChatStatus(BaseModel):
     snapshot: RAGSnapshot | None
     daily_limit: int | None
     used_today: int | None
+    # False khi bật tool calling (configs/rag.yaml → tool_calling.enabled): chatbot nhớ vài lượt trước.
     single_turn: bool = True
 
 

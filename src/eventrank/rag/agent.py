@@ -16,6 +16,7 @@ import json
 import re
 import time
 import uuid
+from contextlib import ExitStack
 from typing import Annotated, Literal
 
 import psycopg
@@ -26,14 +27,16 @@ from eventrank.rag import tools as T
 from eventrank.rag.context import SYSTEM as ANSWER_SYSTEM
 from eventrank.rag.context import ContextBudgetError, select_context
 from eventrank.rag.generation import NO_EVIDENCE, CitationError, _Claim, validate_answer
-from eventrank.rag.hybrid import HybridError, HybridRetriever, _request
-from eventrank.rag.models import load_model_config
+from eventrank.rag.hybrid import HybridRetriever, _request
+from eventrank.rag.models import keep_alive, load_model_config
 from eventrank.rag.pipeline import RAGPipeline, RAGUnavailableError, corpus_snapshot
 from eventrank.rag.prepare import IndexBusyError
 
 DATA_TOOLS = {'search_news', 'corpus_info', 'count_articles', 'top_events', 'event_articles'}
 _CITE = re.compile(r'\s*\[\d+\]')
 _URL = re.compile(r'https?://|www\.', re.IGNORECASE)
+INVALID_ANSWER = 'Chưa thể xuất câu trả lời vì nội dung hoặc citation không vượt qua kiểm tra bằng chứng.'
+HISTORY_NO_EVIDENCE = ('(Lượt này chưa tìm được bằng chứng trong kho; câu hỏi sau cần tra cứu lại bằng tool.)')
 
 TOOL_SYSTEM = '''Bạn là trợ lý hỏi đáp tin tức tiếng Việt trên một KHO BÁO LƯU SẴN (snapshot), không phải tin thời gian thực.
 Kho có bài đăng từ {from_date} đến {to_date}, các báo: {sources}. Không có "hôm nay" thực tế: câu hỏi
@@ -120,14 +123,23 @@ class ToolCallingPipeline:
                 "'smalltalk') ORDER BY message_id DESC LIMIT %s",
                 (conversation_id, message_id, message_id, turns)).fetchall()
             limit = int(self.config.get('tool_calling', {}).get('history_answer_chars', 500))
-            for question, answer, _ in reversed(rows):
+            for question, answer, status in reversed(rows):
                 history.append({'role': 'user', 'content': question})
-                history.append({'role': 'assistant', 'content': _CITE.sub('', answer or '').strip()[:limit]})
+                # E2E 22/11: câu "Chưa đủ bằng chứng…" của lượt trước làm Gemma không tra cứu lượt sau.
+                content = (HISTORY_NO_EVIDENCE if status == 'insufficient_evidence'
+                           else _CITE.sub('', answer or '').strip()[:limit])
+                history.append({'role': 'assistant', 'content': content})
         return profile, hidden, history
 
     # ------------------------------------------------------------------ một lượt hỏi
-    def ask(self, question, *, source=None, date_from=None, date_to=None, allow_fallback=False, max_tokens=None,
-            user_id=None, conversation_id=None, message_id=None):
+    def ask(self, question, **kwargs):
+        # ExitStack giữ keep_alive Qwen (mở sau lần search_news đầu) tới khi Gemma trả xong lượt cuối.
+        with ExitStack() as stack:
+            self._stack = stack
+            return self._ask(question, **kwargs)
+
+    def _ask(self, question, *, source=None, date_from=None, date_to=None, allow_fallback=False, max_tokens=None,
+             user_id=None, conversation_id=None, message_id=None):
         question, filters = _request(question, 60, source, date_from, date_to)
         base = self.base
         spec = (base.model.config if base.model is not None else load_model_config())['llm']
@@ -168,7 +180,11 @@ class ToolCallingPipeline:
                     'degraded': mode not in (None, 'hybrid'), 'snapshot': snapshot, 'trace': trace,
                     'profile_update': update}
 
-        if filters['source'] and filters['source'] not in snapshot.get('sources', []):
+        # Bộ lọc giao diện nằm ngoài kho → trả sớm, không gọi GPU (giống pipeline snapshot).
+        outside = ((filters['source'] and filters['source'] not in snapshot.get('sources', []))
+                   or (date_from and snapshot.get('to_date') and str(date_from) > snapshot['to_date'])
+                   or (date_to and snapshot.get('from_date') and str(date_to) < snapshot['from_date']))
+        if outside:
             return finish('insufficient_evidence', NO_EVIDENCE, reason='outside_snapshot_or_source')
 
         style = P.style_instructions(profile)
@@ -187,6 +203,19 @@ class ToolCallingPipeline:
                 base.counter = GemmaTokenCounter(spec)
             except Exception:  # noqa: BLE001
                 raise RAGUnavailableError('tokenizer; run token_budget prepare first', trace) from None
+
+        def run_search_tool(arguments):
+            """search_news; lần tìm đầu tới được Qwen thì giữ Qwen sống tới hết lượt (như pipeline snapshot)."""
+            try:
+                result, error = T.run_tool(ctx, 'search_news', arguments, allowed=allowed)
+            except IndexBusyError:
+                raise RAGUnavailableError('index_sync', trace) from None
+            if error is None and 'keepalive' not in trace and (not self._modes or self._modes[-1] != 'bm25_only'):
+                keep = getattr(client, 'config', {}).get('keepalive')
+                if keep and hasattr(client, 'ping_embedding'):
+                    trace['keepalive'] = self._stack.enter_context(keep_alive(
+                        client.ping_embedding, interval=keep['interval_seconds'], max_seconds=keep['max_seconds']))
+            return result, error
 
         system = TOOL_SYSTEM.format(from_date=snapshot.get('from_date'), to_date=snapshot.get('to_date'),
                                     sources=', '.join(snapshot.get('sources', [])), style=style)
@@ -215,7 +244,7 @@ class ToolCallingPipeline:
                 for i, c in enumerate(calls)]}
             messages.append(assistant)
             for i, call in enumerate(calls):
-                t0, before = time.perf_counter(), len(ctx.evidence)
+                t0, before, adjusted = time.perf_counter(), len(ctx.evidence), len(ctx.adjustments)
                 if i >= per_round:
                     result, error = {'error': 'too_many_tool_calls_in_round'}, 'too_many_calls'
                 elif call['error']:
@@ -224,68 +253,111 @@ class ToolCallingPipeline:
                     if call['name'] == 'search_news':
                         searches_tried += 1
                     try:
-                        result, error = T.run_tool(ctx, call['name'], call['arguments'], allowed=allowed)
+                        if call['name'] == 'search_news':
+                            result, error = run_search_tool(call['arguments'])
+                        else:
+                            result, error = T.run_tool(ctx, call['name'], call['arguments'], allowed=allowed)
                     except IndexBusyError:
                         raise RAGUnavailableError('index_sync', trace) from None
-                    except (HybridError, Exception) as exc:  # noqa: BLE001 -- hạ tầng lỗi: báo model, ghi tên lỗi
+                    except RAGUnavailableError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001 -- hạ tầng lỗi (gồm HybridError): báo model, ghi tên lỗi
                         result, error = {'error': 'tool_unavailable'}, f'unavailable:{type(exc).__name__}'
                         if call['name'] == 'search_news':
                             searches_failed += 1
-                record['tool_calls'].append({'name': call['name'], 'arguments': call['arguments'], 'error': error,
-                                             'evidence_ids': [r['id'] for r in ctx.evidence[before:]],
-                                             'seconds': round(time.perf_counter() - t0, 3)})
+                entry = {'name': call['name'], 'arguments': call['arguments'], 'error': error,
+                         'evidence_ids': [r['id'] for r in ctx.evidence[before:]],
+                         'seconds': round(time.perf_counter() - t0, 3)}
+                if ctx.adjustments[adjusted:]:
+                    entry['adjustments'] = ctx.adjustments[adjusted:]
+                record['tool_calls'].append(entry)
                 messages.append({'role': 'tool', 'tool_call_id': assistant['tool_calls'][i]['id'],
                                  'name': call['name'], 'content': T.dumps(result)})
-        trace['evidence'] = [{k: row.get(k) for k in ('id', 'kind', 'tool', 'chunk_id')} for row in ctx.evidence]
+        trace['evidence'] = _evidence_trace(ctx)
         if searches_tried and searches_tried == searches_failed and not ctx.evidence:
             raise RAGUnavailableError('retrieval', trace)
 
-        used_data = any(c['name'] in DATA_TOOLS and not c['error'] for r in trace['tool_rounds']
-                        for c in r['tool_calls'])
         final_system = ANSWER_SYSTEM + FINAL_EXTRA.replace('{style}', style) + _address_rule(profile)
-        gen = self.config.get('generation', {})
-        max_chunks = int(settings.get('max_context_chunks', 10))
-        try:
-            selected = select_context(question, ctx.evidence, base.counter, snapshot=snapshot,
-                                      window=spec['max_model_len'], max_output_tokens=reserve, max_chunks=max_chunks,
-                                      per_article=gen.get('max_per_article', 2),
-                                      per_source=max_chunks if filters['source'] else gen.get('max_per_source', 3),
-                                      system=final_system, prefix=history)
-        except ContextBudgetError:
-            return finish('insufficient_evidence', NO_EVIDENCE, reason='context_budget')
-        trace['context'] = {'prompt_tokens': selected.prompt_tokens, 'output_reserve': reserve,
-                            'selected': [{k: r.get(k) for k in ('id', 'kind', 'chunk_id')} for r in selected.evidence],
-                            'dropped': selected.dropped}
-        try:
-            generated = client.chat(selected.messages, max_tokens=reserve,
-                                    response_schema=AgentOutput.model_json_schema(), temperature=0.0)
-        except Exception:  # noqa: BLE001
-            raise RAGUnavailableError('generation', trace) from None
-        trace['generator'] = {'model': spec['model'], 'revision': spec['revision'],
-                              'finish_reason': generated.get('finish_reason'), 'usage': generated.get('usage', {})}
-        try:
-            if generated.get('finish_reason') != 'stop':
-                raise CitationError('generation_not_finished')
-            output = _parse_output(generated.get('content', ''))
-            if output.status == 'smalltalk':
-                if used_data:
-                    trace['validation'] = {'passed': False, 'reason': 'smalltalk_after_retrieval'}
-                    return finish('insufficient_evidence', NO_EVIDENCE, reason='smalltalk_after_retrieval')
-                message = (output.message or '').strip()
-                if output.claims or not message or re.search(r'\d', message) or _URL.search(message):
-                    raise CitationError('invalid_smalltalk')
-                trace['validation'] = {'passed': True, 'checks': ['smalltalk_no_digits_no_urls']}
-                return finish('smalltalk', message)
-            validated = validate_answer(json.dumps({'status': output.status,
-                                                    'claims': [c.model_dump() for c in output.claims]},
-                                                   ensure_ascii=False), selected.evidence)
-        except CitationError as exc:
-            trace['validation'] = {'passed': False, 'reason': str(exc)}
-            return finish('invalid_generation', 'Chưa thể xuất câu trả lời vì nội dung hoặc citation '
-                          'không vượt qua kiểm tra bằng chứng.', reason='generation_validation_failed')
-        trace['validation'] = {'passed': True, 'checks': ['citation_ids', 'verbatim_quotes', 'metadata_urls',
-                                                          'data_quotes'], 'dropped': validated['dropped']}
-        return finish(validated['status'], validated['answer'], validated['sources'])
+
+        def answer_once():
+            """Lượt trả lời cuối trên ctx.evidence hiện có → (status, answer, sources, reason)."""
+            used_data = 'fallback_search' in trace or any(
+                c['name'] in DATA_TOOLS and not c['error'] for r in trace['tool_rounds'] for c in r['tool_calls'])
+            gen = self.config.get('generation', {})
+            max_chunks = int(settings.get('max_context_chunks', 10))
+            try:
+                selected = select_context(question, ctx.evidence, base.counter, snapshot=snapshot,
+                                          window=spec['max_model_len'], max_output_tokens=reserve,
+                                          max_chunks=max_chunks, per_article=gen.get('max_per_article', 2),
+                                          per_source=max_chunks if filters['source'] else gen.get('max_per_source', 3),
+                                          system=final_system, prefix=history)
+            except ContextBudgetError:
+                return 'insufficient_evidence', NO_EVIDENCE, [], 'context_budget'
+            trace['context'] = {'prompt_tokens': selected.prompt_tokens, 'output_reserve': reserve,
+                                'selected': [{k: r.get(k) for k in ('id', 'kind', 'chunk_id')}
+                                             for r in selected.evidence], 'dropped': selected.dropped}
+            try:
+                generated = client.chat(selected.messages, max_tokens=reserve,
+                                        response_schema=AgentOutput.model_json_schema(), temperature=0.0)
+            except Exception:  # noqa: BLE001
+                raise RAGUnavailableError('generation', trace) from None
+            trace['generator'] = {'model': spec['model'], 'revision': spec['revision'],
+                                  'finish_reason': generated.get('finish_reason'), 'usage': generated.get('usage', {})}
+            try:
+                if generated.get('finish_reason') != 'stop':
+                    raise CitationError('generation_not_finished')
+                output = _parse_output(generated.get('content', ''))
+                if output.status == 'smalltalk':
+                    if used_data:
+                        trace['validation'] = {'passed': False, 'reason': 'smalltalk_after_retrieval'}
+                        return 'insufficient_evidence', NO_EVIDENCE, [], 'smalltalk_after_retrieval'
+                    message = (output.message or '').strip()
+                    if output.claims or not message or re.search(r'\d', message) or _URL.search(message):
+                        raise CitationError('invalid_smalltalk')
+                    trace['validation'] = {'passed': True, 'checks': ['smalltalk_no_digits_no_urls']}
+                    return 'smalltalk', message, [], None
+                validated = validate_answer(json.dumps({'status': output.status,
+                                                        'claims': [c.model_dump() for c in output.claims]},
+                                                       ensure_ascii=False), selected.evidence)
+            except CitationError as exc:
+                trace['validation'] = {'passed': False, 'reason': str(exc)}
+                return 'invalid_generation', INVALID_ANSWER, [], 'generation_validation_failed'
+            trace['validation'] = {'passed': True, 'checks': ['citation_ids', 'verbatim_quotes', 'metadata_urls',
+                                                              'data_quotes'], 'dropped': validated['dropped']}
+            return validated['status'], validated['answer'], validated['sources'], None
+
+        status, answer, sources, reason = answer_once()
+        looked_up = any(c['name'] in DATA_TOOLS and not c['error'] for r in trace['tool_rounds'] for c in r['tool_calls'])
+        if status == 'insufficient_evidence' and reason is None and not looked_up:
+            # E2E 22/11 lượt 6 ("Còn trận tiếp theo của họ thì sao?"): Gemma không gọi tool nào rồi kết luận thiếu
+            # bằng chứng. Code tự tìm theo câu hỏi (ghép câu hỏi liền trước để hiểu "họ", "trận đó") rồi trả lời lại.
+            query = _fallback_query(question, history)
+            before = len(ctx.evidence)
+            fallback = {'reason': 'no_retrieval_before_refusal', 'query': query,
+                        'first_validation': trace.get('validation')}
+            trace['fallback_search'] = fallback
+            try:
+                _, error = run_search_tool({'query': query})
+            except RAGUnavailableError:
+                raise
+            except Exception as exc:  # noqa: BLE001 -- giữ câu thiếu bằng chứng, chỉ ghi tên lỗi
+                error = f'unavailable:{type(exc).__name__}'
+            fallback.update(error=error, evidence_ids=[r['id'] for r in ctx.evidence[before:]])
+            trace['evidence'] = _evidence_trace(ctx)
+            if fallback['evidence_ids']:
+                status, answer, sources, reason = answer_once()
+        return finish(status, answer, sources, reason=reason)
+
+
+def _evidence_trace(ctx):
+    return [{k: row.get(k) for k in ('id', 'kind', 'tool', 'chunk_id')} for row in ctx.evidence]
+
+
+def _fallback_query(question, history, limit=300):
+    """Câu hỏi hiện tại, ghép sau câu hỏi người dùng liền trước (nếu có) để giải nghĩa câu nối tiếp."""
+    previous = next((m['content'] for m in reversed(history) if m['role'] == 'user'), None)
+    text = f'{previous} {question}' if previous else question
+    return text if len(text) <= limit else text[-limit:].strip()
 
 
 def _parse_output(content) -> AgentOutput:

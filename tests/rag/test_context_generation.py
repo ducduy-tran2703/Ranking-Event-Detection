@@ -227,3 +227,25 @@ def test_kiem_so_lieu_bang_quote_nguyen_van_va_nguon_du_lieu():
 def test_nguon_bai_bao_co_kind_chunk():
     out = generation.validate_answer(json.dumps(QA['valid_generation']), [{**records()[0], 'id': 1}])
     assert out['sources'][0]['kind'] == 'chunk' and out['sources'][0]['url']
+
+
+def test_y_chi_co_loi_chao_thi_code_liet_ke_quote_da_kiem():
+    # E2E 22/11 lượt 4: "Chị Lan ơi, vào ngày 10/9/2026, có các sự kiện nổi bật sau: [1][2]" — tên sự kiện chỉ có
+    # trong nguồn. Quote đều đúng nguyên văn nên validator cũ không bắt được.
+    rows = [data_row(1, 'Tô Lâm gặp cộng đồng người Việt tại Pháp: 92 bài của 6 báo, đăng từ 2026-09-10 đến 2026-09-10.'),
+            data_row(2, 'Bão Yagi đổ bộ Quảng Ninh: 40 bài của 5 báo, đăng từ 2026-09-10 đến 2026-09-10.')]
+    body = {'status': 'answered', 'claims': [{'text': 'Chị Lan ơi, vào ngày 10/9/2026, có các sự kiện nổi bật sau:',
+                                              'evidence': [{'id': 1, 'quote': 'Tô Lâm gặp cộng đồng người Việt tại Pháp'},
+                                                           {'id': 2, 'quote': 'Bão Yagi đổ bộ Quảng Ninh: 40 bài'}]}]}
+    out = generation.validate_answer(json.dumps(body, ensure_ascii=False), rows)
+    assert out['answer'] == ('Chị Lan ơi, vào ngày 10/9/2026, có các sự kiện nổi bật sau:\n'
+                             '- Tô Lâm gặp cộng đồng người Việt tại Pháp [1]\n'
+                             '- Bão Yagi đổ bộ Quảng Ninh: 40 bài [2]')
+
+
+def test_y_co_noi_dung_thi_giu_nguyen_cach_trinh_bay():
+    row = data_row(1, 'Kho dữ liệu có 37 bài báo của báo vnexpress, đăng từ 2026-09-01 đến 2026-09-30.')
+    body = {'status': 'answered', 'claims': [{'text': 'Chị Lan ơi, VnExpress có 37 bài trong tháng 9.',
+                                              'evidence': [{'id': 1, 'quote': 'có 37 bài báo của báo vnexpress'}]}]}
+    out = generation.validate_answer(json.dumps(body, ensure_ascii=False), [row])
+    assert out['answer'] == 'Chị Lan ơi, VnExpress có 37 bài trong tháng 9. [1]'

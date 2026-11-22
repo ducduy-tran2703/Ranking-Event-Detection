@@ -4,7 +4,8 @@ Vì sao có hàng đợi: lần gọi đầu Modal phải khởi động GPU (đ
 thời gian chờ của Cloudflare Tunnel/trình duyệt. API chỉ ghi lượt hỏi (`queued`) rồi trả ngay; một worker nền trong
 tiến trình API lấy từng lượt, chạy `RAGPipeline.ask` và ghi kết quả; web hỏi lại trạng thái định kỳ.
 
-- Mỗi câu được trả lời ĐỘC LẬP (pipeline single-turn) — lịch sử chỉ để người dùng xem lại.
+- Mặc định (`tool_calling.enabled`) chatbot gọi tool và nhớ `history_turns` lượt trước của cuộc trò chuyện;
+  tắt công tắc thì quay về pipeline single-turn (lịch sử chỉ để người dùng xem lại).
 - Mỗi người tối đa một lượt đang chờ; tối đa `RAG_DAILY_LIMIT` lượt/24 giờ (mặc định 30; admin không giới hạn).
 - Lỗi lưu cho người dùng là câu cố định theo pha, không chứa URL dịch vụ, khoá hay đường dẫn máy.
 - Worker chỉ chạy MỘT lượt mỗi lúc (dịch vụ Gemma trên Modal phục vụ 1 chuỗi một lúc: --max-num-seqs 1).

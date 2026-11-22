@@ -8,10 +8,15 @@ Nguyên tắc:
   nên con số trong câu dữ liệu được kiểm như quote của bài báo.
 - Tên sự kiện do ViT5 sinh (~12% sai) KHÔNG đưa vào bằng chứng; dùng tiêu đề bài đại diện (bài thật).
 - Bộ lọc người dùng chọn trên giao diện (nguồn/ngày) thắng đối số model tự đặt.
+- Ngày do MODEL tự đặt chỉ được dùng khi câu hiện tại có mốc thời gian (`has_time_reference`); `search_news` lọc
+  theo ngày model đặt mà rỗng thì code tự tìm lại không lọc ngày. Bằng chứng: E2E 22/11 lần 4–5 (Gemma,
+  temperature=0) lượt "tỷ số U23" bị lọc nhầm ngày 10/9 của lượt trước → 0 kết quả; luật prompt và ghi chú
+  "hãy gọi lại không lọc ngày" đều không làm Gemma tự sửa. Mọi lần code chỉnh ngày ghi vào `ctx.adjustments`.
 """
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -26,6 +31,17 @@ _VN = 'Asia/Ho_Chi_Minh'
 DATA_SOURCE = 'kho_du_lieu'
 EventId = Annotated[str, StringConstraints(pattern=r'^E\d{8}-[0-9a-f]{8}$')]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+# Mốc thời gian trong câu người dùng: từ chỉ thời gian, hoặc ngày/tháng dạng số (10/9, 10-9), hoặc năm 19xx/20xx.
+# Không dùng "có chữ số" vì tên riêng như "U23" cũng có số.
+# "mới" tính là mốc ("thông tư nào mới" = tin gần đây): E2E 22/11 lần 1 lượt 1 bị bỏ khoảng ngày model đặt
+# theo cuối kho; nếu lọc nhầm thì search_news vẫn tự tìm lại không lọc ngày.
+_TIME_REFERENCE = re.compile(
+    r'\b(ngày|tháng|năm|tuần|hôm|hồi|dịp|quý|sáng|trưa|chiều|tối|đêm|bữa|mới|gần đây|gần nhất|hiện nay|'
+    r'hiện tại|bây giờ|lúc này|dạo này|vừa qua|sắp tới)\b|\b\d{1,2}\s*[/-]\s*\d{1,4}\b|\b(19|20)\d{2}\b')
+
+
+def has_time_reference(text: str) -> bool:
+    return bool(_TIME_REFERENCE.search(' '.join((text or '').casefold().split())))
 
 
 class ToolError(ValueError):
@@ -129,7 +145,7 @@ class ToolContext:
     read_lock: Callable[[], Any] | None = None
     evidence: list[dict] = field(default_factory=list)
     profile_plans: list[P.UpdatePlan] = field(default_factory=list)
-    search_modes: list[str] = field(default_factory=list)
+    adjustments: list[dict] = field(default_factory=list)
 
     def add(self, row: dict) -> int:
         key = row['chunk_id'] if row['kind'] == 'chunk' else ('data', row['text'])
@@ -162,12 +178,24 @@ def _day(value) -> str | None:
     return str(value)[:10]
 
 
-def _filters(ctx: ToolContext, args) -> tuple[str | None, str | None, str | None]:
+def _model_dates(ctx: ToolContext, args, tool: str) -> tuple[str | None, str | None]:
+    """Ngày model tự đặt; bỏ (và ghi lại) khi câu hiện tại không có mốc thời gian nào."""
+    date_from = args.date_from.isoformat() if getattr(args, 'date_from', None) else None
+    date_to = args.date_to.isoformat() if getattr(args, 'date_to', None) else None
+    if (date_from or date_to) and not has_time_reference(ctx.question):
+        ctx.adjustments.append({'tool': tool, 'action': 'dropped_model_dates', 'date_from': date_from,
+                                'date_to': date_to})
+        return None, None
+    return date_from, date_to
+
+
+def _filters(ctx: ToolContext, args, tool: str) -> tuple[str | None, str | None, str | None]:
     """Bộ lọc giao diện thắng đối số model; trả (source, date_from, date_to) dạng chuỗi."""
     f = ctx.filters or {}
     source = f.get('source') or getattr(args, 'source', None)
-    date_from = f.get('date_from') or (args.date_from.isoformat() if getattr(args, 'date_from', None) else None)
-    date_to = f.get('date_to') or (args.date_to.isoformat() if getattr(args, 'date_to', None) else None)
+    model_from, model_to = _model_dates(ctx, args, tool)
+    date_from = f.get('date_from') or model_from
+    date_to = f.get('date_to') or model_to
     if date_from and date_to and date_from > date_to:
         raise ToolError('date_from must be <= date_to')
     return (source.strip().lower() if source else None), date_from, date_to
@@ -192,9 +220,18 @@ def _describe(source, date_from, date_to, category=None, entity=None) -> str:
 
 # ---------------------------------------------------------------------- các tool
 def search_news(ctx: ToolContext, args: SearchNewsArgs) -> dict:
-    source, date_from, date_to = _filters(ctx, args)
-    hits = ctx.search(args.query, source=source, date_from=date_from, date_to=date_to)
+    source, date_from, date_to = _filters(ctx, args, 'search_news')
     hidden = {s.lower() for s in ctx.hidden_sources}
+    hits = ctx.search(args.query, source=source, date_from=date_from, date_to=date_to)
+    ui = ctx.filters or {}
+    note = None
+    if (date_from or date_to) and not ui.get('date_from') and not ui.get('date_to')             and not any(h['source'] not in hidden for h in hits):
+        # Ngày do model đặt (không phải người dùng) làm rỗng kết quả → tìm lại trên toàn bộ kho.
+        ctx.adjustments.append({'tool': 'search_news', 'action': 'retried_without_model_dates',
+                                'date_from': date_from, 'date_to': date_to})
+        hits = ctx.search(args.query, source=source, date_from=None, date_to=None)
+        note = (f'Không có bài đăng từ {date_from or "đầu kho"} đến {date_to or "cuối kho"}; kết quả dưới đây '
+                'tìm trên toàn bộ kho, hãy để ý ngày đăng của từng đoạn.')
     per_article, results = {}, []
     for hit in hits:
         if hit['source'] in hidden or per_article.get(hit['article_id'], 0) >= 2:
@@ -207,14 +244,8 @@ def search_news(ctx: ToolContext, args: SearchNewsArgs) -> dict:
                         'published': _day(hit['published_at']), 'text': hit['text'][:700]})
         if len(results) >= args.limit:
             break
-    note = None
     if not results:
         note = 'Không tìm thấy đoạn bài phù hợp.'
-        model_dates = not (ctx.filters or {}).get('date_from') and not (ctx.filters or {}).get('date_to')
-        if model_dates and (args.date_from or args.date_to):
-            # E2E 22/11: model mang nhầm ngày của câu trước sang câu sau → 0 kết quả. Gợi ý tự sửa ở vòng kế.
-            note += (' Bộ lọc ngày do bạn tự đặt có thể sai; nếu câu hỏi hiện tại không nêu ngày, '
-                     'hãy gọi lại search_news không có date_from/date_to.')
     return {'results': results, 'note': note}
 
 
@@ -234,7 +265,7 @@ def corpus_info(ctx: ToolContext, args: CorpusInfoArgs) -> dict:
 
 
 def count_articles(ctx: ToolContext, args: CountArticlesArgs) -> dict:
-    source, date_from, date_to = _filters(ctx, args)
+    source, date_from, date_to = _filters(ctx, args, 'count_articles')
     where, params = [], []
     if source:
         where.append('lower(a.source) = %s')
@@ -261,7 +292,7 @@ def count_articles(ctx: ToolContext, args: CountArticlesArgs) -> dict:
 
 
 def top_events(ctx: ToolContext, args: TopEventsArgs) -> dict:
-    _, date_from, date_to = _filters(ctx, args)
+    _, date_from, date_to = _filters(ctx, args, 'top_events')
     where, params = ["e.status IN ('open', 'closed')", 'e.size >= 2'], []
     if date_from:
         where.append(f"(e.last_seen AT TIME ZONE '{_VN}')::date >= %s::date")

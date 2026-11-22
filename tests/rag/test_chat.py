@@ -59,3 +59,13 @@ def test_smalltalk_la_trang_thai_ket_qua_hop_le():
 def test_cau_bao_cho_pha_tool_calling():
     from eventrank.rag.pipeline import RAGUnavailableError
     assert C.error_for(RAGUnavailableError('generation')) == C.PHASE_MESSAGES['generation']
+
+
+def test_cau_hinh_mac_dinh_bat_tool_calling():
+    import yaml
+
+    from eventrank.rag.agent import ToolCallingPipeline
+
+    config = yaml.safe_load(C.CONFIG_PATH.read_text('utf-8'))
+    assert config['tool_calling']['enabled'] is True
+    assert isinstance(C.build_pipeline(None, config, counter=object()), ToolCallingPipeline)

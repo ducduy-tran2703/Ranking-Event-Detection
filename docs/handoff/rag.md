@@ -54,7 +54,7 @@ Mốc 07/11/2026: NER/chunk/BM25, hai dịch vụ model, dense Qdrant và hybrid
   `models.llm.tool_calling: true` → `--enable-auto-tool-choice --tool-call-parser gemma4`. Đã deploy Modal 22/11.
 - **Code:** `agent.py` (vòng tool ≤ 3, lượt cuối ép JSON + kiểm quote), `tools.py` (6 tool chỉ đọc, SQL viết sẵn,
   Pydantic), `profile.py` + migration 010, `chat.build_pipeline`, API `/api/rag/profile`. Bật cho chat bằng
-  `tool_calling.enabled: true` (đang **false**: chưa chạy với Postgres thật).
+  `tool_calling.enabled: true` (**bật mặc định** từ 22/11 sau khi sửa lỗi E2E).
 - **Thử thật với Gemma (22/11, smoke, không phải đánh giá):** chọn tool lượt đầu đúng 9/10 câu viết sẵn đáp án
   (đếm bài, top sự kiện, tìm tin, "hôm nay" → corpus_info, đổi xưng hô, tên riêng); `prompt_tokens` server = bộ đếm
   client ở cả 10 câu (989–1.432 token, schema tools chiếm ~1.000). Trọn vòng với dữ liệu mẫu: câu đếm bài và câu tỷ

@@ -69,13 +69,21 @@ def _limit(user: CurrentUser) -> int | None:
     return None if user.role == "admin" else C.daily_limit()
 
 
+def _config(request: Request) -> dict[str, Any]:
+    """Cấu hình RAG; test đặt `app.state.rag_config` để khỏi phụ thuộc file YAML."""
+    override = getattr(request.app.state, "rag_config", None)
+    return override if override is not None else yaml.safe_load(C.CONFIG_PATH.read_text("utf-8"))
+
+
 def _readiness(request: Request, conn) -> dict[str, Any]:
     st = request.app.state
     cached = getattr(st, "rag_status_cache", None)
     if cached and time.monotonic() - cached[0] < STATUS_TTL:
         return cached[1]
-    config = yaml.safe_load(C.CONFIG_PATH.read_text("utf-8"))
-    value = (getattr(st, "rag_readiness", None) or C.readiness)(conn, config)    # test thay bằng bản không gọi mạng
+    config = _config(request)
+    value = (getattr(st, "rag_readiness", None) or C.readiness)(conn, config)
+    # Tool calling nhớ `history_turns` lượt trước → không còn single-turn (trước đây luôn trả true).
+    value = {**value, "single_turn": not config.get("tool_calling", {}).get("enabled", False)}    # test thay bằng bản không gọi mạng
     st.rag_status_cache = (time.monotonic(), value)
     return value
 

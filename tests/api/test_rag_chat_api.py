@@ -92,7 +92,8 @@ def test_khach_khong_hoi_duoc_nhung_xem_duoc_trang_thai(env):
     st = c.get("/api/rag/status")
     assert st.status_code == 200
     body = st.json()
-    assert body["used_today"] is None and body["daily_limit"] == C.DEFAULT_DAILY_LIMIT and body["single_turn"] is True
+    assert body["used_today"] is None and body["daily_limit"] == C.DEFAULT_DAILY_LIMIT
+    assert body["single_turn"] is False                             # tool calling bật mặc định (nhớ lượt trước)
     assert body["available"] is False and body["problems"]          # DB tạm không có kho RAG
     assert fake.calls == []
 
@@ -399,3 +400,14 @@ def test_luot_chat_tool_calling_luu_nguon_du_lieu_va_smalltalk(env, pg_conn):
     msg = send(c, "POST", "/api/rag/messages", {"question": "Xin chào", "conversation_id": msg["conversation_id"]}).json()
     run_worker(app)
     assert c.get(f"/api/rag/messages/{msg['message_id']}").json()["status"] == "smalltalk"
+
+
+def test_trang_thai_single_turn_theo_cong_tac_tool_calling(env):
+    app, _ = env
+    app.state.rag_config = {"index_version": "rag_v1", "bm25": {"root": "x"},
+                            "dense": {"url": "http://127.0.0.1:1", "collection": "c"},
+                            "tool_calling": {"enabled": False}}
+    assert TestClient(app).get("/api/rag/status").json()["single_turn"] is True
+    app.state.rag_status_cache = None
+    app.state.rag_config["tool_calling"]["enabled"] = True
+    assert TestClient(app).get("/api/rag/status").json()["single_turn"] is False

@@ -33,9 +33,10 @@ query_ner:
 retrieval:
   branch_limit: 30
   rrf_k: 60
-# Chatbot tool calling (agent.py). Bật sau khi deploy Modal với models.llm.tool_calling=true.
+# Chatbot tool calling (agent.py) — mặc định của khung chat từ 22/11/2026 (Modal đã deploy với
+# models.llm.tool_calling=true). Đặt false để quay về pipeline snapshot single-turn.
 tool_calling:
-  enabled: false
+  enabled: true
   max_rounds: 3
   max_calls_per_round: 4
   round_max_tokens: 512

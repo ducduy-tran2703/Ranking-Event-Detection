@@ -54,7 +54,8 @@ def test_search_news_bo_bao_an_gioi_han_2_doan_moi_bai_va_danh_so_bang_chung():
 
 def test_bo_loc_giao_dien_thang_doi_so_model():
     seen = {}
-    c = ctx(search=lambda q, **f: seen.update(f) or [], filters={'source': 'tuoitre', 'date_from': '2026-09-01'})
+    c = ctx(search=lambda q, **f: seen.update(f) or [], filters={'source': 'tuoitre', 'date_from': '2026-09-01'},
+            question='Tin đăng tới cuối tháng 9 có gì?')
     T.run_tool(c, 'search_news', {'query': 'x', 'source': 'vnexpress', 'date_from': '2026-01-01',
                                   'date_to': '2026-09-30'}, allowed=ALL)
     assert seen == {'source': 'tuoitre', 'date_from': '2026-09-01', 'date_to': '2026-09-30'}
@@ -69,7 +70,7 @@ def test_bang_chung_trung_khong_danh_so_lai():
 
 def test_count_articles_sql_co_tham_so_va_cau_du_lieu_tat_dinh():
     conn = FakeConn(rows=[(37,)])
-    c = ctx(conn)
+    c = ctx(conn, question='Tháng 9/2026 VnExpress có bao nhiêu bài nhắc Hà Nội?')
     out, err = T.run_tool(c, 'count_articles', {'source': 'VnExpress', 'date_from': '2026-09-01',
                                                 'date_to': '2026-09-30', 'entity': 'Hà Nội'}, allowed=ALL)
     assert err is None and out['count'] == 37
@@ -155,17 +156,56 @@ def test_top_events_tieu_de_nguon_la_tieu_de_bai_that():
     assert c.evidence[0]['title'] == 'Tô Lâm gặp cộng đồng người Việt tại Pháp'
 
 
-def test_tim_co_loc_ngay_khong_ra_thi_nhac_tim_lai_khong_loc():
-    # E2E 22/11: Gemma mang nhầm ngày 10/9 của câu trước sang câu tỷ số U23 → 0 kết quả → "chưa đủ bằng chứng".
-    c = ctx(search=lambda q, **f: [])
+def _search_by_date(calls, hits):
+    """Giả lập chỉ mục: có lọc ngày thì rỗng (trận đá 18/9, model lọc 10/9), không lọc thì có bài."""
+    def search(q, **f):
+        calls.append(f)
+        return [] if f.get('date_from') or f.get('date_to') else hits
+    return search
+
+
+def test_cau_hien_tai_khong_noi_thoi_gian_thi_bo_ngay_model_tu_dat():
+    # E2E 22/11 lượt 5: câu tỷ số U23 không nêu ngày, Gemma mang ngày 10/9 của lượt 4 sang → 0 kết quả.
+    calls = []
+    c = ctx(search=_search_by_date(calls, [hit(1)]), question='U23 Việt Nam thắng U23 Philippines với tỷ số bao nhiêu?')
+    out, err = T.run_tool(c, 'search_news', {'query': 'U23 Việt Nam thắng U23 Philippines tỷ số',
+                                             'date_from': '2026-09-10', 'date_to': '2026-09-10'}, allowed=ALL)
+    assert err is None and [r['id'] for r in out['results']] == [1]
+    assert calls == [{'source': None, 'date_from': None, 'date_to': None}]
+    assert c.adjustments == [{'tool': 'search_news', 'action': 'dropped_model_dates',
+                              'date_from': '2026-09-10', 'date_to': '2026-09-10'}]
+
+
+def test_bo_ngay_model_ap_cho_ca_tool_dem_bai():
+    conn = FakeConn(rows=[(5,)])
+    c = ctx(conn, question='Có bao nhiêu bài về U23 Việt Nam?')
+    out, _ = T.run_tool(c, 'count_articles', {'date_from': '2026-09-10', 'date_to': '2026-09-10'}, allowed=ALL)
+    assert conn.calls[0][1] == [] and 'đăng từ' not in out['text']
+
+
+@pytest.mark.parametrize('question', ['Tin ngày 10/9 về U23?', 'Hôm đó U23 đá thế nào?', 'Tháng 9 có tin gì về U23?',
+                                      'Năm 2026 U23 thi đấu ra sao?', 'Tin mới nhất về U23?',
+                                      'Có thông tư thuế nào mới không?'])
+def test_cau_co_moc_thoi_gian_thi_giu_ngay_model(question):
+    calls = []
+    c = ctx(search=lambda q, **f: calls.append(f) or [hit(1)], question=question)
+    T.run_tool(c, 'search_news', {'query': 'U23', 'date_from': '2026-09-10', 'date_to': '2026-09-10'}, allowed=ALL)
+    assert calls == [{'source': None, 'date_from': '2026-09-10', 'date_to': '2026-09-10'}] and c.adjustments == []
+
+
+def test_ngay_model_dat_ra_rong_thi_code_tu_tim_lai_khong_loc_ngay():
+    calls = []
+    c = ctx(search=_search_by_date(calls, [hit(1)]), question='Ngày 10/9 U23 Việt Nam thắng mấy bàn?')
     out, _ = T.run_tool(c, 'search_news', {'query': 'U23', 'date_from': '2026-09-10', 'date_to': '2026-09-10'},
                         allowed=ALL)
-    assert 'không có date_from/date_to' in out['note']
-    plain, _ = T.run_tool(c, 'search_news', {'query': 'U23'}, allowed=ALL)
-    assert 'date_from' not in plain['note']
+    assert [r['id'] for r in out['results']] == [1] and len(calls) == 2 and calls[1]['date_from'] is None
+    assert 'toàn bộ kho' in out['note']
+    assert c.adjustments[-1]['action'] == 'retried_without_model_dates'
 
 
-def test_loc_ngay_tu_giao_dien_khong_goi_y_bo_loc():
-    c = ctx(search=lambda q, **f: [], filters={'date_from': '2026-09-10'})
+def test_loc_ngay_tu_giao_dien_khong_tu_bo_va_khong_tim_lai():
+    calls = []
+    c = ctx(search=_search_by_date(calls, [hit(1)]), filters={'date_from': '2026-09-10'}, question='Tỷ số U23?')
     out, _ = T.run_tool(c, 'search_news', {'query': 'U23'}, allowed=ALL)
-    assert 'date_from' not in out['note']
+    assert out['results'] == [] and len(calls) == 1 and calls[0]['date_from'] == '2026-09-10'
+    assert c.adjustments == []

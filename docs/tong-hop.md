@@ -454,7 +454,7 @@ con, thấy lượt bị dừng thì bỏ luồng đó và nhận lượt kế t
 xong), kết quả về muộn bị bỏ (chỉ ghi khi lượt còn `running`); tối đa 2 luồng bị bỏ còn chạy cùng lúc.
 
 **Tool calling + cá nhân hoá (migration `010_rag_user_profiles.sql`, 22/11/2026).** Khi `tool_calling.enabled`
-(configs/rag.yaml), worker chat chạy `src/eventrank/rag/agent.py`: Gemma (vLLM `--tool-call-parser gemma4`) gọi tool
+(configs/rag.yaml, **mặc định bật**), worker chat chạy `src/eventrank/rag/agent.py`: Gemma (vLLM `--tool-call-parser gemma4`) gọi tool
 chỉ-đọc `search_news`, `corpus_info`, `count_articles`, `top_events`, `event_articles`, `update_user_profile`
 (`src/eventrank/rag/tools.py`), đọc 3 lượt trước của cuộc trò chuyện, rồi trả lời ở lượt cuối có kiểm quote.
 
