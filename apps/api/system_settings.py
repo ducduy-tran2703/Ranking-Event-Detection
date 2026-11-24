@@ -82,12 +82,14 @@ def _crawler_settings(base: str) -> dict[str, Any]:
     try:
         items = [live_stats.format_crawler_job(j) for j in live_stats.crawler_job_items(jobs)]
         interval = sched.get("interval_minutes")
-        return {"reachable": True, "enabled": bool(sched.get("enabled")),
-                "interval_minutes": interval if isinstance(interval, int) else None,
-                "sources": [x for x in sched.get("sources") or [] if isinstance(x, str)],
-                "next_run_at": sched.get("next_run_at"), "active_job_id": _str_or_none(sched.get("active_job_id")),
-                "jobs": items}
-    except (AttributeError, TypeError, ValueError):
+        out = {"reachable": True, "enabled": bool(sched.get("enabled")),
+               "interval_minutes": interval if isinstance(interval, int) else None,
+               "sources": [x for x in sched.get("sources") or [] if isinstance(x, str)],
+               "next_run_at": sched.get("next_run_at"), "active_job_id": _str_or_none(sched.get("active_job_id")),
+               "jobs": items}
+        schemas.CrawlerSettings.model_validate(out)    # trường sai kiểu (ngày, id số, số đếm null) → như trả sai dạng
+        return out
+    except (AttributeError, TypeError, ValueError):     # pydantic.ValidationError là ValueError
         return {"reachable": False, "message": BAD_REPLY}
 
 

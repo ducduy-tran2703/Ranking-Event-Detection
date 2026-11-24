@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -274,6 +275,34 @@ def crawler_status(base_url: str | None = None, timeout: float = 1.5) -> dict[st
     return {"enabled": bool(sched.get("enabled")), "interval_minutes": interval if isinstance(interval, int) else None,
             "next_run_at": sched.get("next_run_at"), "active_job_id": active if isinstance(active, str) else None,
             "jobs_total": total if isinstance(total, int) else len(items), "jobs": items}
+
+
+_ERROR_HEAD = re.compile(r"(?:[A-Za-z_]\w{0,80}(?=:|$)|HTTP \d{3}\b)")
+
+
+def public_error(error: str | None) -> str | None:
+    """Lỗi cho người không phải admin: chỉ tên lớp lỗi (worker/crawler ghi `"<Lớp>: <chi tiết>"`) hoặc "HTTP 503";
+    phần chi tiết (đường dẫn máy, host/user Postgres…) bỏ đi. Dạng khác → "Lỗi"."""
+    if not error:
+        return error
+    m = _ERROR_HEAD.match(error.strip())
+    return m.group(0) if m else "Lỗi"
+
+
+def public_view(data: dict[str, Any]) -> dict[str, Any]:
+    """Bản sao `live_overview` cho khách/người không phải admin: mọi cột lỗi qua `public_error` (không sửa `data`)."""
+    out = {**data,
+           "sources": [{**s, "last_error": public_error(s.get("last_error"))} for s in data["sources"]],
+           "crawl_runs": [{**r, "error": public_error(r.get("error"))} for r in data["crawl_runs"]],
+           "worker": {**data["worker"], "rounds": [
+               {**rd, "steps": {k: {**st, "error": public_error(st.get("error"))} for k, st in rd["steps"].items()}}
+               for rd in data["worker"]["rounds"]]}}
+    crawler = data.get("crawler")
+    if crawler:
+        out["crawler"] = {**crawler, "jobs": [
+            {**j, "sources": [{**s, "errors": [public_error(e) for e in s.get("errors") or []]} for s in j["sources"]]}
+            for j in crawler["jobs"]]}
+    return out
 
 
 def live_overview(conn: psycopg.Connection, crawler: dict[str, Any] | None = None) -> dict[str, Any]:

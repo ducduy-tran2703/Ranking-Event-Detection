@@ -144,11 +144,10 @@ def _run(fn, *args, **kw):
 
 # ---------------------------------------------------------------------- /api/auth
 @router.post("/api/auth/register", status_code=204)
-def register(body: schemas.RegisterBody, request: Request, response: Response, conn: Conn, ip: Ip) -> None:
-    """Tạo tài khoản + thư xác minh và đăng nhập luôn. Email đã có tài khoản: cùng phản hồi 204, không đăng nhập."""
-    s = _run(AU.register, conn, body.display_name, body.email, body.password, ip, request.headers.get("user-agent"))
-    if s is not None:
-        _set_session(request, response, s)
+def register(body: schemas.RegisterBody, conn: Conn, ip: Ip) -> None:
+    """Tạo tài khoản + thư xác minh, KHÔNG đăng nhập luôn (đăng nhập sau). Email mới hay đã có tài khoản: cùng phản hồi
+    204, không cookie — không dò được email đã đăng ký. Quá REGISTER_PER_IP_HOUR lượt/giờ từ một IP → 429."""
+    _run(AU.register, conn, body.display_name, body.email, body.password, ip)
 
 
 @router.post("/api/auth/login", response_model=schemas.AccountUser)
