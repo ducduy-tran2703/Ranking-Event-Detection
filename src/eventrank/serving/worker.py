@@ -4,7 +4,8 @@
     uv run --group embed --with pyvi python -m eventrank.serving.worker --loop     (make worker)
 
 Mỗi vòng làm theo TRẠNG THÁI trong DB (không nhớ gì trong RAM), nên chết giữa chừng thì vòng sau làm tiếp:
-- `embed`: bài trong `pending_max_age_days` chưa có vector của content_hash hiện tại.
+- `embed`: bài trong `pending_max_age_days` chưa có vector của content_hash hiện tại (tính theo giờ đăng, hoặc theo lúc
+  bài vào DB nếu lúc đó giờ đăng còn trong hạn: xem `_PENDING`).
 - `recluster`: chỉ chạy khi có bài chưa thuộc sự kiện nào. Gom agglo (configs/clustering.yaml) trên cửa sổ quanh bài mới,
   rồi `reconcile` khớp cụm với sự kiện cũ để `event_id` ổn định (bookmark, theo dõi, thông báo trỏ vào nó).
 - `name`: sự kiện chưa có tên, vừa từ 1 lên ≥ 2 bài, hoặc lớn thêm ≥ `rename_growth` lần. Tên editor không bị đổi.
@@ -66,6 +67,12 @@ NO_LOCK = 10**9                  # lock_min_size rỗng: không sự kiện nào
 # Migration worker chạy được khi CHƯA áp (chỉ thêm trang cài đặt): thiếu 011 thì lịch lấy từ pipeline.yaml như cũ.
 OPTIONAL_MIGRATIONS = {"011_system_settings.sql"}
 SETTINGS_POLL_SECONDS = 30.0     # đang chờ vòng sau: đọc lại cài đặt event_worker mỗi chừng này giây
+WORKER_STEPS = ("embed", "recluster", "name", "trend")   # các bước worker ghi worker_runs ('rag_sync' là của API)
+# Bài "chờ": đăng trong hạn tính tới now, HOẶC vào DB (crawled_at) trong hạn khi giờ đăng lúc đó còn trong hạn: bài nhập
+# sát mốc không bị trượt khỏi cửa sổ trước lượt worker kế tiếp (AUDIT-P1-data-03). Bài đã quá hạn lúc vào DB (nhập lịch
+# sử Silver 2008–2025) vẫn bị loại. Cận dưới now - 2·hạn là hệ quả của hai điều kiện, để dùng chỉ mục published_at.
+_PENDING = ("a.published_at BETWEEN %(low2)s AND %(now)s AND (a.published_at >= %(low)s "
+            "OR (a.crawled_at >= %(low)s AND a.published_at >= a.crawled_at - %(age)s))")
 
 
 class WorkerError(RuntimeError):
@@ -98,18 +105,40 @@ def load_config(path: str | Path = CONFIG) -> WorkerConfig:
                         hide_window=ES.parse_hide_window(raw_window))
 
 
+def _pending_params(cfg: WorkerConfig, now: datetime, **extra: Any) -> dict[str, Any]:
+    age = timedelta(days=cfg.worker["pending_max_age_days"])
+    return {"now": now, "low": now - age, "low2": now - 2 * age, "age": age, **extra}
+
+
+def fail_stale_runs(conn: psycopg.Connection) -> int:
+    """Gọi khi ĐÃ giữ advisory lock (không còn worker nào khác): dòng 'running' của bước worker là của tiến trình trước
+    bị giết giữa chừng (kill -9, mất điện) → 'failed', để /admin/cai-dat không báo "đang chạy" mãi."""
+    return conn.execute("UPDATE worker_runs SET status = 'failed', finished_at = now(), error = 'worker khởi động lại' "
+                        "WHERE status = 'running' AND step = ANY(%s)", (list(WORKER_STEPS),)).rowcount
+
+
+def _conn_lost(conn: Any) -> bool:
+    """Kết nối đã đóng/hỏng (Postgres khởi động lại, mạng đứt): không tự phục hồi, advisory lock cũng đã mất."""
+    return bool(getattr(conn, "closed", False) or getattr(conn, "broken", False))
+
+
 @contextmanager
 def _step(conn: psycopg.Connection, name: str, cfg: WorkerConfig, now: datetime):
-    """Một dòng `worker_runs` cho bước `name`; lỗi được ghi lại rồi ném tiếp."""
+    """Một dòng `worker_runs` cho bước `name`; lỗi (cả Ctrl+C/SystemExit) được ghi lại rồi ném tiếp."""
     run_id = conn.execute("INSERT INTO worker_runs (step, app_now, versions) VALUES (%s, %s, %s) RETURNING run_id",
                           (name, now, Jsonb(cfg.versions))).fetchone()[0]
     stats: dict[str, Any] = {}
     t0 = time.perf_counter()
     try:
         yield run_id, stats
-    except Exception as e:
-        conn.execute("UPDATE worker_runs SET status = 'failed', finished_at = now(), error = %s WHERE run_id = %s",
-                     (f"{e.__class__.__name__}: {e}"[:2000], run_id))
+    except BaseException as e:
+        try:
+            conn.execute("UPDATE worker_runs SET status = 'failed', finished_at = now(), error = %s WHERE run_id = %s",
+                         (f"{e.__class__.__name__}: {e}"[:2000], run_id))
+        except psycopg.Error:
+            if isinstance(e, Exception):
+                raise
+            # Ctrl+C/SystemExit: ghi không được thì vẫn ném lệnh ngắt; lần khởi động sau fail_stale_runs dọn dòng này
         raise
     stats["seconds"] = round(time.perf_counter() - t0, 2)
     conn.execute("UPDATE worker_runs SET status = 'ok', finished_at = now(), stats = %s WHERE run_id = %s",
@@ -123,9 +152,8 @@ def embed_pending(conn: psycopg.Connection, cfg: WorkerConfig, now: datetime, en
     mv = cfg.cluster["model_version"]
     rows = conn.execute(
         "SELECT a.article_id, a.title, a.sapo FROM articles a LEFT JOIN article_embeddings e "
-        "ON e.article_id = a.article_id AND e.model_version = %s AND e.content_hash = a.content_hash "
-        "WHERE e.article_id IS NULL AND a.published_at BETWEEN %s AND %s",
-        (mv, now - timedelta(days=cfg.worker["pending_max_age_days"]), now)).fetchall()
+        "ON e.article_id = a.article_id AND e.model_version = %(mv)s AND e.content_hash = a.content_hash "
+        f"WHERE e.article_id IS NULL AND {_PENDING}", _pending_params(cfg, now, mv=mv)).fetchall()
     if not rows:
         return 0
     with _step(conn, "embed", cfg, now) as (_, stats):
@@ -240,10 +268,9 @@ def recluster(conn: psycopg.Connection, cfg: WorkerConfig, now: datetime, logf: 
     window = timedelta(hours=cfg.cluster["window_hours"])
     oldest = conn.execute(
         "SELECT min(a.published_at), count(*) FROM articles a "
-        "JOIN article_embeddings v ON v.article_id = a.article_id AND v.model_version = %s "
+        "JOIN article_embeddings v ON v.article_id = a.article_id AND v.model_version = %(mv)s "
         "AND v.content_hash = a.content_hash LEFT JOIN event_articles ea ON ea.article_id = a.article_id "
-        "WHERE ea.article_id IS NULL AND a.published_at BETWEEN %s AND %s",
-        (mv, now - timedelta(days=cfg.worker["pending_max_age_days"]), now)).fetchone()
+        f"WHERE ea.article_id IS NULL AND {_PENDING}", _pending_params(cfg, now, mv=mv)).fetchone()
     if not oldest[1]:
         return 0
     low = min(now - window, oldest[0] - window)
@@ -525,11 +552,13 @@ class LoopSettings:
 def current_settings(conn: psycopg.Connection, cfg: WorkerConfig, fixed_interval: float | None = None,
                      last: LoopSettings | None = None) -> LoopSettings:
     """Cài đặt `event_worker` từ DB (trang Cài đặt hệ thống); chưa có dòng/bảng → pipeline.yaml như cũ.
-    `--interval` trên dòng lệnh thắng DB. Đọc DB lỗi (mất kết nối) → giữ cài đặt lần trước."""
+    `--interval` trên dòng lệnh thắng DB. Đọc DB lỗi → giữ cài đặt lần trước; kết nối đã chết → ném ra (main thoát)."""
     yaml_seconds = float(cfg.worker["interval_seconds"])
     try:
         stored = WS.load(conn, WS.default_settings(yaml_seconds))
     except psycopg.Error as e:
+        if _conn_lost(conn):
+            raise
         log.warning("không đọc được cài đặt event_worker (%s); giữ cài đặt cũ", e.__class__.__name__)
         return last or LoopSettings(True, fixed_interval if fixed_interval is not None else yaml_seconds)
     interval = float(stored.value.interval_seconds) if stored.from_db else yaml_seconds
@@ -556,6 +585,8 @@ def loop_forever(conn: psycopg.Connection, cfg: WorkerConfig, *, fixed_interval:
                 if any(result.values()):
                     logf(json.dumps(result, ensure_ascii=False))
             except (psycopg.Error, ValueError, RuntimeError, OSError) as e:
+                if _conn_lost(conn):
+                    raise                  # kết nối chết không tự sống lại: thoát để được khởi động lại (AUDIT-7)
                 log.exception("vòng worker lỗi, thử lại sau %.0f s: %s", settings.interval, e.__class__.__name__)
         elif not paused_logged:
             logf("worker sự kiện đang TẠM DỪNG (trang Cài đặt hệ thống); vẫn đọc lại cài đặt định kỳ")
@@ -594,6 +625,8 @@ def main(argv: list[str] | None = None) -> int:
                 logf("chưa áp migration 011: lịch worker lấy từ pipeline.yaml (trang Cài đặt hệ thống chưa có hiệu lực)")
             if not conn.execute("SELECT pg_try_advisory_lock(%s)", (_LOCK_KEY,)).fetchone()[0]:
                 raise WorkerError("đã có một worker khác đang chạy trên DB này")
+            if n_stale := fail_stale_runs(conn):
+                logf(f"đánh dấu failed {n_stale} bước worker còn 'running' từ lần chạy trước (bị ngắt giữa chừng)")
             cfg = load_config(a.config)
             if not a.loop:
                 logf(json.dumps(run_cycle(conn, cfg, logf=logf), ensure_ascii=False))
@@ -603,6 +636,10 @@ def main(argv: list[str] | None = None) -> int:
     except (db.DatabaseConfigError, WorkerError, ES.HideWindowError) as e:
         print(f"LỖI: {e}", file=sys.stderr)
         return 1
+    except psycopg.OperationalError as e:
+        print(f"LỖI: mất kết nối Postgres ({e.__class__.__name__}) — worker thoát mã 2; chạy lại `make worker` khi DB "
+              "sẵn sàng", file=sys.stderr)
+        return 2
     except KeyboardInterrupt:
         return 0
 

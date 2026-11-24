@@ -292,6 +292,31 @@ def test_old_articles_outside_pending_window_are_ignored(conn, cfg):
     assert conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
 
 
+def _entered(conn, article, at):
+    conn.execute("UPDATE articles SET crawled_at = %s WHERE article_id = %s", (at, article))
+
+
+def test_article_entered_inside_window_is_kept_after_sliding_out(conn, cfg):
+    """AUDIT-P1-data-03: bài vào DB khi còn trong `pending_max_age_days` nhưng lượt worker kế tiếp chạy lúc giờ đăng đã
+    trượt ra ngoài cửa sổ vài phút → trước đây không bao giờ có embedding/sự kiện. Cửa sổ tính cả lúc bài VÀO hệ thống."""
+    late = add(conn, 1, "Bão số 13 đổ bộ", "nhandan", 7 * 24 * 60 - 1)        # đăng now - 7 ngày + 1 phút
+    _entered(conn, late, NOW - timedelta(minutes=10))
+    clock.set_replay(conn, NOW + timedelta(minutes=2), 60)                   # lượt worker chạy 2 phút sau
+    res = cycle(conn, cfg)
+    assert (res["embedded"], res["assigned"]) == (1, 1)
+    assert event_of(conn, late)
+
+
+@pytest.mark.parametrize("age_at_entry_days", [8, 365 * 10])
+def test_article_already_too_old_when_entered_is_still_ignored(conn, cfg, age_at_entry_days):
+    """Bài cũ nhập lịch sử (import_jsonl Silver 2008–2025) hay bài đã quá hạn lúc vào DB: vẫn KHÔNG bị kéo vào gom cụm."""
+    old = add(conn, 1, "Bão số 13 từ lâu", "tuoitre", age_at_entry_days * 24 * 60)
+    _entered(conn, old, NOW - timedelta(minutes=10))
+    res = cycle(conn, cfg)
+    assert (res["embedded"], res["assigned"]) == (0, 0)
+    assert conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
+
+
 def test_stale_event_is_closed(conn, cfg):
     a1 = add(conn, 1, "Bão số 13 đổ bộ", "tuoitre", 60)
     cycle(conn, cfg)
