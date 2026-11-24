@@ -92,6 +92,16 @@ class Pipeline:
         touched = []
         try:
             report(dict(stats))
+            # A job killed before `finally` leaves clean articles that no export holds, and later
+            # jobs skip them. Re-export those here. Tracking starts with this field, so entries from
+            # before it are never re-exported automatically (that backfill is a separate decision).
+            if "export_tracking_since" not in state.value:
+                state.value["export_tracking_since"] = now_iso()
+                state.save()
+            tracking_since = datetime.fromisoformat(state.value["export_tracking_since"])
+            touched.extend(key for key, entry in state.articles.items()
+                           if entry["status"] == "clean" and "exported_job" not in entry
+                           and datetime.fromisoformat(entry["updated_at"]) >= tracking_since)
             if retry_failed:
                 for entry in state.articles.values():
                     if entry["status"] == "failed":
@@ -193,6 +203,10 @@ class Pipeline:
                 records = [read_json(self.article_path(stage, source, key)) for key in dict.fromkeys(touched)]
                 text = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records if r is not None)
                 write_text(self.root / "jobs" / job_id / stage / f"{source}.jsonl", text)
+            for key in dict.fromkeys(touched):
+                if state.articles[key]["status"] == "clean":
+                    state.articles[key]["exported_job"] = job_id
+            state.save()
             rejects = [{"article_id": key, "source": source, "url": state.articles[key]["url"],
                         "reason": state.articles[key].get("last_error")}
                        for key in dict.fromkeys(touched) if state.articles[key]["status"] == "rejected"]

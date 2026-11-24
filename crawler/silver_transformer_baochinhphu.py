@@ -8,8 +8,9 @@ silver_baochinhphu.jsonl.
 Đặc điểm:
 - Ghi đè toàn bộ file Silver mỗi lần chạy (Silver luôn có thể tái sinh
   100% từ Bronze, không cần cơ chế incremental ở giai đoạn train model).
-- Bản ghi thiếu field bắt buộc (title, sapo, published_at không parse được)
-  sẽ bị bỏ qua, có log cảnh báo kèm url.
+- Bản ghi thiếu field bắt buộc (title, published_at không parse được)
+  sẽ bị bỏ qua, có log cảnh báo kèm url. Thiếu sapo thì để "" (khung gắn cờ
+  missing_sapo, không loại bài).
 - author: có thể là None nếu bài không có dòng tác giả cuối bài.
 """
 
@@ -113,9 +114,10 @@ def transform_record(bronze_record: dict) -> dict | None:
         return None
 
     sapo = _extract_sapo(soup)
-    if sapo is None:
-        logger.warning("Bỏ qua (thiếu sapo): %s", url)
-        return None
+    if not sapo:
+        # Missing sapo is a quality flag, not a reject (same as the four older sources).
+        logger.warning("Thiếu sapo, để rỗng (khung gắn cờ missing_sapo): %s", url)
+        sapo = ""
 
     published_at = _extract_published_at(soup)
     if published_at is None:

@@ -127,9 +127,10 @@ def transform_record(bronze_record: dict) -> dict | None:
         return None
 
     sapo = _extract_sapo(soup)
-    if sapo is None:
-        logger.warning("Bỏ qua (thiếu sapo): %s", url)
-        return None
+    if not sapo:
+        # Missing sapo is a quality flag, not a reject (same as the four older sources).
+        logger.warning("Thiếu sapo, để rỗng (khung gắn cờ missing_sapo): %s", url)
+        sapo = ""
 
     published_at = _extract_published_at(soup)
     if published_at is None:

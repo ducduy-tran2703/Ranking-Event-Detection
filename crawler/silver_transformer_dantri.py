@@ -117,14 +117,11 @@ def transform_record(bronze_record: dict) -> dict | None:
         logger.warning("Bỏ qua (title rỗng sau khi trích xuất): %s", url)
         return None
 
-    if sapo_tag is None:
-        logger.warning("Bỏ qua (thiếu sapo): %s", url)
-        return None
-    sapo = normalize_text(sapo_tag.get_text(separator=" ", strip=True))
+    sapo = normalize_text(sapo_tag.get_text(separator=" ", strip=True)) if sapo_tag is not None else ""
     sapo = SAPO_PREFIX_RE.sub("", sapo).strip()
     if not sapo:
-        logger.warning("Bỏ qua (sapo rỗng sau khi trích xuất): %s", url)
-        return None
+        # Missing sapo is a quality flag, not a reject (same as the four older sources).
+        logger.warning("Thiếu sapo, để rỗng (khung gắn cờ missing_sapo): %s", url)
 
     published_at = _extract_published_at(soup)
     if published_at is None:

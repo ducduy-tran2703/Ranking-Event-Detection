@@ -4,7 +4,7 @@ import json
 import threading
 import time
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -140,7 +140,8 @@ def test_bad_required_metadata_is_rejected(html):
 def test_incremental_timeline_bootstrap_and_page_cap(tmp_path):
     client = Mock()
     client.get.return_value = Mock(text=LISTING)
-    settings, now = Settings(data_dir=tmp_path), datetime.now(VN_TZ)
+    # `since` matches the fixture IDs (09/11/2026); with the real clock they would be skipped as old (AUDIT-6).
+    settings, now = Settings(data_dir=tmp_path), datetime(2026, 11, 9, 9, 0, tzinfo=VN_TZ)
     with patch("automation.discovery.tn.TARGET_CATEGORIES", {"Kinh Tế": "18549"}):
         assert (URL, "Kinh Tế") in list(discover("thanhnien", client, set(), now, settings))
         assert client.get.call_count == 3
@@ -172,6 +173,8 @@ def test_discovery_failure_preserves_watermark_and_processes_found_urls(tmp_path
     with (
         patch("automation.discovery.tn.TARGET_CATEGORIES", {"Kinh Tế": "18549"}),
         patch("automation.pipeline.SourceClient", return_value=client),
+        # This test is about the watermark; fixture IDs (09/11/2026) must not be cut off by the real clock (AUDIT-6).
+        patch("automation.discovery.TIMELINE_ID_SLACK", timedelta(days=36500)),
     ):
         result = pipeline.run_source("thanhnien", "partial", lambda _: None)
     assert result["status"] == "partial", result

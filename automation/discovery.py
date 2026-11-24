@@ -1,11 +1,12 @@
 """Incremental discovery; reuse the site's existing selectors and categories.
 
 Listing sources scan at least two consecutive pages containing only known URLs
-before stopping. A page cap is reported as incomplete, never as success.
+before stopping; Tuoi Tre/Thanh Nien also stop at a page whose URL IDs are all
+older than `since` (minus a slack). A page cap is reported as incomplete, never as success.
 Sitemap sources scan from the previous successful scan minus an overlap.
 """
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlsplit, urlunsplit
 from xml.etree import ElementTree as ET
 
@@ -22,6 +23,11 @@ from crawler import harvester_vnexpress as vne
 from crawler.ingest_baochinhphu import CATEGORIES as CP_CATEGORIES
 from crawler.ingest_nhandan import CATEGORIES as ND_CATEGORIES
 
+# Tuoi Tre/Thanh Nien IDs start with the CMS creation time (-100YYMMDDhhmmss..., -185YYMMDDhhmmss...).
+# A draft can be created days before it is published, so only IDs this much older than `since` are skipped.
+TIMELINE_ID_RE = {"tuoitre": re.compile(r"-100(\d{12})\d*\.htm$"), "thanhnien": re.compile(r"-185(\d{12})\d*\.htm$")}
+TIMELINE_ID_SLACK = timedelta(days=7)
+
 
 class DiscoveryIncomplete(RuntimeError):
     pass
@@ -36,7 +42,7 @@ def canonical_url(url):
 def discover(source, client, known, since, settings):
     """Yield (url, category). The caller persists every yielded URL immediately."""
     if source in ("tuoitre", "thanhnien"):
-        yield from _timeline_listings(source, client, known, settings)
+        yield from _timeline_listings(source, client, known, since, settings)
     elif source in ("vietnamnet", "vnexpress"):
         yield from _category_listings(source, client, known, settings)
     elif source in ("baochinhphu", "nhandan"):
@@ -74,9 +80,21 @@ def _category_listings(source, client, known, settings):
         raise DiscoveryIncomplete("; ".join(errors))
 
 
-def _timeline_listings(source, client, known, settings):
+def _id_time(source, url, tz):
+    """CMS creation time encoded in the article ID, or None when the ID has another shape."""
+    match = TIMELINE_ID_RE[source].search(url)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%y%m%d%H%M%S").replace(tzinfo=tz)
+    except ValueError:
+        return None
+
+
+def _timeline_listings(source, client, known, since, settings):
     module = tt if source == "tuoitre" else tn
     limit = settings.max_listing_pages if known else settings.bootstrap_listing_pages
+    cutoff = since - TIMELINE_ID_SLACK
     errors = []
     for category, zone in module.TARGET_CATEGORIES.items():
         quiet = 0
@@ -92,9 +110,12 @@ def _timeline_listings(source, client, known, settings):
             if not urls:
                 raise DiscoveryIncomplete(f"No recognized {source} links: {url}")
             quiet = quiet + 1 if all(u in known for u in urls) else 0
+            old = {u for u in urls if (t := _id_time(source, u, since.tzinfo)) is not None and t < cutoff}
             for article_url in urls:
-                yield article_url, category
-            if quiet >= 2:
+                if article_url not in old:
+                    yield article_url, category
+            # The timeline is newest first: a page of only old IDs ends the zone.
+            if quiet >= 2 or len(old) == len(urls):
                 break
         else:
             if known:
@@ -105,6 +126,8 @@ def _timeline_listings(source, client, known, settings):
 
 def _listings(source, client, known, settings):
     categories = CP_CATEGORIES if source == "baochinhphu" else ND_CATEGORIES
+    # Only https links on the paper's own host: SourceClient refuses the rest, so they would fail every job.
+    prefix = (cp.BASE_URL if source == "baochinhphu" else nd.BASE_URL) + "/"
     # The first run establishes a recent baseline, not a historical backfill.
     limit = settings.max_listing_pages if known else settings.bootstrap_listing_pages
     errors = []
@@ -134,10 +157,11 @@ def _listings(source, client, known, settings):
                 urls = [urljoin(nd.BASE_URL, item["url"]) for item in data["contents"] if item.get("url")]
                 more = data["load_more"]
             urls = list(dict.fromkeys(canonical_url(u) for u in urls))
+            ours = [u for u in urls if u.startswith(prefix)]
             # Membership refers to the snapshot BEFORE this discovery, not links
             # just found on the preceding page (pages may repeat pinned articles).
-            quiet = quiet + 1 if urls and all(u in known for u in urls) else 0
-            for url in urls:
+            quiet = quiet + 1 if ours and all(u in known for u in ours) else 0
+            for url in ours:
                 yield url, cfg["category_label"]
             if not urls or not more or quiet >= 2:
                 break
