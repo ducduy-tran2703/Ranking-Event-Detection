@@ -21,16 +21,18 @@ export const ageHours = (iso: string, now = Date.now()) => (now - new Date(iso).
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** Phần giờ VN của một chuỗi ISO có múi giờ: {date: "YYYY-MM-DD", hhmm: "HH:MM", ddmm: "DD/MM"}. */
-export function vnClock(iso: string) {
-  const s = new Date(Date.parse(iso) + 7 * 3_600_000).toISOString();
+/** Phần giờ VN của một chuỗi ISO có múi giờ: {date: "YYYY-MM-DD", hhmm: "HH:MM", ddmm: "DD/MM"}. Chuỗi hỏng → "—", không ném. */
+export function vnClock(iso: string | null | undefined) {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(t)) return { date: "—", hhmm: "—", ddmm: "—", hour: 0 };
+  const s = new Date(t + 7 * 3_600_000).toISOString();
   return { date: s.slice(0, 10), hhmm: s.slice(11, 16), ddmm: `${s.slice(8, 10)}/${s.slice(5, 7)}`,
            hour: Number(s.slice(11, 13)) };
 }
 
 /** "10/09 11:23". */
 export const fmtShort = (iso: string | null | undefined) => {
-  if (!iso) return "—";
+  if (!iso || Number.isNaN(Date.parse(iso))) return "—";
   const c = vnClock(iso);
   return `${c.ddmm} ${c.hhmm}`;
 };

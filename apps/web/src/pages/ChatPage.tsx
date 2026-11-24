@@ -271,8 +271,17 @@ function Welcome({ status, children }: { status?: RagStatus; children?: ReactNod
           <li>Kho: <strong className="tnum">{s.articles.toLocaleString("vi-VN")}</strong> bài từ {s.sources.length} báo;
             tin mới nhất đăng ngày <strong>{fmtDate(s.to_date)}</strong> — không có tin sau ngày này.</li>
         )}
-        <li>Mỗi câu được trả lời <strong>riêng</strong>: trợ lý không nhớ câu trước, hãy hỏi đủ ý trong một câu.</li>
-        <li>Câu về “hôm nay”, “mới nhất” cần chọn khoảng ngày; câu thống kê toàn kho (bao nhiêu bài…) không hỗ trợ.</li>
+        {status?.single_turn === false ? (           // tool calling bật: nhớ vài lượt gần nhất, có tool đếm bài
+          <>
+            <li>Trợ lý <strong>nhớ vài câu gần nhất</strong> trong cùng cuộc trò chuyện, nên hỏi tiếp được (“còn báo khác thì sao?”).</li>
+            <li>Hỏi được cả câu đếm bài trong kho (bao nhiêu bài theo báo, chuyên mục, tên riêng, khoảng ngày) và tin nổi bật.</li>
+          </>
+        ) : (
+          <>
+            <li>Mỗi câu được trả lời <strong>riêng</strong>: trợ lý không nhớ câu trước, hãy hỏi đủ ý trong một câu.</li>
+            <li>Câu về “hôm nay”, “mới nhất” cần chọn khoảng ngày; câu thống kê toàn kho (bao nhiêu bài…) không hỗ trợ.</li>
+          </>
+        )}
         <li>Lần hỏi đầu sau một lúc không dùng, mô hình phải khởi động trên GPU nên có thể mất vài phút.</li>
       </ul>
       {children}

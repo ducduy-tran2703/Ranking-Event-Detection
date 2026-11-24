@@ -36,6 +36,8 @@ TOUCH_EVERY = timedelta(minutes=5)
 TTL = {"verify_email": timedelta(hours=24), "reset_password": timedelta(hours=1)}
 LINK_PATH = {"verify_email": "/verify-email", "reset_password": "/reset-password"}
 FORGOT_MAX_PER_HOUR = 3
+REGISTER_PER_IP_HOUR = 10        # lượt đăng ký mỗi IP mỗi giờ (đếm audit_logs, chặn trước khi băm Argon2)
+REGISTER_LIMITED = "Bạn đã đăng ký quá nhiều lần từ mạng này. Hãy thử lại sau một giờ."
 
 GENERIC_LOGIN = "Email hoặc mật khẩu không đúng. Sai 5 lần liên tiếp, tài khoản bị khoá 15 phút."
 BAD_LINK = {"verify_email": "Link xác minh không hợp lệ hoặc đã hết hạn.",
@@ -115,30 +117,37 @@ def _issue_email(conn: psycopg.Connection, user_id: int, email: str, purpose: st
 
 
 # ---------------------------------------------------------------------- đăng ký / đăng nhập
-def register(conn: psycopg.Connection, display_name: str, email: str, password: str, ip: str | None = None,
-             user_agent: str | None = None) -> NewSession | None:
-    """Tạo tài khoản + cài đặt + thư xác minh, đăng nhập luôn (dùng được trong lúc chờ xác minh). Email đã có tài
-    khoản → None, không báo khác đi (người gọi trả cùng phản hồi)."""
+def register(conn: psycopg.Connection, display_name: str, email: str, password: str, ip: str | None = None) -> None:
+    """Tạo tài khoản + cài đặt + thư xác minh. KHÔNG đăng nhập luôn: email mới hay email đã có tài khoản đều cùng một
+    kết quả (người gọi trả cùng phản hồi, không cookie) → không dò được email nào đã đăng ký. Người dùng đăng nhập
+    sau đó (dùng được trong lúc chờ xác minh).
+
+    Mỗi IP tối đa REGISTER_PER_IP_HOUR lượt/giờ (mọi lượt qua kiểm tra dữ liệu, kể cả email đã có), kiểm TRƯỚC khi
+    băm Argon2 (64 MiB) → 429."""
+    if ip and conn.execute("SELECT count(*) FROM audit_logs WHERE action = 'user.register_attempt' AND ip = %s "
+                           "AND at > now() - interval '1 hour'", (ip,)).fetchone()[0] >= REGISTER_PER_IP_HOUR:
+        raise AccountError(429, REGISTER_LIMITED)
     name = " ".join((display_name or "").split())
     email = S.normalize_email(email)
     if not (1 <= len(name) <= 60) or not S.valid_email(email):
         raise AccountError(400, "Hãy nhập tên hiển thị (tối đa 60 ký tự) và một email hợp lệ.")
     if problem := S.password_problem(password):
         raise AccountError(400, problem)
+    if ip:
+        audit(conn, None, "user.register_attempt", ip=ip, actor_kind="system")
     pw_hash = S.hash_password(password)                   # băm TRƯỚC khi biết email có chưa → thời gian như nhau
     with conn.transaction():
         row = conn.execute("INSERT INTO users (email, password_hash, display_name, terms_accepted_at) "
                            "VALUES (%s, %s, %s, now()) ON CONFLICT (email) WHERE deleted_at IS NULL DO NOTHING "
                            "RETURNING user_id", (email, pw_hash, name)).fetchone()
         if row is None:
-            return None
+            return
         uid = row[0]
         conn.execute("INSERT INTO user_settings (user_id) VALUES (%s)", (uid,))
         conn.execute("INSERT INTO notifications (user_id, kind, body) VALUES (%s, 'system', %s)",
                      (uid, "Chào mừng bạn. Hãy mở link xác minh trong email để hoàn tất."))
         _issue_email(conn, uid, email, "verify_email")
         audit(conn, uid, "user.register", "user", str(uid), ip=ip)
-        return _create_session(conn, uid, False, ip, user_agent)
 
 
 def login(conn: psycopg.Connection, email: str, password: str, remember: bool = False, ip: str | None = None,

@@ -7,6 +7,7 @@ import { prefetchRoute } from "../api/prefetch";
 import { useRunInfo } from "../api/queries";
 import { sourceName, DEFAULT_SOURCES } from "../lib/sources";
 import { loginHref } from "../lib/routes";
+import { RouteErrorBoundary } from "./ErrorBoundary";
 import { IconAlert } from "./Icons";
 import { AdminHeader, SimpleHeader, SiteHeader } from "./SiteHeader";
 import { Loading } from "./Status";
@@ -85,7 +86,7 @@ export function PublicLayout() {
       <Prefetch />
       <SiteHeader />
       <main id="noi-dung" tabIndex={-1}>
-        <Suspense fallback={<PageFallback />}><Outlet /></Suspense>
+        <RouteErrorBoundary><Suspense fallback={<PageFallback />}><Outlet /></Suspense></RouteErrorBoundary>
       </main>
       <Footer />
     </>
@@ -99,14 +100,14 @@ export function AuthLayout() {
       <SimpleHeader />
       <PreviewStrip />
       <main id="noi-dung" tabIndex={-1} style={{ flex: "1 1 auto", display: "flex" }}>
-        <Suspense fallback={<PageFallback />}><Outlet /></Suspense>
+        <RouteErrorBoundary><Suspense fallback={<PageFallback />}><Outlet /></Suspense></RouteErrorBoundary>
       </main>
     </div>
   );
 }
 
 /** Chặn trang cần đăng nhập (và vai trò). Chưa đăng nhập → /login?next=…; sai vai trò → giải thích. */
-export function RequireAuth({ role, children }: { role?: Role; children: ReactNode }) {
+export function RequireAuth({ role, children }: { role?: Role | Role[]; children: ReactNode }) {
   const { data: user, isPending, error, refetch } = useCurrentUser();
   const loc = useLocation();
   if (isPending) return <PageFallback />;
@@ -121,7 +122,7 @@ export function RequireAuth({ role, children }: { role?: Role; children: ReactNo
     );
   }
   if (!user) return <Navigate to={loginHref(loc.pathname + loc.search + loc.hash)} replace />;
-  if (role && user.role !== role) {
+  if (role && !(Array.isArray(role) ? role : [role]).includes(user.role)) {
     return (
       <div className="page narrow">
         <div className="notfound" role="alert">
@@ -139,18 +140,31 @@ export function RequireAuth({ role, children }: { role?: Role; children: ReactNo
   return <>{children}</>;
 }
 
+/** Khu quản trị: admin vào mọi tab; editor chỉ vào tab Báo sai (backend cho editor xem/xử lý báo sai), tab khác chặn ở
+ *  <AdminOnly> trong App.tsx. */
 export function AdminLayout() {
   const { data: user } = useCurrentUser();
   return (
-    <RequireAuth role="admin">
+    <RequireAuth role={["admin", "editor"]}>
       <ScrollTop />
       <AdminHeader who={user ? `${user.role} · ${user.display_name}` : undefined} />
       <PreviewStrip />
       <main id="noi-dung" tabIndex={-1}>
-        <Suspense fallback={<PageFallback />}><Outlet /></Suspense>
+        <RouteErrorBoundary><Suspense fallback={<PageFallback />}><Outlet /></Suspense></RouteErrorBoundary>
       </main>
     </RequireAuth>
   );
+}
+
+/** Các tab chỉ dành cho admin (editor vào thẳng URL → trang 403 như cũ, vẫn giữ header khu quản trị). */
+export function AdminOnly() {
+  return <RequireAuth role="admin"><Outlet /></RequireAuth>;
+}
+
+/** /admin: admin → Thu thập; editor → Báo sai (tab duy nhất của editor). */
+export function AdminIndex() {
+  const { data: user } = useCurrentUser();
+  return <Navigate to={user?.role === "admin" ? "/admin/thu-thap" : "/admin/bao-sai"} replace />;
 }
 
 /** Thông báo ngắn ở đáy màn hình (role=status), tự tắt sau 2,5 giây. */

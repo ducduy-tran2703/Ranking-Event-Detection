@@ -335,7 +335,9 @@ function wireEvents() {
     const btn = $("reloadBtn");
     btn.disabled = true; btn.textContent = "Đang tải…";
     try {
-      const r = await api("/api/admin/reload", {}, { method: "POST" });
+      // Chỉ admin: cần đăng nhập ở web (cùng địa chỉ) và gửi lại cookie csrf_token trong header.
+      const csrf = (document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/) || [])[1] || "";
+      const r = await api("/api/admin/reload", {}, { method: "POST", headers: { "X-CSRF-Token": decodeURIComponent(csrf) } });
       toast(`Đã nạp lại ${fmtInt(r.rows)} bài trong ${r.seconds}s`);
       await loadMeta();
       await showTab(state.tab);

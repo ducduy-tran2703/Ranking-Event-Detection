@@ -435,7 +435,8 @@ export interface paths {
         put?: never;
         /**
          * Register
-         * @description Tạo tài khoản + thư xác minh và đăng nhập luôn. Email đã có tài khoản: cùng phản hồi 204, không đăng nhập.
+         * @description Tạo tài khoản + thư xác minh, KHÔNG đăng nhập luôn (đăng nhập sau). Email mới hay đã có tài khoản: cùng phản hồi
+         *     204, không cookie — không dò được email đã đăng ký. Quá REGISTER_PER_IP_HOUR lượt/giờ từ một IP → 429.
          */
         post: operations["register_api_auth_register_post"];
         delete?: never;

@@ -84,9 +84,9 @@ def test_do_tuoi_du_lieu_vua_nap_la_moi_nhat(client):
     assert body["loaded_at"] is not None and body["remote_latest_modified"] is not None
 
 
-def test_nap_lai_tra_ve_thoi_diem_nap(client):
-    body = client.post("/api/admin/reload").json()
-    assert body["rows"] == 5 and body["loaded_at"]
+def test_nap_lai_kho_khach_bi_chan(client):
+    """AUDIT-P1-api-01: chỉ admin (+ CSRF); đường admin ở tests/api/test_audit_f_api_sua.py (cần Postgres)."""
+    assert client.post("/api/admin/reload").status_code == 401
 
 
 def test_cac_thong_ke_khop_kieu_da_khai_bao(client):

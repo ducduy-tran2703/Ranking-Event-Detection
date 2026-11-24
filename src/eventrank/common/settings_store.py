@@ -5,7 +5,8 @@ biết các khối cụ thể). Quy tắc đọc:
 
 - Chưa có dòng, hoặc DB chưa áp 011 (bảng chưa có) → trả mặc định, không lỗi: tiến trình cũ vẫn chạy như trước.
 - Dòng có trường thừa/thiếu (code mới hơn hoặc cũ hơn DB) → giữ các trường còn hợp lệ, phần còn lại lấy mặc định.
-- Giá trị không qua kiểm tra (ai đó sửa tay sai) → mặc định + ghi log cảnh báo; không làm chết vòng lặp gọi tới.
+- Trường có giá trị không qua kiểm tra (ai đó sửa tay sai) → riêng trường đó lấy mặc định, các trường khác giữ, ghi
+  log cảnh báo; không làm chết vòng lặp gọi tới.
 
 Ghi luôn kiểm bằng model trước (sai → `ValidationError`, không ghi gì).
 """
@@ -47,11 +48,21 @@ def load[M: BaseModel](conn: psycopg.Connection, key: str, model: type[M], defau
     raw, updated_at, updated_by = row
     fields = set(model.model_fields)
     known = {k: v for k, v in (raw or {}).items() if k in fields} if isinstance(raw, dict) else {}
+    merged, bad = base.model_dump(), []
+    for k, v in known.items():           # kiểm từng trường: một trường sai không kéo cả khối (vd. enabled=false) về mặc định
+        try:
+            model.model_validate({**merged, k: v})
+        except ValidationError:
+            bad.append(k)
+        else:
+            merged[k] = v
     try:
-        value = model.model_validate({**base.model_dump(), **known})
-    except ValidationError:
-        log.warning("cài đặt %s trong system_settings không hợp lệ; dùng mặc định", key)
-        value = base
+        value = model.model_validate(merged)
+    except ValidationError:              # luật liên trường của model vẫn sai → cả khối mặc định
+        bad, value = list(known), base
+    if bad:
+        log.warning("cài đặt %s trong system_settings có trường không hợp lệ (%s); trường đó dùng mặc định",
+                    key, ", ".join(bad))
     return Stored(value, updated_at, updated_by, True)
 
 

@@ -320,7 +320,14 @@ def create_app(store: SilverStore | None = None, events: EventStore | None = Non
             raise HTTPException(404, "Không tìm thấy sự kiện")
         return row
 
-    @app.post("/api/admin/reload", response_model=schemas.ReloadResult)
+    def _session_cookie(request: Request) -> None:
+        """Khách (không có cookie phiên) bị chặn ngay, không mở kết nối Postgres."""
+        if not request.cookies.get(accounts.SESSION_COOKIE):
+            raise HTTPException(401, "Bạn cần đăng nhập.")
+
+    # Chỉ admin + CSRF (require_role): nạp lại chiếm khoá của SilverStore, khách gọi liên tục sẽ treo /api/stats.
+    @app.post("/api/admin/reload", response_model=schemas.ReloadResult,
+              dependencies=[Depends(_session_cookie), accounts.require_role("admin")])
     def reload(s: Store) -> dict[str, Any]:
         return s.reload()
 

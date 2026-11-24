@@ -41,8 +41,12 @@ def send(c, method, path, body=None):
     return c.request(method, path, json=body, headers={"X-CSRF-Token": c.cookies.get("csrf_token") or ""})
 
 
-def register(c, email="ban@example.com", name="Bạn Đọc", pw=PW, **kw):
-    return c.post("/api/auth/register", json={"display_name": name, "email": email, "password": pw, **kw})
+def register(c, email="ban@example.com", name="Bạn Đọc", pw=PW, login_after=True, **kw):
+    """Đăng ký không đăng nhập luôn (AUDIT-P1-api-02) → như web: đăng ký xong thì đăng nhập (`login_after`)."""
+    r = c.post("/api/auth/register", json={"display_name": name, "email": email, "password": pw, **kw})
+    if r.status_code == 204 and login_after:
+        assert login(c, email, pw).status_code == 200
+    return r
 
 
 def login(c, email, pw, remember=False):
@@ -62,10 +66,12 @@ def outbox_token(pg_conn, template):
 
 
 # ---------------------------------------------------------------------- đăng ký, xác minh
-def test_dang_ky_dang_nhap_luon_va_xac_minh_email(mk, pg_conn):
+def test_dang_ky_roi_dang_nhap_va_xac_minh_email(mk, pg_conn):
     c = mk()
-    r = register(c, email="  Ban@Example.COM ", name="  Bạn   Đọc ", role="admin")     # role gửi lên bị bỏ qua
-    assert r.status_code == 204
+    r = register(c, email="  Ban@Example.COM ", name="  Bạn   Đọc ", role="admin", login_after=False)  # role bị bỏ qua
+    assert r.status_code == 204 and r.headers.get_list("set-cookie") == []          # không đăng nhập luôn
+    assert c.get("/api/auth/me").status_code == 401
+    r = login(c, "ban@example.com", PW)
     cookies = r.headers.get_list("set-cookie")
     sess = next(x for x in cookies if x.startswith("er_session="))
     assert "httponly" in sess.lower() and "samesite=lax" in sess.lower()
@@ -85,7 +91,7 @@ def test_dang_ky_dang_nhap_luon_va_xac_minh_email(mk, pg_conn):
 def test_dang_ky_email_da_co_khong_lo_va_khong_dang_nhap(mk, pg_conn):
     assert register(mk()).status_code == 204
     c2 = mk()
-    r = register(c2, email="BAN@example.com", name="Kẻ lạ", pw="mot-mat-khau-khac")
+    r = register(c2, email="BAN@example.com", name="Kẻ lạ", pw="mot-mat-khau-khac", login_after=False)
     assert r.status_code == 204 and "er_session" not in r.cookies
     assert c2.get("/api/auth/me").status_code == 401
     assert pg_conn.execute("SELECT count(*), min(display_name) FROM users").fetchone() == (1, "Bạn Đọc")

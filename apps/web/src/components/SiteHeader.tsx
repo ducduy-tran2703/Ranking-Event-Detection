@@ -67,7 +67,7 @@ export function SiteHeader() {
                   <IconBell size={21} />
                   {unread > 0 && <span className="hdr-badge" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
                 </Link>
-                {user.role === "admin" && <Link to="/admin" className="hdr-btn desktop-only">Quản trị</Link>}
+                {(user.role === "admin" || user.role === "editor") && <Link to="/admin" className="hdr-btn desktop-only">Quản trị</Link>}
                 <Link to="/me" className="avatar-link desktop-only" aria-label={`Trang của tôi (${user.display_name})`}>
                   <span className="avatar" aria-hidden="true">{initials(user.display_name)}</span>
                   <span>{user.display_name}</span>
@@ -96,7 +96,7 @@ export function SiteHeader() {
           {user ? (
             <>
               <NavLink to="/me">Trang của tôi</NavLink>
-              {user.role === "admin" && <NavLink to="/admin">Quản trị</NavLink>}
+              {(user.role === "admin" || user.role === "editor") && <NavLink to="/admin">Quản trị</NavLink>}
             </>
           ) : (
             <>

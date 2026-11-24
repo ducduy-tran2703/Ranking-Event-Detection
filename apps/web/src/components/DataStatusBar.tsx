@@ -1,3 +1,4 @@
+import { useCurrentUser } from "../api/accountQueries";
 import { useFreshness, useMeta, useReload } from "../api/queries";
 import { fmtDateTime, fmtInt, timeAgo } from "../lib/format";
 
@@ -11,6 +12,8 @@ export function DataStatusBar() {
   const meta = useMeta();
   const fresh = useFreshness();
   const reload = useReload();
+  const { data: user } = useCurrentUser();
+  const admin = user?.role === "admin";               // nạp lại kho chỉ admin gọi được (máy chủ trả 401/403 cho người khác)
 
   const stale = fresh.data?.has_newer_data ?? false;
   const loadedAt = fresh.data?.loaded_at ?? meta.data?.loaded_at ?? null;
@@ -42,14 +45,16 @@ export function DataStatusBar() {
           </span>
         )}
         {reload.isError && <span className="err">{reload.error.message}</span>}
-        <button
-          className={stale ? "primary" : ""}
-          disabled={reload.isPending}
-          onClick={() => reload.mutate()}
-          title="Nạp lại dữ liệu mới nhất từ kho R2"
-        >
-          {reload.isPending ? "Đang cập nhật…" : "⟳ Cập nhật dữ liệu"}
-        </button>
+        {admin && (
+          <button
+            className={stale ? "primary" : ""}
+            disabled={reload.isPending}
+            onClick={() => reload.mutate()}
+            title="Nạp lại dữ liệu mới nhất từ kho R2"
+          >
+            {reload.isPending ? "Đang cập nhật…" : "⟳ Cập nhật dữ liệu"}
+          </button>
+        )}
       </div>
     </div>
   );

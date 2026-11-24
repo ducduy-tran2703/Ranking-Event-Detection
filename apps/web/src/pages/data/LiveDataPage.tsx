@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
+import { useCurrentUser } from "../../api/accountQueries";
 import type { LiveOverview } from "../../api/client";
 import { useLiveOverview } from "../../api/queries";
 import { IconAlert, IconCheck } from "../../components/Icons";
@@ -46,6 +47,8 @@ export function LiveDataPage() {
   useTitle("Dữ liệu máy chủ");
   const [live, setLive] = useState(true);
   const q = useLiveOverview(live);
+  const me = useCurrentUser();
+  const publicView = !me.isPending && me.data?.role !== "admin";   // máy chủ chỉ trả tên lớp lỗi cho người không phải admin
 
   return (
     <div className="page">
@@ -54,7 +57,8 @@ export function LiveDataPage() {
         <div>
           <h1>Dữ liệu máy chủ</h1>
           <p>Toàn bộ số trên trang đọc thẳng từ Postgres đang chạy và dịch vụ crawler: bài vừa cào, các lượt nạp, từng vòng
-            worker gom sự kiện, dung lượng lưu trữ. Khác trang Chất lượng dữ liệu (kho Silver tĩnh), trang này đổi theo từng phút.</p>
+            worker gom sự kiện, dung lượng lưu trữ. Khác trang Chất lượng dữ liệu (kho Silver tĩnh), trang này đổi theo từng phút.
+            {publicView && <span className="muted"> Các cột lỗi chỉ ghi loại lỗi; chi tiết lỗi chỉ quản trị viên xem được.</span>}</p>
         </div>
         <div className="live-controls" role="group" aria-label="Cập nhật dữ liệu">
           <span className={`live-pulse${live && !q.isError ? " on" : ""}`} aria-hidden="true" />
@@ -234,12 +238,13 @@ function ModeSwitch({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void 
 function Hourly({ d, mode, setMode }: { d: D; mode: Mode; setMode: (m: Mode) => void }) {
   const hours = d.hourly.hours;
   const totals = hours.map((_, i) => sum(d.hourly.series.map((s) => s[mode][i])));
-  const max = Math.max(1, ...totals);
+  const top = Math.max(0, ...totals);                // 0 = cả 48 giờ không có bài (crawler dừng)
+  const max = Math.max(1, top);                       // chỉ để chia tỉ lệ cột
   const [hover, setHover] = useState<number | null>(null);
   const idx = hover ?? totals.length - 1;
   const parts = d.hourly.series.map((s) => ({ source: s.source, n: s[mode][idx] })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
   const c = vnClock(hours[idx]);
-  const peak = totals.indexOf(max);
+  const peak = top > 0 ? totals.indexOf(top) : -1;
 
   return (
     <section id="theo-gio" aria-labelledby="h-hour" className="card pad-sm rise sys-anchor" style={delay(.12)}>
@@ -250,7 +255,9 @@ function Hourly({ d, mode, setMode }: { d: D; mode: Mode; setMode: (m: Mode) => 
             {mode === "ingested"
               ? "Giờ bài được nạp vào Postgres: cột cao là một lượt cào vừa xong (crawler chạy 30 phút/lần)."
               : "Giờ báo đăng bài: nhịp đưa tin thật của các báo, không phụ thuộc lúc crawler chạy."}
-            {" "}Cao nhất {fmtInt(max)} bài lúc {vnClock(hours[peak]).hhmm} ngày {vnClock(hours[peak]).ddmm}.
+            {" "}{peak >= 0
+              ? <>Cao nhất {fmtInt(top)} bài lúc {vnClock(hours[peak]).hhmm} ngày {vnClock(hours[peak]).ddmm}.</>
+              : <b>Chưa có bài nào trong 48 giờ qua.</b>}
           </p>
         </div>
         <ModeSwitch mode={mode} setMode={setMode} />
@@ -263,7 +270,7 @@ function Hourly({ d, mode, setMode }: { d: D; mode: Mode; setMode: (m: Mode) => 
       <div className="vchart-scroll">
         <div style={{ minWidth: 640 }}>
           <div className="vchart thin live-vchart" role="img" onMouseLeave={() => setHover(null)}
-               aria-label={`Biểu đồ cột số bài mỗi giờ trong 48 giờ, cao nhất ${max} bài. Bảng số liệu ở dưới.`}>
+               aria-label={`Biểu đồ cột số bài mỗi giờ trong 48 giờ, cao nhất ${top} bài. Bảng số liệu ở dưới.`}>
             {totals.map((n, i) => (
               <div key={hours[i]} className="live-hit" onMouseEnter={() => setHover(i)}>
                 <div className={`bar growy${i === idx ? " hot" : ""}`}

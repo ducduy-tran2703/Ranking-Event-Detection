@@ -7,7 +7,7 @@ import {
 import { AUTH_MOCK, type Role } from "../../api/auth";
 import { resetMock } from "../../api/mockdb";
 import { useRunInfo } from "../../api/queries";
-import { ErrorBox, Loading } from "../../components/Status";
+import { ErrorBox, Loading, errorReason } from "../../components/Status";
 import { fmtShort } from "../../lib/format";
 import { eventHref } from "../../lib/routes";
 import { DEFAULT_SOURCES, sourceName } from "../../lib/sources";
@@ -38,9 +38,15 @@ function State({ q, empty, children }: { q: { isPending: boolean; error: unknown
   if (q.isPending) return <Loading lines={3} />;
   if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()}
                                 hint={AUTH_MOCK ? undefined
-                                  : "Máy chủ cần Postgres (DATABASE_URL) đã chạy make db-migrate, và tài khoản có vai trò quản trị."} />;
+                                  : `${errorReason(q.error)} Máy chủ cần Postgres (DATABASE_URL) đã chạy make db-migrate, và tài khoản có vai trò quản trị.`} />;
   if (!q.data?.length) return <div className="empty">{empty}</div>;
   return <>{children}</>;
+}
+
+/** Lỗi của thao tác ghi (đổi vai trò, duyệt báo sai, thu hồi khoá…): máy chủ trả câu tiếng Việt, hiện ngay trên danh sách. */
+function ActionError({ errors }: { errors: (Error | null)[] }) {
+  const e = errors.find(Boolean);
+  return e ? <p className="form-error" role="alert" style={{ marginBottom: 8 }}>Không thực hiện được: {e.message}</p> : null;
 }
 
 export function FeedbackTab() {
@@ -48,6 +54,7 @@ export function FeedbackTab() {
   const act = useAdminAction((v: { id: string; status: "resolved" | "rejected" }) => adminApi.resolveFeedback(v.id, v.status));
   return (
     <Panel id="h-fb" title="Báo sai đang chờ">
+      <ActionError errors={[act.error]} />
       <State q={q} empty={<><strong>Chưa có báo sai nào.</strong><span>Mở một sự kiện, bấm “Báo sai” và gửi — báo sai sẽ hiện ở đây.</span></>}>
         <ul className="rows">
           {q.data?.map((r) => (
@@ -112,6 +119,7 @@ export function UsersTab() {
   const [confirmReset, setConfirmReset] = useState(false);
   return (
     <Panel id="h-users" title="Người dùng">
+      <ActionError errors={[setRole.error, unlock.error]} />
       <State q={q} empty="Chưa có người dùng.">
         <div className="table-wrap" tabIndex={0} aria-label="Bảng người dùng (cuộn ngang được)">
           <table style={{ minWidth: 680 }}>
@@ -193,6 +201,7 @@ export function KeysTab() {
       </form>
       {create.error && <p className="form-error" role="alert" style={{ marginTop: 8 }}>{create.error.message}</p>}
       <div style={{ marginTop: 12 }}>
+        <ActionError errors={[revoke.error]} />
         <State q={q} empty="Chưa có khoá nào.">
           <ul className="rows">
             {q.data?.map((t) => (

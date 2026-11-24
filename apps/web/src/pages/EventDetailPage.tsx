@@ -139,6 +139,11 @@ function EventBody({ data }: { data: EventDetail }) {
             <button type="button" className="btn-ghost danger" aria-expanded={reportOpen} aria-controls="bao-sai"
                     onClick={() => setReportOpen(!reportOpen)}><IconFlag /> Báo sai</button>
           </div>
+          {(toggleFollow.error || toggleSave.error) && (
+            <p className="form-error" role="alert">
+              {toggleFollow.error ? "Không đổi được theo dõi" : "Không lưu được"}: {(toggleFollow.error ?? toggleSave.error)!.message}
+            </p>
+          )}
           <dl className="ev-stats">
             <div className="stat"><dt>Số bài</dt><dd>{fmtInt(data.size)}</dd></div>
             <div className="stat"><dt>Hạng cao nhất</dt><dd className="accent">{bestRank ? `#${bestRank}` : "—"}</dd></div>
@@ -233,6 +238,8 @@ function EventBody({ data }: { data: EventDetail }) {
             ) : (
               <Link to={login} className="btn white">Đăng nhập để theo dõi</Link>
             )}
+            {/* cùng lỗi đã có role=alert ở đầu trang; ở đây chỉ nhắc lại cạnh nút, không đọc lần hai */}
+            {toggleFollow.error && <p className="form-error">Không đổi được theo dõi: {toggleFollow.error.message}</p>}
           </section>
         </aside>
       </div>
