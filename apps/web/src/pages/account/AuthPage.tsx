@@ -137,7 +137,6 @@ function LoginForm({ next }: { next: string | null }) {
 
 function RegisterForm({ next }: { next: string | null }) {
   const reg = useRegister();
-  const { data: user } = useCurrentUser();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -152,16 +151,16 @@ function RegisterForm({ next }: { next: string | null }) {
     reg.mutate({ display_name: name, email, password, role: AUTH_MOCK ? role : undefined });
   };
   if (reg.isSuccess) {
-    // Câu chữ trung tính, không cho biết email đã có tài khoản hay chưa (giống máy chủ dự kiến). Chỉ mời "vào trang của tôi"
-    // khi thật sự đã có phiên đăng nhập; không thì mời đăng nhập.
+    // Câu chữ trung tính, không cho biết email đã có tài khoản hay chưa (máy chủ luôn trả 204, không cookie). Đăng ký không
+    // đăng nhập: luôn mời đăng nhập (giữ ?next=).
     return (
       <div className="done fade" role="status">
         <span className="mail-icon" aria-hidden="true"><IconMail /></span>
         <h1>Kiểm tra email của bạn</h1>
         <p>Nếu email này chưa được dùng cho tài khoản nào, bạn sẽ nhận thư xác minh trong vài phút (link có hiệu lực 24 giờ).
           Nếu email đã có tài khoản, hãy đăng nhập hoặc dùng “Quên mật khẩu”.</p>
-        {user ? <Link to={safeNext(next)} className="btn">Vào trang của tôi</Link>
-          : <Link to={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="btn">Đăng nhập</Link>}
+        <p>Tài khoản dùng được ngay: hãy đăng nhập bằng email và mật khẩu vừa tạo (chưa xác minh email vẫn đăng nhập được).</p>
+        <Link to={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="btn">Đăng nhập</Link>
       </div>
     );
   }

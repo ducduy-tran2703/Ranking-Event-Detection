@@ -33,8 +33,8 @@ export function useRegister() {
   const reset = useAuthReset();
   return useMutation({
     mutationFn: (v: { display_name: string; email: string; password: string; role?: Role }) => authApi.register(v),
-    // Hỏi lại máy chủ trực tiếp: qc.fetchQuery sẽ trả bản đệm "chưa đăng nhập" (staleTime mặc định 60 s ở main.tsx).
-    onSuccess: async () => reset(await authApi.me()),
+    // Máy chủ trả 204 không cookie (email mới hay cũ như nhau): đăng ký không đăng nhập, người dùng đăng nhập sau.
+    onSuccess: () => reset(null),
   });
 }
 

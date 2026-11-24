@@ -1,6 +1,7 @@
 // Trạng thái thống nhất cho mọi trang gọi API: đang tải (khung xương), lỗi (thông báo + thử lại), rỗng (giải thích).
 import type { ReactNode } from "react";
-import { ApiError } from "../api/client";
+import { AuthError } from "../api/auth";
+import { ApiError, apiMessage } from "../api/client";
 
 export function Skeleton({ h = 16, w = "100%", r }: { h?: number; w?: number | string; r?: number }) {
   return <span className="skeleton" style={{ height: h, width: w, borderRadius: r }} aria-hidden="true" />;
@@ -21,18 +22,26 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const OFFLINE = "Không kết nối được máy chủ API. Kiểm tra backend có đang chạy ở cổng 8000 không.";
+
+/** Lý do hiện trong ErrorBox: theo mã HTTP khi máy chủ có trả lời; "không kết nối được" chỉ khi không gọi tới được máy chủ. */
+export function errorReason(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof AuthError) {
+    if (error.status == null) return error.code === "server" ? OFFLINE : error.message;
+    if (error.status === 401 || error.status === 403) return `Không có quyền xem nội dung này. ${error.message}`;
+    return apiMessage(error.status, error.message);
+  }
+  return OFFLINE;                                    // fetch ném TypeError (mất mạng, máy chủ tắt)
+}
+
 export function ErrorBox({ error, onRetry, title = "Không tải được dữ liệu.", hint }: {
   error: unknown; onRetry?: () => void; title?: string; hint?: ReactNode;
 }) {
-  const offline = !(error instanceof ApiError);
   return (
     <div className="error-box" role="alert">
       <strong>{title}</strong>
-      <span className="detail">
-        {hint ?? (offline
-          ? "Không kết nối được máy chủ API. Kiểm tra backend có đang chạy ở cổng 8000 không."
-          : errorMessage(error))}
-      </span>
+      <span className="detail">{hint ?? errorReason(error)}</span>
       {onRetry && <button type="button" className="btn-ghost sm" onClick={onRetry}>Thử lại</button>}
     </div>
   );

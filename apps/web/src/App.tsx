@@ -1,6 +1,6 @@
 import { lazy, type ComponentType } from "react";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router";
-import { AdminLayout, AuthLayout, PublicLayout, RequireAuth } from "./components/Layouts";
+import { AdminIndex, AdminLayout, AdminOnly, AuthLayout, PublicLayout, RequireAuth } from "./components/Layouts";
 import { kho } from "./lib/routes";
 
 // Mọi trang tách gói riêng (tải khi mở lần đầu) → JS ban đầu chỉ còn khung, header và React.
@@ -83,21 +83,23 @@ export function App() {
       </Route>
       <Route path="admin" element={<AdminLayout />}>
         <Route element={<AdminShell />}>
-          <Route index element={<Navigate to="/admin/thu-thap" replace />} />
-          <Route path="thu-thap" element={<IngestTab />} />
-          <Route path="bao-sai" element={<FeedbackTab />} />
-          <Route path="thu" element={<MailTab />} />
-          <Route path="nguoi-dung" element={<UsersTab />} />
-          <Route path="khoa-api" element={<KeysTab />} />
-          <Route path="cai-dat" element={<SettingsTab />} />
-          <Route path="kho" element={<KhoShell />}>
-            <Route index element={<OverviewPage />} />
-            <Route path="thoi-gian" element={<TimePage />} />
-            <Route path="chuyen-muc" element={<CategoriesPage />} />
-            <Route path="chat-luong" element={<QualityPage />} />
-            <Route path="bai-bao" element={<ArticlesPage />} />
-            <Route path="bai-bao/:articleId" element={<ArticleDetailPage />} />
-            <Route path="nguon" element={<SourcesPage />} />
+          <Route index element={<AdminIndex />} />
+          <Route path="bao-sai" element={<FeedbackTab />} />{/* admin + editor */}
+          <Route element={<AdminOnly />}>
+            <Route path="thu-thap" element={<IngestTab />} />
+            <Route path="thu" element={<MailTab />} />
+            <Route path="nguoi-dung" element={<UsersTab />} />
+            <Route path="khoa-api" element={<KeysTab />} />
+            <Route path="cai-dat" element={<SettingsTab />} />
+            <Route path="kho" element={<KhoShell />}>
+              <Route index element={<OverviewPage />} />
+              <Route path="thoi-gian" element={<TimePage />} />
+              <Route path="chuyen-muc" element={<CategoriesPage />} />
+              <Route path="chat-luong" element={<QualityPage />} />
+              <Route path="bai-bao" element={<ArticlesPage />} />
+              <Route path="bai-bao/:articleId" element={<ArticleDetailPage />} />
+              <Route path="nguon" element={<SourcesPage />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>

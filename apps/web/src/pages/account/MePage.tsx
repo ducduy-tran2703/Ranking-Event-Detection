@@ -23,6 +23,12 @@ const SECTIONS = [
 ] as const;
 const errText = (e: unknown) => (e instanceof AuthError ? e.message : e instanceof Error ? e.message : String(e));
 
+/** Lỗi của thao tác ghi trong một mục (bỏ theo dõi, bỏ lưu, đăng xuất phiên…): hiện câu máy chủ trả, không im lặng. */
+function ActionError({ errors }: { errors: unknown[] }) {
+  const e = errors.find(Boolean);
+  return e ? <p className="form-error" role="alert" style={{ marginTop: 8 }}>Không thực hiện được: {errText(e)}</p> : null;
+}
+
 /** Trang "Của tôi" (thiết kế Me). Dữ liệu qua src/api/me.ts — giả lập trên trình duyệt này khi VITE_AUTH_MOCK bật. */
 export function MePage() {
   useTitle("Trang của tôi");
@@ -42,6 +48,7 @@ export function MePage() {
           <button type="button" className="logout" onClick={() => logout.mutateAsync().then(() => navigate("/"), () => undefined)}>
             Đăng xuất
           </button>
+          <ActionError errors={[logout.error]} />
         </nav>
         <div className="main" style={{ flex: "999 1 640px" }}>
           <h1 className="rise" style={{ fontSize: 28 }}>Xin chào, <span style={{ color: "var(--accent)" }}>{user.display_name}</span></h1>
@@ -104,6 +111,7 @@ function Notifications() {
           ))}
         </ul>
       </QueryState>
+      <ActionError errors={[readAll.error]} />
     </Section>
   );
 }
@@ -114,6 +122,7 @@ function Follows() {
   const notify = useMeAction((v: { id: string; on: boolean }) => meApi.setFollowNotify(v.id, v.on));
   return (
     <Section id="theo-doi" title="Đang theo dõi" hint="Bạn được báo khi sự kiện có thêm nhiều bài mới." d={.1}>
+      <ActionError errors={[unfollow.error, notify.error]} />
       <QueryState q={q} empty="Bạn chưa theo dõi sự kiện nào. Mở một sự kiện và bấm “Theo dõi diễn biến”.">
         <ul className="rows">
           {q.data?.map((f) => (
@@ -142,6 +151,7 @@ function Saved() {
   const remove = useMeAction((id: string) => meApi.unbookmark(id));
   return (
     <Section id="da-luu" title="Đã lưu" d={.15}>
+      <ActionError errors={[remove.error]} />
       <QueryState q={q} empty="Chưa lưu sự kiện nào. Bấm “Lưu” ở trang sự kiện để đọc lại sau.">
         <ul className="rows">
           {q.data?.map((b) => (
@@ -197,6 +207,7 @@ function Topics() {
         <button type="submit" className="btn pill solid" disabled={!value.trim() || add.isPending}>Thêm</button>
       </form>
       {add.error && <p className="field-error" role="alert">{errText(add.error)}</p>}
+      <ActionError errors={[remove.error]} />
     </Section>
   );
 }
@@ -307,6 +318,7 @@ function Security({ email, verified }: { email: string; verified: boolean }) {
           ))}
         </ul>
       </QueryState>
+      <ActionError errors={[revoke.error]} />
       <div className="inline" style={{ gap: 10, marginTop: 14 }}>
         <button type="button" className="btn-ghost" aria-expanded={pwOpen} aria-controls="doi-mat-khau"
                 onClick={() => setPwOpen(!pwOpen)}>Đổi mật khẩu</button>
@@ -343,6 +355,7 @@ function Security({ email, verified }: { email: string; verified: boolean }) {
           {confirm === "delete" ? "Dữ liệu cá nhân được giữ 30 ngày để bạn khôi phục, sau đó xoá hẳn." : undefined}
         </ConfirmBox>
       )}
+      <ActionError errors={[confirm === "all" ? logoutAll.error : confirm === "delete" ? del.error : null]} />
       <p className="hint" style={{ marginTop: 10 }}>Xoá tài khoản: dữ liệu cá nhân được giữ 30 ngày để bạn khôi phục, sau đó xoá hẳn.</p>
     </Section>
   );

@@ -4,6 +4,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   api, ApiError, type ArticleQuery, type EventQuery, type Granularity, type StatsFilter,
 } from "./client";
+import { useCurrentUser } from "./accountQueries";
+import { csrf } from "./auth";
 
 /**
  * Lấy dữ liệu hoặc ném lỗi, dựa trên MÃ HTTP THẬT chứ không dựa trên các lỗi được khai báo trong
@@ -37,7 +39,8 @@ export const useFreshness = () =>
 export function useReload() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => unwrap(api.POST("/api/admin/reload")),
+    // Máy chủ đòi admin + header X-CSRF-Token (như mọi lệnh ghi đi qua cookie phiên).
+    mutationFn: () => unwrap(api.POST("/api/admin/reload", { headers: { "X-CSRF-Token": csrf() } })),
     onSuccess: () => queryClient.invalidateQueries(),
   });
 }
@@ -72,14 +75,17 @@ export const useQuality = () =>
   useQuery({ queryKey: ["quality"], queryFn: () => unwrap(api.GET("/api/stats/quality")) });
 
 /** Số liệu trực tiếp từ Postgres + crawler. `live`: tự tải lại 30 s/lần (API đệm 15 s). */
-export const useLiveOverview = (live: boolean) =>
-  useQuery({
-    queryKey: ["live-overview"],
+// API ẩn chi tiết lỗi với người không phải admin → khoá cache theo vai trò, đổi đăng nhập là tải bản đúng ngay.
+export const useLiveOverview = (live: boolean) => {
+  const role = useCurrentUser().data?.role ?? "guest";
+  return useQuery({
+    queryKey: ["live-overview", role],
     queryFn: () => unwrap(api.GET("/api/live/overview")),
     refetchInterval: live ? 30_000 : false,
     refetchIntervalInBackground: false,
     placeholderData: keepPreviousData,
   });
+};
 
 export const useFiles = () =>
   useQuery({ queryKey: ["files"], queryFn: () => unwrap(api.GET("/api/files")) });

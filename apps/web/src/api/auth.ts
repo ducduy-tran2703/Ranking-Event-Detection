@@ -19,7 +19,25 @@ export interface User {
 export type AuthErrorCode = "invalid_credentials" | "locked" | "weak_password" | "validation" | "unauthorized" | "server";
 
 export class AuthError extends Error {
-  constructor(public code: AuthErrorCode, message: string) { super(message); }
+  /** `status`: mã HTTP máy chủ trả; không có khi không gọi tới được máy chủ (lỗi mạng) hoặc lỗi của bản giả lập. */
+  constructor(public code: AuthErrorCode, message: string, public status?: number) { super(message); }
+}
+
+/** `detail` của FastAPI → câu đọc được. 422 trả MẢNG {loc, msg}: gộp "tên trường: msg" (không bao giờ ra "[object Object]"). */
+function detailText(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((d) => {
+      if (typeof d === "string") return d;
+      const { loc, msg } = (d ?? {}) as { loc?: unknown; msg?: unknown };
+      if (typeof msg !== "string") return "";
+      const field = Array.isArray(loc) ? loc.filter((x) => x !== "body" && x !== "query" && x !== "path").join(".") : "";
+      const m = msg.replace(/^Value error,\s*/, "");
+      return field ? `${field}: ${m}` : m;
+    }).filter(Boolean);
+    if (parts.length) return `Dữ liệu không hợp lệ — ${parts.join("; ")}`;
+  }
+  return fallback;
 }
 
 export const GENERIC_LOGIN_ERROR = "Email hoặc mật khẩu không đúng. Sai 5 lần liên tiếp, tài khoản bị khoá 15 phút.";
@@ -47,7 +65,8 @@ export interface AuthApi {
 }
 
 // ------------------------------------------------------------------ máy chủ thật (khi VITE_AUTH_MOCK=0)
-function csrf(): string {
+/** Mã CSRF từ cookie `csrf_token` (gửi kèm header X-CSRF-Token cho mọi lệnh ghi). */
+export function csrf(): string {
   try {
     return document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1] ?? "";
   } catch { return ""; }
@@ -65,12 +84,13 @@ export async function accountFetch<T>(method: string, path: string, body?: unkno
   } catch {
     throw new AuthError("server", "Không kết nối được máy chủ.");
   }
-  if (res.status === 401) throw new AuthError("unauthorized", "Phiên đăng nhập đã hết hạn.");
-  if (res.status === 423) throw new AuthError("locked", GENERIC_LOGIN_ERROR);
+  if (res.status === 401) throw new AuthError("unauthorized", "Phiên đăng nhập đã hết hạn.", 401);
+  if (res.status === 423) throw new AuthError("locked", GENERIC_LOGIN_ERROR, 423);
   if (!res.ok) {
-    let detail = res.statusText;
-    try { detail = (await res.json()).detail ?? detail; } catch { /* không phải JSON */ }
-    throw new AuthError(res.status === 400 || res.status === 422 ? "validation" : "server", String(detail));
+    const fallback = res.status === 422 ? "Dữ liệu gửi lên không hợp lệ." : res.statusText || `Lỗi ${res.status}.`;
+    let detail: unknown = fallback;
+    try { detail = (await res.json()).detail ?? fallback; } catch { /* không phải JSON */ }
+    throw new AuthError(res.status === 400 || res.status === 422 ? "validation" : "server", detailText(detail, fallback), res.status);
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
@@ -169,9 +189,7 @@ const mockAuth: AuthApi = {
       id: newId(), kind: "Hệ thống", text: "Chào mừng bạn. Hãy mở link xác minh trong email để hoàn tất.", event_id: null,
       at: nowIso(), read: false,
     });
-    const s = { id: newId(), user_id: u.id, device: deviceLabel(), created_at: nowIso(), last_seen: nowIso() };
-    db.sessions.push(s);
-    db.current = s.id;                 // đăng ký xong dùng được ngay trong lúc chờ xác minh (theo thiết kế)
+    // Giống máy chủ: đăng ký KHÔNG tạo phiên; tài khoản đăng nhập được ngay, kể cả khi chưa xác minh email.
     save(db);
     queueMail(e, "verify");
   },
